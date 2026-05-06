@@ -15,6 +15,7 @@ import { GroupAdmin } from './components/GroupAdmin';
 import { Settings } from './components/Settings';
 import { useMember } from './contexts/MemberContext';
 import { useLocation } from 'react-router';
+import { FigmaUIShowcase } from './components/figma-ui/FigmaUIShowcase';
 
 // ── Page wrappers that bridge context → component props ──────────────────────
 
@@ -77,6 +78,9 @@ export const router = createBrowserRouter([
       { path: '/settings', element: <Settings /> },
     ],
   },
+
+  // Component showcase (standalone — no auth required)
+  { path: '/ui-showcase', element: <FigmaUIShowcase /> },
 
   // Catch-all
   { path: '*', element: <Navigate to="/" replace /> },
