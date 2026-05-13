@@ -10,43 +10,119 @@ import {
   Phone,
   Mail,
   CreditCard,
-  Globe
+  Globe,
+  Loader2
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
-export function Settings() {
+// ── Props interface ─────────────────────────────────────────────────────────
+export interface SettingsProps {
+  isLoading?: boolean;
+  isSaving?: boolean;
+  saveMessage?: string;
+  activeSection?: string;
+  showPassword?: boolean;
+  settings?: {
+    profile?: {
+      title?: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+      nationality?: string;
+      passportFirst4?: string;
+    };
+    appearance?: {
+      theme?: 'light' | 'dark';
+      language?: string;
+    };
+  };
+  onTogglePassword?: () => void;
+  onSectionChange?: (section: string) => void;
+  onSettingChange?: (section: string, key: string, value: string) => void;
+  onThemeChange?: (theme: 'light' | 'dark' | 'system') => void;
+  onSave?: () => void;
+}
+
+// ── Mock data for Figma preview (used when no real props are provided) ───────
+const MOCK_SETTINGS = {
+  profile: {
+    title: 'Mr',
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    phone: '+852 9876 5432',
+    nationality: 'Hong Kong SAR',
+    passportFirst4: '1234',
+  },
+  appearance: {
+    theme: 'light',
+    language: 'en',
+  },
+};
+
+export function Settings({
+  isLoading = false,
+  isSaving = false,
+  saveMessage = '',
+  activeSection: propActiveSection,
+  showPassword: propShowPassword,
+  settings: propSettings,
+  onTogglePassword,
+  onSectionChange,
+  onSettingChange,
+  onThemeChange,
+  onSave,
+}: SettingsProps) {
   const { mode, colors, setTheme, glassStyle } = useTheme();
   const isDark = mode === 'dark';
 
-  const [activeSection, setActiveSection] = useState('profile');
-  const [showPassword, setShowPassword] = useState(false);
-  const [settings, setSettings] = useState({
-    profile: {
-      title: 'Mr',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john.doe@example.com',
-      phone: '+852 9876 5432',
-      nationality: 'Hong Kong SAR',
-      passportFirst4: '1234'
-    },
-    appearance: {
-      theme: mode,
-      language: 'en'
+  // Use prop settings if provided, otherwise fall back to mock data for Figma preview
+  const settings = propSettings ?? MOCK_SETTINGS;
+  const profile = settings.profile ?? MOCK_SETTINGS.profile;
+  const appearance = settings.appearance ?? MOCK_SETTINGS.appearance;
+
+  // Allow parent to control active section, but default to 'profile' for Figma preview
+  const [internalActiveSection, setInternalActiveSection] = useState('profile');
+  const activeSection = propActiveSection ?? internalActiveSection;
+
+  const handleSectionChange = (section: string) => {
+    if (onSectionChange) {
+      onSectionChange(section);
+    } else {
+      setInternalActiveSection(section);
     }
-  });
+  };
+
+  const [internalShowPassword, setInternalShowPassword] = useState(false);
+  const showPassword = propShowPassword ?? internalShowPassword;
+
+  const handleTogglePassword = () => {
+    if (onTogglePassword) {
+      onTogglePassword();
+    } else {
+      setInternalShowPassword((prev) => !prev);
+    }
+  };
+
+  const updateSetting = (section: string, key: string, value: string) => {
+    if (onSettingChange) {
+      onSettingChange(section, key, value);
+    }
+  };
+
+  const handleThemeChangeInternal = (newTheme: 'light' | 'dark' | 'system') => {
+    if (onThemeChange) {
+      onThemeChange(newTheme);
+    } else {
+      setTheme(newTheme === 'system' ? 'light' : newTheme);
+    }
+  };
 
   const sections = [
     { id: 'profile', label: 'Profile', icon: User },
-    { id: 'appearance', label: 'Appearance', icon: Palette }
+    { id: 'appearance', label: 'Appearance', icon: Palette },
   ];
-
-  const updateSetting = (section: string, key: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [section]: { ...(prev as any)[section], [key]: value }
-    }));
-  };
 
   const handlePassportChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 4);
@@ -67,12 +143,44 @@ export function Settings() {
     color: colors.inputText,
   };
 
-  const cardStyle: React.CSSProperties = {
-    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.4)',
-    border: `1px solid ${colors.glassBorder}`,
-  };
-
-  const toggleStyle = `w-11 h-6 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all`;
+  // ── Loading skeleton ────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent">
+            Settings
+          </h1>
+          <p className="mt-1" style={{ color: colors.textSecondary }}>
+            Manage your account preferences and application settings.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
+            <div className="rounded-2xl p-4 shadow-xl animate-pulse" style={glassStyle}>
+              <div className="space-y-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-12 rounded-xl bg-white/10" />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-3">
+            <div className="rounded-2xl p-6 shadow-xl animate-pulse" style={glassStyle}>
+              <div className="space-y-4">
+                <div className="h-6 w-32 rounded bg-white/10" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-12 rounded-xl bg-white/10" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderProfileSettings = () => (
     <div className="space-y-6">
@@ -83,7 +191,7 @@ export function Settings() {
           <div className="relative">
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <select
-              value={settings.profile.title}
+              value={profile.title}
               onChange={(e) => updateSetting('profile', 'title', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
               style={inputStyle}
@@ -104,7 +212,7 @@ export function Settings() {
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="text"
-              value={settings.profile.firstName}
+              value={profile.firstName}
               onChange={(e) => updateSetting('profile', 'firstName', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -119,7 +227,7 @@ export function Settings() {
             <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="text"
-              value={settings.profile.lastName}
+              value={profile.lastName}
               onChange={(e) => updateSetting('profile', 'lastName', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -134,7 +242,7 @@ export function Settings() {
             <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="email"
-              value={settings.profile.email}
+              value={profile.email}
               onChange={(e) => updateSetting('profile', 'email', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -149,7 +257,7 @@ export function Settings() {
             <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="tel"
-              value={settings.profile.phone}
+              value={profile.phone}
               onChange={(e) => updateSetting('profile', 'phone', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -164,7 +272,7 @@ export function Settings() {
             <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="text"
-              value={settings.profile.nationality}
+              value={profile.nationality}
               onChange={(e) => updateSetting('profile', 'nationality', e.target.value)}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -182,7 +290,7 @@ export function Settings() {
             <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="text"
-              value={settings.profile.passportFirst4}
+              value={profile.passportFirst4}
               onChange={handlePassportChange}
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
@@ -192,7 +300,7 @@ export function Settings() {
           </div>
         </div>
       </div>
-      
+
       <div>
         <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Change Password</label>
         <div className="relative">
@@ -203,7 +311,7 @@ export function Settings() {
             style={inputStyle}
           />
           <button
-            onClick={() => setShowPassword(!showPassword)}
+            onClick={handleTogglePassword}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-60 transition-opacity"
             style={{ color: colors.textMuted }}
           >
@@ -233,7 +341,7 @@ export function Settings() {
           <div className="flex items-center gap-3">
             <Sun className="w-4 h-4" style={{ color: colors.textMuted }} />
             <button
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
+              onClick={() => handleThemeChangeInternal(isDark ? 'light' : 'dark')}
               className="relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300"
               style={{
                 background: isDark
@@ -255,7 +363,7 @@ export function Settings() {
       <div className="rounded-xl p-5" style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.4)', border: `1px solid ${colors.glassBorder}` }}>
         <h4 className="mb-3" style={{ color: colors.text }}>Language</h4>
         <select
-          value={settings.appearance.language}
+          value={appearance.language ?? 'en'}
           onChange={(e) => updateSetting('appearance', 'language', e.target.value)}
           className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
           style={inputStyle}
@@ -300,7 +408,7 @@ export function Settings() {
                 return (
                   <button
                     key={section.id}
-                    onClick={() => setActiveSection(section.id)}
+                    onClick={() => handleSectionChange(section.id)}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300"
                     style={
                       isActive
@@ -326,10 +434,25 @@ export function Settings() {
               <h2 className="text-xl" style={{ color: colors.text }}>
                 {sections.find(s => s.id === activeSection)?.label}
               </h2>
-              <button className="px-4 py-2 bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-2">
-                <Save className="w-4 h-4" />
-                Save Changes
-              </button>
+              <div className="flex items-center gap-3">
+                {saveMessage && (
+                  <span className="text-sm" style={{ color: saveMessage.includes('success') || saveMessage.includes('updated') ? '#22c55e' : '#ef4444' }}>
+                    {saveMessage}
+                  </span>
+                )}
+                <button
+                  onClick={onSave}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
             {renderContent()}
           </div>
