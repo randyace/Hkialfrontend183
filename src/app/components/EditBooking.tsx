@@ -221,7 +221,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
   };
 
   // Pre-compute summary items to avoid IIFE in JSX
-  const summaryDateStr = form.date ? new Date(form.date).toLocaleDateString() : '—';
+  const summaryDateStr = form.date ? new Date(form.date).toLocaleDateString('en-GB') : '—';
   const summaryTimeStr = form.time ? ' at ' + form.time : '';
   const summaryDateTimeValue = summaryDateStr + summaryTimeStr;
   const summaryItems = [

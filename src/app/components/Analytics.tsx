@@ -96,7 +96,7 @@ export function Analytics() {
       const date = new Date();
       date.setDate(date.getDate() - (6 - i));
       return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
         avgScore: 70 + Math.random() * 20,
         applications: Math.floor(Math.random() * 10) + 2
       };
@@ -109,7 +109,7 @@ export function Analytics() {
       const date = new Date();
       date.setDate(date.getDate() - (29 - i));
       return {
-        date: date.toLocaleDateString(),
+        date: date.toLocaleDateString('en-GB'),
         applications: Math.floor(Math.random() * 8) + 1,
         completed: Math.floor(Math.random() * 6) + 1
       };

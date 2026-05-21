@@ -664,7 +664,7 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1 text-sm" style={{ color: colors.textSecondary }}>
                         <Clock className="w-3 h-3" />
-                        {new Date(member.lastActive).toLocaleDateString()}
+                        {new Date(member.lastActive).toLocaleDateString('en-GB')}
                       </div>
                     </td>
                     <td className="px-6 py-4">

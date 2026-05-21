@@ -585,7 +585,7 @@ export function Dashboard() {
                     <div>
                       <h4 className="text-gray-800 truncate max-w-32">{resume.filename}</h4>
                       <p className="text-sm text-gray-600">
-                        {new Date(resume.uploadDate).toLocaleDateString()}
+                        {new Date(resume.uploadDate).toLocaleDateString('en-GB')}
                       </p>
                     </div>
                   </div>

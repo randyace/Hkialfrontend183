@@ -221,7 +221,7 @@ export function Membership() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Valid Until</p>
-                <p className="font-semibold text-gray-800">{new Date(memberData.expiryDate).toLocaleDateString()}</p>
+                <p className="font-semibold text-gray-800">{new Date(memberData.expiryDate).toLocaleDateString('en-GB')}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Points Balance</p>
@@ -341,7 +341,7 @@ export function Membership() {
               <div key={index} className="flex items-center justify-between p-3 rounded-xl bg-white/20 border border-white/20">
                 <div>
                   <p className="font-medium text-gray-800">{activity.activity}</p>
-                  <p className="text-xs text-gray-600">{new Date(activity.date).toLocaleDateString()}</p>
+                  <p className="text-xs text-gray-600">{new Date(activity.date).toLocaleDateString('en-GB')}</p>
                 </div>
                 <span className={`font-semibold ${activityColorClass}`}>
                   {activity.points}

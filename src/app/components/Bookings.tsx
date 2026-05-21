@@ -35,14 +35,22 @@ import { useTheme } from './ThemeContext';
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
   onEditBooking?: (booking: any) => void;
+  onCancelBooking?: (id: number) => Promise<string | null>;
+  cancelLoading?: boolean;
+  bookings?: any[];
+  allBookings?: any[];
+  isLoading?: boolean;
+  stats?: { upcoming: number; completed: number; cancelled: number; total: number };
+  searchTerm?: string;
+  filterStatus?: string;
+  dateFilter?: { start: string; end: string };
+  setSearchTerm?: (v: string) => void;
+  setFilterStatus?: (v: string) => void;
+  setDateFilter?: (v: { start: string; end: string }) => void;
 }
 
-export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
-  const { colors, glassStyle, mode } = useTheme();
-  const isDark = mode === 'dark';
-  const navigate = useNavigate();
-
-  const [bookings, setBookings] = useState([
+// Mock fallback for Figma standalone preview
+const MOCK_BOOKINGS_DATA: any[] = [
     {
       id: 1,
       lounge: 'The Wing First Class Lounge',
@@ -321,16 +329,55 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
       contactPerson: { name: 'Thomas Leung', email: 'thomas.leung@example.com', phone: '+852 9789 0123' },
       totalAmount: 0
     }
-  ]);
+  ];
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
+function formatDateDDMMYYYY(dateStr: string): string {
+  if (!dateStr) return '—';
+  const datePart = dateStr.split('T')[0];
+  const parts = datePart.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}-${parts[1]}-${parts[0]}`;
+}
+
+export function Bookings({
+  setActiveTab,
+  onEditBooking,
+  onCancelBooking,
+  cancelLoading,
+  bookings: propBookings,
+  stats: propStats,
+  searchTerm: propSearchTerm,
+  filterStatus: propFilterStatus,
+  dateFilter: propDateFilter,
+  setSearchTerm: propSetSearchTerm,
+  setFilterStatus: propSetFilterStatus,
+  setDateFilter: propSetDateFilter,
+}: BookingsProps) {
+  const { colors, glassStyle, mode } = useTheme();
+  const isDark = mode === 'dark';
+  const navigate = useNavigate();
+
+  // Use container data when provided, fall back to mock for Figma standalone
+  const bookings = propBookings ?? MOCK_BOOKINGS_DATA;
+  const stats = propStats ?? {
+    upcoming: bookings.filter((b: any) => b.status === 'confirmed' || b.status === 'pending' || b.status === 'reviewing').length,
+    completed: bookings.filter((b: any) => b.status === 'completed').length,
+    cancelled: bookings.filter((b: any) => b.status === 'cancelled' || b.status === 'rejected').length,
+    total: bookings.length
+  };
+  const searchTerm = propSearchTerm ?? '';
+  const filterStatus = propFilterStatus ?? 'all';
+  const dateFilter = propDateFilter ?? { start: '', end: '' };
+  const handleSetSearchTerm = propSetSearchTerm ?? ((v: string) => {});
+  const handleSetFilterStatus = propSetFilterStatus ?? ((v: string) => {});
+  const handleSetDateFilter = propSetDateFilter ?? ((v: { start: string; end: string }) => {});
+
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<any>(null);
+  const [cancelError, setCancelError] = useState('');
   const [bookingForm, setBookingForm] = useState({
     date: '',
     time: '',
@@ -382,6 +429,9 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
   };
 
   const handleEditClick = (booking: any) => {
+    if (onEditBooking) {
+      onEditBooking(booking);
+    }
     navigate('/mybooking/details/' + booking.id, { state: { booking } });
   };
 
@@ -398,13 +448,19 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
     setShowCancelDialog(true);
   };
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
     if (!bookingToCancel) return;
-    setBookings(prev =>
-      prev.map(b => b.id === bookingToCancel.id ? { ...b, status: 'cancelled' } : b)
-    );
+    setCancelError('');
+    if (onCancelBooking) {
+      const errMsg = await onCancelBooking(bookingToCancel.id);
+      if (errMsg) {
+        setCancelError(errMsg);
+        return;
+      }
+    }
     setShowCancelDialog(false);
     setBookingToCancel(null);
+    setCancelError('');
   };
 
   const handleDismissCancel = () => {
@@ -431,9 +487,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
 
     const b = selectedBooking;
     const statusLabel = b.status.charAt(0).toUpperCase() + b.status.slice(1);
-    const dateLabel = new Date(b.date).toLocaleDateString('en-GB', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-    });
+    const dateLabel = formatDateDDMMYYYY(b.date);
 
     const detailRows: Array<[string, string]> = [
       ['Lounge',    b.lounge],
@@ -611,13 +665,6 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
   const sortedBookings = [...filteredBookings].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-
-  const stats = {
-    upcoming: bookings.filter(b => b.status === 'confirmed' || b.status === 'pending' || b.status === 'reviewing').length,
-    completed: bookings.filter(b => b.status === 'completed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled' || b.status === 'rejected').length,
-    total: bookings.length
-  };
 
   // ── Booking Status Progress Bar ─────────────────────────────────────────
   const BookingStatusProgress = ({ status }: { status: string }) => {
@@ -811,14 +858,14 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                 type="text"
                 placeholder="Search by lounge, flight, or reference..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                 onChange={(e) => handleSetSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
                 style={inputStyle}
               />
             </div>
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+               onChange={(e) => handleSetFilterStatus(e.target.value)}
               className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
             >
@@ -848,7 +895,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
               <input
                 type="date"
                 value={dateFilter.start}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+                 onChange={(e) => handleSetDateFilter({ ...dateFilter, start: e.target.value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
                 style={inputStyle}
               />
@@ -856,13 +903,13 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
               <input
                 type="date"
                 value={dateFilter.end}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+                 onChange={(e) => handleSetDateFilter({ ...dateFilter, end: e.target.value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
                 style={inputStyle}
               />
               {(dateFilter.start || dateFilter.end) && (
                 <button
-                  onClick={() => setDateFilter({ start: '', end: '' })}
+                  onClick={() => handleSetDateFilter({ start: '', end: '' })}
                   className="flex-shrink-0 px-3 py-2.5 rounded-xl bg-red-100 border border-red-200 text-red-700 hover:bg-red-200 transition-all text-sm whitespace-nowrap"
                 >
                   Clear Dates
@@ -892,7 +939,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                     <Calendar className="w-4 h-4 text-purple-500" />
                     <div>
                       <p className="text-xs" style={{ color: colors.textMuted }}>Date</p>
-                      <p className="text-sm font-medium">{new Date(booking.date).toLocaleDateString()}</p>
+                      <p className="text-sm font-medium">{formatDateDDMMYYYY(booking.date)}</p>
                     </div>
                   </div>
 
@@ -900,7 +947,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                     <Clock className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                     <div>
                       <p className="text-xs" style={{ color: colors.textMuted }}>Time</p>
-                      <p className="text-sm font-medium">{booking.time} ({booking.duration})</p>
+                      <p className="text-sm font-medium">{booking.time}{booking.duration ? ` (${booking.duration})` : ''}</p>
                     </div>
                   </div>
 
@@ -1019,7 +1066,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                 </div>
                 <div className="flex items-center gap-2" style={{ color: colors.text }}>
                   <Calendar className="w-4 h-4 flex-shrink-0 text-purple-500" />
-                  <span className="text-sm">{new Date(bookingToCancel.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  <span className="text-sm">{formatDateDDMMYYYY(bookingToCancel.date)}</span>
                 </div>
                 <div className="flex items-center gap-2" style={{ color: colors.text }}>
                   <Clock className="w-4 h-4 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
@@ -1049,21 +1096,31 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                 </div>
               )}
 
+              {/* Cancel error message */}
+              {cancelError && (
+                <div className="rounded-xl p-3 mb-4 flex items-start gap-2.5" style={{ background: 'rgba(210,55,55,0.10)', border: '1px solid rgba(210,55,55,0.35)' }}>
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'rgb(210,55,55)' }} />
+                  <p className="text-xs" style={{ color: 'rgb(210,55,55)' }}>{cancelError}</p>
+                </div>
+              )}
+
               {/* Action buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={handleDismissCancel}
-                  className="flex-1 px-4 py-3 rounded-xl transition-all text-sm"
+                  disabled={!!cancelLoading}
+                  className="flex-1 px-4 py-3 rounded-xl transition-all text-sm disabled:opacity-50"
                   style={secondaryBtnStyle}
                 >
                   Keep Booking
                 </button>
                 <button
                   onClick={handleConfirmCancel}
-                  className="flex-1 px-4 py-3 rounded-xl transition-all text-sm text-white"
-                  style={{ background: 'linear-gradient(to right, rgb(210,55,55), rgb(180,30,30))' }}
+                  disabled={!!cancelLoading}
+                  className="flex-1 px-4 py-3 rounded-xl transition-all text-sm text-white disabled:opacity-50"
+                  style={{ background: cancelLoading ? 'rgba(180,30,30,0.5)' : 'linear-gradient(to right, rgb(210,55,55), rgb(180,30,30))' }}
                 >
-                  Yes, Cancel Booking
+                  {cancelLoading ? 'Cancelling…' : 'Yes, Cancel Booking'}
                 </button>
               </div>
             </div>
@@ -1191,7 +1248,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                 <h4 className="text-sm mb-3" style={{ color: colors.textSecondary }}>Booking Summary</h4>
                 <div className="space-y-2 text-sm">
                   {[
-                    { label: 'Date & Time:', value: bookingForm.date && bookingForm.time ? `${new Date(bookingForm.date).toLocaleDateString()} at ${bookingForm.time}` : 'Not selected' },
+                    { label: 'Date & Time:', value: bookingForm.date && bookingForm.time ? `${formatDateDDMMYYYY(bookingForm.date)} at ${bookingForm.time}` : 'Not selected' },
                     { label: 'Flight Type:', value: bookingForm.flightType },
                     { label: 'Premiere Suites:', value: bookingForm.premiereSuites },
                     { label: 'VIP Passengers:', value: bookingForm.vipPassengers },
@@ -1267,7 +1324,7 @@ export function Bookings({ setActiveTab, onEditBooking }: BookingsProps) {
                 border: `1px solid ${colors.glassBorder}`
               }}>
               {[
-                { label: 'Date:', value: new Date(selectedBooking.date).toLocaleDateString() },
+                { label: 'Date:', value: formatDateDDMMYYYY(selectedBooking.date) },
                 { label: 'Time:', value: selectedBooking.time },
                 { label: 'Flight:', value: selectedBooking.flightNumber },
                 { label: 'Terminal:', value: selectedBooking.terminal },

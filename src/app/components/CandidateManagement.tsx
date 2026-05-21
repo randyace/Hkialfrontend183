@@ -314,7 +314,7 @@ export function CandidateManagement() {
                             {candidate.analysis?.personalInfo?.name || candidate.filename}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {new Date(candidate.uploadDate).toLocaleDateString()}
+                            {new Date(candidate.uploadDate).toLocaleDateString('en-GB')}
                           </p>
                         </div>
                       </div>

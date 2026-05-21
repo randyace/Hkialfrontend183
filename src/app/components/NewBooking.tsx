@@ -74,6 +74,19 @@ interface NewBookingProps {
   setActiveTab?: (tab: string) => void;
   memberData: MemberData;
   prefillMember?: BookForMemberData | null;
+  // Container-provided submission handlers
+  // onSubmit receives the view's complete internal form state so container can build the API payload
+  // formData includes: { form, step2Form, vipData, nonFlyingGuestData, memberData }
+  onSubmit?: (formData: {
+    form: Record<string, unknown>;
+    step2Form: Record<string, unknown>;
+    vipData: Array<Record<string, unknown>>;
+    nonFlyingGuestData: Array<Record<string, unknown>>;
+    memberData: { name: string; memberType: string };
+  }) => void;
+  isSubmitting?: boolean;
+  error?: string;
+  successRef?: string;
 }
 
 interface VipPassenger {
@@ -835,7 +848,7 @@ const HISTORY_BOOKINGS = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1172,13 +1185,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
   const handleQuickFill = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const ds = tomorrow.toISOString().split('T')[0];
+    // Randomise date & time so each Quick Fill creates a unique booking
+    const future = new Date();
+    future.setDate(future.getDate() + 1 + Math.floor(Math.random() * 14));
+    const ds = future.toISOString().split('T')[0];
+    const hh = String(6 + Math.floor(Math.random() * 15)).padStart(2, '0');
+    const mm = Math.random() < 0.5 ? '00' : '30';
+    const ts = hh + ':' + mm;
+
+    const flightKeys = Object.keys(flightDatabase);
+    const randomFlight = flightKeys[Math.floor(Math.random() * flightKeys.length)];
 
     setForm({
       date: ds,
-      flightNumber: 'CX888',
+      time: ts,
+      flightNumber: randomFlight,
       flightType: 'Arrival',
       flightClass: 'Business Class',
       companyCode: isCompany ? 'CATHAY01' : '',
@@ -1189,7 +1210,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       vipPassengers: 2,
       nonFlyingGuests: 2,
     });
-    setFlightDetails(flightDatabase['CX888']);
+    setFlightDetails(flightDatabase[randomFlight]);
     if (isCompany) setCompanyName(companyDatabase['CATHAY01']);
 
     setTimeout(() => {
@@ -1419,20 +1440,23 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
   const handleFinalConfirm = () => {
-    // Generate booking number in format: {prefix}-yyyymmdd-xxxxx
-    // A = Arrival, D = Departure, T = Transition
-    const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
-    const flightPrefix = flightPrefixMap[form.flightType] || 'D';
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const randomNum = Math.floor(10000 + Math.random() * 90000); // 5-digit random number
-    const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
-    
-    setBookingNumber(generatedBookingNumber);
-    setSubmitted(true);
-    setTimeout(() => navigate('/mybooking'), 3000);
+    // Delegate to container — container handles API call, navigation, and error/success state
+    if (onSubmit) {
+      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData });
+    } else {
+      // Fallback: generate mock booking number (Figma demo site only, no container)
+      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
+      const flightPrefix = flightPrefixMap[form.flightType] || 'D';
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = (now.getMonth() + 1).toString().padStart(2, '0');
+      const day = now.getDate().toString().padStart(2, '0');
+      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
+      setBookingNumber(generatedBookingNumber);
+      setSubmitted(true);
+      setTimeout(() => navigate('/mybooking'), 3000);
+    }
   };
 
   const handleNextStep = (e: React.FormEvent) => {
@@ -2206,12 +2230,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <button
               type="button"
               onClick={handleFinalConfirm}
-              disabled={!acceptedTC}
+              disabled={!acceptedTC || isSubmitting}
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              <CheckCircle className="w-4 h-4" />
-              Confirm Booking Request
+              {isSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Confirm Booking Request
+                </>
+              )}
             </button>
           </div>
           {!acceptedTC && (

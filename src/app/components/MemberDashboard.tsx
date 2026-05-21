@@ -326,7 +326,7 @@ export function MemberDashboard({ memberData: propMemberData }: MemberDashboardP
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <p className="text-white/80 text-sm">Valid Until</p>
-              <p className="text-xl font-semibold mt-1">{new Date(memberData.expiryDate).toLocaleDateString()}</p>
+              <p className="text-xl font-semibold mt-1">{new Date(memberData.expiryDate).toLocaleDateString('en-GB')}</p>
             </div>
             <div>
               <p className="text-white/80 text-sm">Total Visits</p>
@@ -386,7 +386,7 @@ export function MemberDashboard({ memberData: propMemberData }: MemberDashboardP
                 <div className="flex items-center gap-4 text-sm mt-3" style={{ color: colors.textSecondary }}>
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {new Date(booking.date).toLocaleDateString()}
+                    {new Date(booking.date).toLocaleDateString('en-GB')}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
@@ -422,7 +422,7 @@ export function MemberDashboard({ memberData: propMemberData }: MemberDashboardP
               <div key={index} className="flex items-center justify-between p-4 rounded-xl bg-white/30 border border-white/20">
                 <div>
                   <p className="font-medium" style={{ color: colors.text }}>{activity.lounge}</p>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>{new Date(activity.date).toLocaleDateString()}</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{new Date(activity.date).toLocaleDateString('en-GB')}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm" style={{ color: colors.textSecondary }}>{activity.duration}</p>
