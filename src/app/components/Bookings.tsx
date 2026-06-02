@@ -839,7 +839,7 @@ export function Bookings({
           </p>
         </div>
         <button
-          onClick={() => setShowBookingModal(true)}
+          onClick={() => navigate('/newbooking')}
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
@@ -1030,7 +1030,7 @@ export function Bookings({
           <h3 className="text-xl mb-2" style={{ color: colors.text }}>No bookings found</h3>
           <p className="mb-4" style={{ color: colors.textSecondary }}>Try adjusting your search or filter criteria</p>
           <button
-            onClick={() => setShowBookingModal(true)}
+            onClick={() => navigate('/newbooking')}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
@@ -1133,7 +1133,7 @@ export function Bookings({
           <h3 className="text-xl mb-2" style={{ color: colors.text }}>No bookings found</h3>
           <p className="mb-4" style={{ color: colors.textSecondary }}>Try adjusting your search or filter criteria</p>
           <button
-            onClick={() => setShowBookingModal(true)}
+            onClick={() => navigate('/newbooking')}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />

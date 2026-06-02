@@ -907,6 +907,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [useMembership, setUseMembership] = useState(false);
   const [bookingVouchersToUse, setBookingVouchersToUse] = useState(0);
   const [suiteVouchersToUse, setSuiteVouchersToUse] = useState(0);
+  const [stepLoading, setStepLoading] = useState(false);
 
   // ── Derived member flags (computed before any state that references them) ──
   const isCompany      = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
@@ -926,6 +927,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       setBookingVouchersToUse(0);
       setSuiteVouchersToUse(0);
     }
+  }
+
+  function advanceStep(nextStep: number) {
+    setStepLoading(true);
+    setTimeout(() => {
+      setCurrentStep(nextStep);
+      setStepLoading(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 900);
   }
 
   function handleBookingVoucherDecrement() {
@@ -982,7 +992,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     form.vipPassengers +
     form.nonFlyingGuests;
 
-  // ── Step 1 validation ─────────────────────────────────────────────────────
+  // ── Step 1 validation (flight info) ──────────────────────────────────────
+  const step1FlightValid = form.date !== '' && form.flightNumber.trim() !== '';
+  const step1FlightHintMsg = !form.date
+    ? 'Please select an arrival date to proceed'
+    : 'Please enter a flight number to proceed';
+
+  // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
     (v) => v.vipFirstName.trim() !== '' && v.vipLastName.trim() !== '' && v.vipAgeGroup !== ''
   );
@@ -1435,8 +1451,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const handleGoToReview = (e: React.FormEvent) => {
     e.preventDefault();
-    setCurrentStep(3);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    advanceStep(5);
   };
 
   const handleFinalConfirm = () => {
@@ -1461,8 +1476,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
-    setCurrentStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    advanceStep(2);
   };
 
   const handleBackToStep2 = () => {
@@ -1472,6 +1486,30 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const handleBackToStep1 = () => {
     setCurrentStep(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleNextFromStep2 = (e: React.FormEvent) => {
+    e.preventDefault();
+    advanceStep(noAddonRequired ? 4 : 3);
+  };
+
+  const handleNextFromStep3 = (e: React.FormEvent) => {
+    e.preventDefault();
+    advanceStep(4);
+  };
+
+  const handleBackFromStep4 = () => {
+    if (noAddonRequired) {
+      setCurrentStep(2);
+    } else {
+      setCurrentStep(3);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackToStep4 = () => {
+    setCurrentStep(4);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1499,11 +1537,337 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       ? `${vipData[0].vipTitle}. ${vipData[0].vipFirstName} ${vipData[0].vipLastName}`.trim()
       : '—';
 
+  // ── Step loading overlay (fixed over the current step) ───────────────────
+  const stepLoadingMessages = [
+    'Saving your information…',
+    'Validating booking details…',
+    'Processing…',
+  ];
+  const stepLoadingMsg = stepLoadingMessages[currentStep % stepLoadingMessages.length];
+
+  const stepLoadingOverlay = stepLoading ? (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(8px)' }}
+    >
+      <div
+        className="rounded-2xl p-8 flex flex-col items-center gap-5 shadow-2xl"
+        style={{
+          background: isDark ? 'rgba(10,25,41,0.97)' : 'rgba(255,255,255,0.97)',
+          border: '1px solid rgba(220,181,21,0.45)',
+          minWidth: '240px',
+        }}
+      >
+        <div
+          className="w-14 h-14 rounded-full border-[3px] animate-spin"
+          style={{ borderColor: 'rgba(220,181,21,0.2)', borderTopColor: 'rgb(220,181,21)' }}
+        />
+        <div className="text-sm text-center" style={textPrimary}>{stepLoadingMsg}</div>
+        <div
+          className="h-1 w-36 rounded-full overflow-hidden"
+          style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(220,181,21,0.15)' }}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{
+              background: 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)',
+              animation: 'stepProgressBar 0.9s ease-in-out forwards',
+            }}
+          />
+        </div>
+        <style>{`@keyframes stepProgressBar { from { width: 0%; } to { width: 100%; } }`}</style>
+      </div>
+    </div>
+  ) : null;
+
+  // ── Booking Step Progress Bar ────────────────────────────────────────────
+  const BookingStepProgress = ({ skipAddons }: { skipAddons: boolean }) => {
+    const gold = 'rgb(220,181,21)';
+    const goldLight = 'rgba(220,181,21,0.15)';
+    const grayBorder = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(64,63,52,0.28)';
+    const grayLine   = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(64,63,52,0.18)';
+    const grayText   = isDark ? 'rgba(255,255,255,0.38)' : 'rgba(64,63,52,0.48)';
+    const skipColor  = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(64,63,52,0.28)';
+    const divider    = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(64,63,52,0.09)';
+
+    type StepState = 'completed' | 'active' | 'inactive' | 'skipped';
+
+    const effectiveStep = submitted ? 6 : currentStep;
+
+    const getStepState = (idx: number): StepState => {
+      if (idx === 3 && skipAddons && effectiveStep >= 4) return 'skipped';
+      if (effectiveStep > idx)  return 'completed';
+      if (effectiveStep === idx) return 'active';
+      return 'inactive';
+    };
+
+    const STEPS = [
+      { label: 'Flight Info',      idx: 1 },
+      { label: 'Suite & Guests',   idx: 2 },
+      { label: 'Add-on Services',  idx: 3 },
+      { label: 'Other Info',       idx: 4 },
+      { label: 'Final Review',     idx: 5 },
+      { label: 'Confirmation',     idx: 6 },
+    ];
+    const stepsLeft = Math.max(0, 6 - effectiveStep);
+    const progressCaption = effectiveStep >= 6
+      ? 'Booking completed — all steps done'
+      : (stepsLeft === 1 ? 'Step ' + effectiveStep + ' of 6 — 1 step remaining' : 'Step ' + effectiveStep + ' of 6 — ' + stepsLeft + ' steps remaining');
+
+    return (
+      <div className="w-full mb-6 pb-5" style={{ borderBottom: `1px solid ${divider}` }}>
+        <div className="flex items-start w-full">
+          {STEPS.map(({ label, idx }) => {
+            const state   = getStepState(idx);
+            const isFirst = idx === 1;
+            const isLast  = idx === STEPS.length;
+
+            const isSkipped = state === 'skipped';
+            let dotBorder = grayBorder;
+            let dotBg = 'transparent';
+            let labelCol = grayText;
+
+            if (state === 'completed') {
+              dotBorder = gold; dotBg = goldLight; labelCol = gold;
+            } else if (state === 'active') {
+              dotBorder = gold; dotBg = goldLight; labelCol = gold;
+            } else if (isSkipped) {
+              dotBorder = skipColor; dotBg = 'transparent'; labelCol = skipColor;
+            }
+
+            const prevIdx = idx - 1;
+            let lineStyle: React.CSSProperties = {};
+            if (!isFirst) {
+              const prevState = getStepState(prevIdx);
+              const prevCompleted = prevState === 'completed';
+              const thisSkipped = isSkipped;
+              if (thisSkipped || (!prevCompleted && state !== 'active')) {
+                lineStyle = {
+                  background: 'repeating-linear-gradient(to right, ' + grayLine + ' 0px, ' + grayLine + ' 4px, transparent 4px, transparent 9px)',
+                };
+              } else {
+                lineStyle = { background: prevCompleted ? gold : grayLine };
+              }
+            }
+
+            let alignClass = '';
+            if (isLast) { alignClass = ' text-right'; }
+            else if (isFirst) { alignClass = ' text-left'; }
+
+            const elements: React.ReactNode[] = [];
+            if (!isFirst) {
+              elements.push(
+                <div key={'c' + idx} className="flex-1 h-0.5 self-start mx-1.5" style={{ marginTop: '18px', ...lineStyle }} />
+              );
+            }
+            elements.push(
+              <div key={'n' + idx} className="flex flex-col items-center flex-shrink-0">
+                <div
+                  className="w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all"
+                  style={{ borderColor: dotBorder, background: dotBg }}
+                >
+                  {state === 'completed' && <CheckCircle className="w-4 h-4" style={{ color: gold }} />}
+                  {state === 'active' && <div className="w-3 h-3 rounded-full" style={{ background: gold }} />}
+                  {(state === 'inactive' || isSkipped) && (
+                    <span className="text-xs" style={{ color: isSkipped ? skipColor : grayBorder }}>{idx}</span>
+                  )}
+                </div>
+                <span
+                  className={'text-xs mt-1.5 text-center whitespace-nowrap' + alignClass}
+                  style={{ color: labelCol, lineHeight: '1.2', maxWidth: '64px', fontSize: '10px' }}
+                >
+                  {isSkipped ? 'Skipped' : label}
+                </span>
+              </div>
+            );
+            return elements;
+          })}
+        </div>
+        {/* Steps remaining caption */}
+        <p className="text-xs mt-3 text-center" style={{ color: grayText }}>{progressCaption}</p>
+      </div>
+    );
+  };
+
+  // ── Shared Booking Summary Card ──────────────────────────────────────────
+  const BookingSummaryCard = () => {
+    const accentColor = isDark ? 'rgb(251,191,36)' : 'rgb(180,140,10)';
+    const iconMuted = isDark ? '#94a3b8' : '#64748b';
+    const sectionLabel = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+    const suiteTile: React.CSSProperties = {
+      background: isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.1)',
+      border: isDark ? '1px solid rgba(220,181,21,0.25)' : '1px solid rgba(220,181,21,0.35)',
+    };
+    const loungeTile: React.CSSProperties = {
+      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.6)',
+      border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.55)',
+    };
+    const capacityTrack: React.CSSProperties = {
+      background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(220,181,21,0.15)',
+    };
+    const suiteCount = Math.max(1, form.premiereSuites);
+    const suiteDists = Array.from({ length: form.premiereSuites }, (_, i) => {
+      const vipBase = Math.floor(form.premiereVipPassengers / suiteCount);
+      const vipExtra = i < (form.premiereVipPassengers % suiteCount) ? 1 : 0;
+      const nfgBase = Math.floor(form.premiereNonFlyingGuests / suiteCount);
+      const nfgExtra = i < (form.premiereNonFlyingGuests % suiteCount) ? 1 : 0;
+      const vip = vipBase + vipExtra;
+      const nfg = nfgBase + nfgExtra;
+      const total = vip + nfg;
+      const nfgStr = nfg === 1 ? '1 Non-Flying' : nfg + ' Non-Flying';
+      const occupancyLabel = nfg > 0 ? vip + ' VIP · ' + nfgStr : vip + ' VIP';
+      return { vip, nfg, total, capacityPct: Math.round((total / 6) * 100) + '%', occupancyLabel };
+    });
+    let gridCols = 'grid-cols-1';
+    if (form.premiereSuites === 2) gridCols = 'grid-cols-2';
+    else if (form.premiereSuites >= 3) gridCols = 'grid-cols-3';
+    const hasLounge = form.vipPassengers > 0 || form.nonFlyingGuests > 0;
+    const loungeTotalPax = form.vipPassengers + form.nonFlyingGuests;
+    const lvStr = form.vipPassengers > 0 ? form.vipPassengers + ' VIP' : '';
+    const lnStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
+    const loungeLabel = lvStr + (lvStr && lnStr ? ' · ' : '') + lnStr;
+    const suiteUpgradeFee = form.premiereSuites * 6000;
+    const addonOrig =
+      suiteUpgradeFee +
+      step2Form.loungeExtension * 500 +
+      step2Form.limousineService * 1200 +
+      step2Form.wheelchairService * 300;
+    const addonAmt =
+      suiteUpgradeFee +
+      step2Form.loungeExtension * loungeRate +
+      step2Form.limousineService * limoRate +
+      step2Form.wheelchairService * wheelchairRate;
+    const addonSave = addonOrig - addonAmt;
+    const hasAddon =
+      form.premiereSuites > 0 ||
+      step2Form.loungeExtension > 0 ||
+      step2Form.limousineService > 0 ||
+      step2Form.wheelchairService > 0;
+
+    return (
+      <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
+        <div className="px-5 py-3 flex items-center justify-between" style={summaryBoxGoldHeaderBg}>
+          <span className="text-sm" style={textPrimary}>Booking Summary</span>
+          <div className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5" style={{ color: accentColor }} />
+            <span className="text-xs font-medium" style={{ color: accentColor }}>{totalGuests} guests</span>
+          </div>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          {form.premiereSuites > 0 && (
+            <div>
+              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: sectionLabel }}>
+                Premiere Suite{form.premiereSuites > 1 ? 's' : ''} ({form.premiereSuites})
+              </div>
+              <div className={`grid gap-2 ${gridCols}`}>
+                {suiteDists.map((suite, i) => (
+                  <div key={i} className="rounded-lg p-2.5" style={suiteTile}>
+                    <div className="flex items-center gap-1 mb-1.5">
+                      <Crown className="w-3 h-3" style={{ color: accentColor }} />
+                      <span className="text-xs font-semibold" style={textPrimary}>Suite {i + 1}</span>
+                    </div>
+                    <div className="text-xs mb-1.5" style={{ color: colors.textMuted }}>{suite.occupancyLabel}</div>
+                    <div className="h-0.5 w-full rounded-full overflow-hidden" style={capacityTrack}>
+                      <div className="h-full rounded-full" style={{ width: suite.capacityPct, background: 'rgb(220,181,21)' }} />
+                    </div>
+                    <div className="text-xs mt-1" style={{ color: colors.textMuted }}>{suite.total}/6</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {hasLounge && (
+            <div>
+              {form.premiereSuites > 0 && (
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: sectionLabel }}>Lounge Deluxe</div>
+              )}
+              <div className="rounded-lg px-3 py-2.5 flex items-center justify-between" style={loungeTile}>
+                <div className="flex items-center gap-2">
+                  <Hotel className="w-3.5 h-3.5" style={{ color: iconMuted }} />
+                  <div>
+                    <div className="text-xs font-semibold" style={textPrimary}>Lounge Deluxe</div>
+                    <div className="text-xs" style={{ color: colors.textMuted }}>{loungeLabel}</div>
+                  </div>
+                </div>
+                <span className="text-xs font-medium" style={{ color: colors.textMuted }}>| Total {loungeTotalPax} guests</span>
+              </div>
+            </div>
+          )}
+          {hasAddon && (
+            <div
+              className="rounded-lg px-3 py-2.5 space-y-1.5"
+              style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
+            >
+              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>Add-on Services</div>
+              {form.premiereSuites > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Upgrade Fee × {form.premiereSuites}</span>
+                  <span className="text-xs font-medium" style={textPrimary}>HK${suiteUpgradeFee.toLocaleString()}</span>
+                </div>
+              )}
+              {step2Form.loungeExtension > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Extension × {step2Form.loungeExtension}</span>
+                  <div className="text-right">
+                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.loungeExtension * 500).toLocaleString()}</span>}
+                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+              {step2Form.limousineService > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Limousine Service × {step2Form.limousineService}</span>
+                  <div className="text-right">
+                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.limousineService * 1200).toLocaleString()}</span>}
+                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+              {step2Form.wheelchairService > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Wheelchair Service × {step2Form.wheelchairService}</span>
+                  <div className="text-right">
+                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</span>}
+                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
+              <div
+                className="flex items-center justify-between pt-1.5 mt-1"
+                style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
+              >
+                <span className="text-xs font-medium" style={textPrimary}>Total</span>
+                <span className="text-sm font-semibold" style={textPrimary}>HK${addonAmt.toLocaleString()}</span>
+              </div>
+              {isTravelAgency && addonSave > 0 && (
+                <div className="text-xs text-green-400">Agency saving: HK${addonSave.toLocaleString()}</div>
+              )}
+            </div>
+          )}
+          {isTravelAgency && (
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-lg"
+              style={{
+                background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.18)',
+                border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(16,185,129,0.45)',
+              }}
+            >
+              <Banknote className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }} />
+              <div className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5,150,105)' }}>{TA_PAYMENT_METHOD}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // ── Confirmation screen ───────────────────────────────────────────────────
   if (submitted) {
     return (
+      <>
       <div className="max-w-2xl mx-auto py-8">
-        <div className="rounded-2xl p-12 text-center" style={card}>
+        <BookingStepProgress skipAddons={noAddonRequired} />
+        <div className="rounded-2xl p-12 text-center mt-6" style={card}>
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] flex items-center justify-center">
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
@@ -1574,11 +1938,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <p className="text-sm" style={textMuted}>Redirecting to My Bookings…</p>
         </div>
       </div>
+      {stepLoadingOverlay}
+      </>
     );
   }
 
-  // ── Step 3: Final Review ──────────────────────────────────────────────────
-  if (currentStep === 3) {
+  // ── Step 5: Final Review ──────────────────────────────────────────────────
+  if (currentStep === 5) {
+
     const addonOriginal =
       step2Form.loungeExtension * 500 +
       step2Form.limousineService * 1200 +
@@ -1592,9 +1959,47 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
       step2Form.wheelchairService > 0;
-    const totalVipPassengers = form.premiereVipPassengers + form.vipPassengers;
-    const totalNonFlying = form.premiereNonFlyingGuests + form.nonFlyingGuests;
     const hasSuiteVouchers = availableSuiteVouchers > 0;
+
+    // ── Accommodation grid pre-computation ──────────────────────────────────
+    const suiteCount = form.premiereSuites || 1;
+    const suiteDistributions = Array.from({ length: form.premiereSuites }, (_, i) => {
+      const vipBase = Math.floor(form.premiereVipPassengers / suiteCount);
+      const vipExtra = i < (form.premiereVipPassengers % suiteCount) ? 1 : 0;
+      const nfgBase = Math.floor(form.premiereNonFlyingGuests / suiteCount);
+      const nfgExtra = i < (form.premiereNonFlyingGuests % suiteCount) ? 1 : 0;
+      const vip = vipBase + vipExtra;
+      const nfg = nfgBase + nfgExtra;
+      const total = vip + nfg;
+      const nfgStr = nfg === 1 ? '1 Non-Flying' : nfg + ' Non-Flying';
+      const occupancyLabel = nfg > 0 ? vip + ' VIP · ' + nfgStr : vip + ' VIP';
+      return { vip, nfg, total, capacityPct: Math.round((total / 6) * 100) + '%', occupancyLabel };
+    });
+    const hasLoungeGuests = form.vipPassengers > 0 || form.nonFlyingGuests > 0;
+    const loungeTotalGuests = form.vipPassengers + form.nonFlyingGuests;
+    const loungeVipStr = form.vipPassengers > 0 ? form.vipPassengers + ' VIP' : '';
+    const loungeNfgStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
+    const loungeOccupancyLabel = loungeVipStr + (loungeVipStr && loungeNfgStr ? ' · ' : '') + loungeNfgStr;
+    let suiteGridCols = 'grid-cols-1';
+    if (form.premiereSuites === 2) suiteGridCols = 'grid-cols-2';
+    else if (form.premiereSuites >= 3) suiteGridCols = 'grid-cols-3';
+    const suiteTileStyle: React.CSSProperties = {
+      background: isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.1)',
+      border: isDark ? '1px solid rgba(220,181,21,0.25)' : '1px solid rgba(220,181,21,0.35)',
+    };
+    const loungeTileStyle: React.CSSProperties = {
+      background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.6)',
+      border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.55)',
+    };
+    const capacityTrackStyle: React.CSSProperties = {
+      background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(220,181,21,0.15)',
+    };
+    const loungeGuestBadgeBg: React.CSSProperties = {
+      background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+    };
+    const suiteAccentColor = isDark ? 'rgb(251,191,36)' : 'rgb(180,140,10)';
+    const loungeIconColor = isDark ? '#94a3b8' : '#64748b';
+    const sectionLabelColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
 
     // Pre-compute review field values to avoid nested template literals with ternaries in JSX
     const bookingVoucherPlural = bookingVouchersToUse !== 1 ? 's' : '';
@@ -1614,11 +2019,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     };
 
     return (
+      <>
       <div className="space-y-4 pb-8">
+        {/* Progress bar */}
+        <BookingStepProgress skipAddons={noAddonRequired} />
+
         {/* Header */}
         <div>
           <h1 className="text-xl" style={gradientText}>
-            New Booking - Final Review
+            Step 5: Final Review
           </h1>
           <p className="text-xs mt-1" style={textMuted}>
             Please review your booking details before confirmation
@@ -1673,17 +2082,59 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </ReviewGrid>
         </ReviewSection>
 
-        {/* ── Booking Details ────────────────────────────────────────────── */}
+        {/* ── Accommodation ─────────────────────────────────────────────── */}
         <ReviewSection
-          icon={<Users className="w-4 h-4 text-white" />}
+          icon={<Building className="w-4 h-4 text-white" />}
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-          title="Booking Details"
+          title="Accommodation"
         >
-          <ReviewGrid cols={3}>
-            <ReviewField label="Premiere Suites" value={String(form.premiereSuites)} />
-            <ReviewField label="VIP Passengers" value={String(totalVipPassengers)} />
-            <ReviewField label="Non-Flying Guests" value={String(totalNonFlying)} />
-          </ReviewGrid>
+          <div className="space-y-4">
+            {form.premiereSuites > 0 && (
+              <div>
+                <div className="text-xs uppercase tracking-wider mb-2.5" style={{ color: sectionLabelColor }}>
+                  Premiere Suite{form.premiereSuites > 1 ? 's' : ''} &mdash; {form.premiereSuites} booked
+                </div>
+                <div className={`grid gap-2 ${suiteGridCols}`}>
+                  {suiteDistributions.map((suite, i) => (
+                    <div key={i} className="rounded-lg p-3" style={suiteTileStyle}>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Crown className="w-3.5 h-3.5" style={{ color: suiteAccentColor }} />
+                        <span className="text-xs font-semibold" style={textPrimary}>Suite {i + 1}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs mb-2.5" style={textPrimary}>
+                        <User className="w-3 h-3" style={{ color: colors.textMuted }} />
+                        <span>{suite.occupancyLabel}</span>
+                      </div>
+                      <div className="h-1 w-full rounded-full overflow-hidden" style={capacityTrackStyle}>
+                        <div className="h-full rounded-full" style={{ width: suite.capacityPct, background: 'rgb(220,181,21)' }} />
+                      </div>
+                      <div className="text-xs mt-1.5" style={{ color: colors.textMuted }}>{suite.total} / 6 capacity</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {hasLoungeGuests && (
+              <div>
+                {form.premiereSuites > 0 && (
+                  <div className="text-xs uppercase tracking-wider mb-2.5" style={{ color: sectionLabelColor }}>Lounge Deluxe</div>
+                )}
+                <div className="rounded-lg p-3 flex items-center justify-between" style={loungeTileStyle}>
+                  <div className="flex items-center gap-2.5">
+                    <Hotel className="w-4 h-4" style={{ color: loungeIconColor }} />
+                    <div>
+                      <div className="text-xs font-semibold" style={textPrimary}>Lounge Deluxe</div>
+                      <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>{loungeOccupancyLabel}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={loungeGuestBadgeBg}>
+                    <Users className="w-3 h-3" style={{ color: colors.textMuted }} />
+                    <span className="text-xs font-medium" style={textPrimary}>{loungeTotalGuests}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </ReviewSection>
 
         {/* ── VIP Passengers ─────────────────────────────────────────────── */}
@@ -2044,59 +2495,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </ReviewSection>
 
         {/* ── Booking Summary ────────────────────────────────────────────── */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={summaryBoxGoldBg}
-        >
-          <div
-            className="px-5 py-3"
-            style={summaryBoxGoldHeaderBg}
-          >
-            <span className="text-sm" style={textPrimary}>Booking Summary</span>
-          </div>
-          <div className="px-5 py-6 flex flex-col items-center gap-3">
-            <div className="text-xs uppercase tracking-wider" style={textMuted}>Total Guests</div>
-            <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center"
-              style={guestBadgeBg}
-            >
-              <span className="text-4xl tabular-nums" style={textPrimary}>{totalGuests}</span>
-            </div>
-            {hasAddons && (
-              <div className="text-center mt-1">
-                <div className="text-xs" style={textMuted}>Add-on Services Total</div>
-                {isTravelAgency && addonSaving > 0 && (
-                  <div className="text-xs line-through mt-0.5" style={{ color: colors.textMuted }}>
-                    HK${addonOriginal.toLocaleString()}
-                  </div>
-                )}
-                <div className="text-base mt-0.5" style={textPrimary}>
-                  HK${addonTotal.toLocaleString()}
-                </div>
-                {isTravelAgency && addonSaving > 0 && (
-                  <div className="text-xs text-green-400 mt-0.5">
-                    Agency saving: HK${addonSaving.toLocaleString()}
-                  </div>
-                )}
-              </div>
-            )}
-            {isTravelAgency && (
-              <div
-                className="flex items-center gap-2 px-3 py-2 rounded-lg mt-2"
-                style={{ 
-                  background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.18)', 
-                  border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(16,185,129,0.45)' 
-                }}
-              >
-                <Banknote className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                <div className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{TA_PAYMENT_METHOD}</div>
-              </div>
-            )}
-            <p className="text-xs text-center max-w-sm mt-1" style={textMuted}>
-              Please review all information carefully before confirming your booking.
-            </p>
-          </div>
-        </div>
+        <BookingSummaryCard />
+        <p className="text-xs px-1" style={{ color: colors.textMuted }}>
+          Please review all information carefully before confirming your booking.
+        </p>
 
         {/* ── Terms & Conditions ─────────────────────────────────────────── */}
         <div
@@ -2220,7 +2622,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={handleBackToStep2}
+              onClick={handleBackToStep4}
               className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
               style={backBtnStyle}
             >
@@ -2248,7 +2650,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </button>
           </div>
           {!acceptedTC && (
-            <div 
+            <div
               className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
               style={{
                 background: isDark ? 'rgba(220, 181, 21, 0.1)' : 'rgba(220, 181, 21, 0.15)',
@@ -2263,24 +2665,314 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           )}
         </div>
       </div>
+      {stepLoadingOverlay}
+      </>
     );
   }
 
-  // ── Step 2 render ───────────��─────────────────────────────────────────────
-  if (currentStep === 2) {
-    const hasStep2Breakdown =
-      step2Form.loungeExtension > 0 ||
-      step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
-    const s2Original =
-      step2Form.loungeExtension * 500 +
-      step2Form.limousineService * 1200 +
-      step2Form.wheelchairService * 300;
-    const s2Total =
-      step2Form.loungeExtension * loungeRate +
-      step2Form.limousineService * limoRate +
-      step2Form.wheelchairService * wheelchairRate;
-    const s2Saving = s2Original - s2Total;
+  // ── Step 3: Add-on Services ───────────────────────────────────────────────
+  if (currentStep === 3) {
+    return (
+      <>
+      <form onSubmit={handleNextFromStep3}>
+        <div className="space-y-4 pb-8">
+          {/* Progress bar */}
+          <BookingStepProgress skipAddons={noAddonRequired} />
+
+          {/* Header */}
+          <div>
+            <h1
+              className="text-xl"
+              style={{
+                background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              Step 3: Add-on Services
+            </h1>
+            <p className="text-xs mt-1" style={textMuted}>
+              Enhance your lounge experience with optional services
+            </p>
+          </div>
+
+          {/* ── Book for Member Banner ──────────────────────────────────── */}
+          {prefillMember && (
+            <div
+              className="rounded-xl px-4 py-3.5 flex items-start gap-3"
+              style={{
+                background: isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)',
+                border: isDark ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(59,130,246,0.3)',
+              }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                style={{ background: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)' }}
+              >
+                <CalendarPlus className="w-4 h-4" style={{ color: '#60a5fa' }} />
+              </div>
+              <div>
+                <p className="text-sm" style={{ color: isDark ? '#93c5fd' : 'rgb(37,99,235)' }}>
+                  Booking on behalf of{' '}
+                  <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
+                  Vouchers deducted from this member&apos;s account · Balance: {prefillMember.voucherCount} vouchers
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── Travel Agency Benefits Banner ───────────────────────────── */}
+          {isTravelAgency && (
+            <div
+              className="rounded-xl p-4"
+              style={{
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.08) 100%)'
+                  : 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.12) 100%)',
+                border: isDark ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(16,185,129,0.5)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.3)' }}
+                >
+                  <BadgeCheck className="w-5 h-5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm mb-1" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>Travel Agency – Pre-Negotiated Benefits Active</div>
+                  <div className="text-xs mb-3" style={textMuted}>
+                    Discounts are automatically applied to all add-on services.
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[
+                      { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: 500, disc: loungeRate },
+                      { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1200, disc: limoRate },
+                      { label: 'Wheelchair Assist.', pct: Math.round(TA_DISCOUNT_WHEELCHAIR * 100), orig: 300, disc: wheelchairRate },
+                    ].map((item) => (
+                      <div key={item.label} className="rounded-lg p-2 text-center" style={taInfoBoxBg}>
+                        <div className="text-green-400 text-xs mb-0.5">{item.pct}% off</div>
+                        <div className="text-xs line-through" style={textMuted}>HK${item.orig.toLocaleString()}</div>
+                        <div className="text-xs" style={textPrimary}>HK${item.disc.toLocaleString()}</div>
+                        <div className="text-xs mt-0.5" style={textMuted}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Banknote className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                    <span className="text-green-300 text-xs">Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Add-on Services ─────────────────────────────────────────── */}
+          <div className="p-5" style={card}>
+            <SectionHeader
+              title="Add-on Services"
+              subtitle="Enhance your experience with optional services"
+              onQuickFill={handleStep2QuickFill}
+            />
+
+            {/* Lounge Extension */}
+            <SubSectionLabel label="Extension of Stay in VIP Lounge (Hours)" />
+            <StepperCard
+              icon={<Clock className="w-5 h-5 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title="Lounge Extension"
+              subtitle={isTravelAgency ? 'HK$' + loungeRate + '/hr (was HK$500 · 15% TA off)' : 'HK$500 per hour'}
+              value={step2Form.loungeExtension}
+              onDecrement={() => updateStep2Count('loungeExtension', -1)}
+              onIncrement={() => updateStep2Count('loungeExtension', 1)}
+            />
+
+            {/* Limousine Service */}
+            <SubSectionLabel label="Airport Limousine Transfer Service" />
+            <StepperCard
+              icon={<Car className="w-5 h-5 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title="Limousine Service"
+              subtitle={isTravelAgency ? 'HK$' + limoRate + '/vehicle (was HK$1,200 · 20% TA off)' : 'HK$1,200 per vehicle'}
+              value={step2Form.limousineService}
+              onDecrement={() => updateStep2Count('limousineService', -1)}
+              onIncrement={() => updateStep2Count('limousineService', 1)}
+            />
+
+            {step2Form.limousineService > 0 && (
+              <div className="mt-3 space-y-3">
+                {form.flightType === 'Departure' && (
+                  <div
+                    className="p-3 rounded-lg text-sm"
+                    style={{
+                      background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.15)',
+                      border: isDark ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(220,181,21,0.4)',
+                      color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
+                    }}
+                  >
+                    ⚠️ Extra charges will apply if waiting time is exceeded at pick-up point.
+                  </div>
+                )}
+                {step2Form.destinationAddresses.map((address, index) => (
+                  <div key={index}>
+                    <label className={labelClass}>
+                      {step2Form.limousineService > 1 ? 'Destination / Pick-up Point #' + (index + 1) : 'Destination / Pick-up Point'} *
+                    </label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => handleDestinationAddressChange(index, e.target.value)}
+                        required
+                        placeholder="Enter destination or pick-up point"
+                        style={fieldStyle}
+                        className={fieldClass + ' pl-10'}
+                      />
+                    </div>
+                  </div>
+                ))}
+                {form.flightType === 'Departure' && (
+                  <div>
+                    <label className={labelClass}>Pick-up Time *</label>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="time"
+                        value={step2Form.limousinePickupTime}
+                        onChange={(e) => setStep2Form((p) => ({ ...p, limousinePickupTime: e.target.value }))}
+                        required
+                        style={fieldStyle}
+                        className={fieldClass + ' pl-10'}
+                      />
+                    </div>
+                  </div>
+                )}
+                {step2Form.limousineStops.map((stop, index) => (
+                  <div key={'stop-' + index}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className={labelClass}>Additional Stop #{index + 1}</label>
+                      <button type="button" onClick={() => removeStop(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Remove</button>
+                    </div>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={stop}
+                        onChange={(e) => handleStopChange(index, e.target.value)}
+                        placeholder="Enter stop address"
+                        style={fieldStyle}
+                        className={fieldClass + ' pl-10'}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addStop}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all hover:opacity-80"
+                  style={{
+                    background: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.25)',
+                    border: isDark ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(59,130,246,0.5)',
+                    color: isDark ? '#ffffff' : 'rgb(37,99,235)',
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Stop
+                </button>
+              </div>
+            )}
+
+            {/* Wheelchair Service */}
+            <SubSectionLabel label="Wheelchair Service" />
+            <StepperCard
+              icon={<Accessibility className="w-5 h-5 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title="Wheelchair Assistance"
+              subtitle={isTravelAgency ? 'HK$' + wheelchairRate + '/service (was HK$300 · 10% TA off)' : 'HK$300 per service'}
+              value={step2Form.wheelchairService}
+              onDecrement={() => updateStep2Count('wheelchairService', -1)}
+              onIncrement={() => updateStep2Count('wheelchairService', 1)}
+            />
+
+            {step2Form.wheelchairService > 0 && (
+              <div className="mt-3">
+                <label className={labelClass}>Passenger Name *</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={step2Form.wheelchairPassengerName}
+                    onChange={(e) => setStep2Form((p) => ({ ...p, wheelchairPassengerName: e.target.value }))}
+                    required
+                    placeholder="Enter passenger name"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Security Service */}
+            <SubSectionLabel label="Security Service" />
+            <ToggleCard
+              icon={<Shield className="w-5 h-5 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title="Security Escort Service"
+              subtitle="Personal security personnel"
+              checked={step2Form.securityService}
+              onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
+            />
+
+            {step2Form.securityService && (
+              <div
+                className="mt-3 p-3 rounded-lg text-sm"
+                style={{
+                  background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.15)',
+                  border: isDark ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(220,181,21,0.4)',
+                  color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
+                }}
+              >
+                💰 Separate charges are required for security service. Our team will contact you for pricing details.
+              </div>
+            )}
+          </div>
+
+          {/* ── Booking Summary ─────────────────────────────────────────────── */}
+          <BookingSummaryCard />
+
+          {/* ── Navigation Buttons ──────────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={handleBackToStep2}
+              className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
+              style={backBtnStyle}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </button>
+            <button
+              type="submit"
+              className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
+            >
+              Next: Other Information
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </form>
+      {stepLoadingOverlay}
+      </>
+    );
+  }
+
+  // ── Step 4: Other Information & Checkout ─────────────────────────────────
+  if (currentStep === 4) {
 
     // ── Membership card pre-computed styles ──────────────────────────────────
     const membershipCardBg = isDark
@@ -2337,8 +3029,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const summaryLuggageValue = step2Form.luggageCount + ' piece' + summaryLuggagePlural;
 
     return (
+      <>
       <form onSubmit={handleGoToReview}>
         <div className="space-y-4 pb-8">
+          {/* Progress bar */}
+          <BookingStepProgress skipAddons={noAddonRequired} />
+
           {/* Page header */}
           <div>
             <h1
@@ -2350,10 +3046,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 backgroundClip: 'text',
               }}
             >
-              New Booking - Step 2: Additional Services
+              Step 4: Other Information &amp; Checkout
             </h1>
             <p className="text-xs mt-1" style={textMuted}>
-              Add additional services and additional information
+              Add luggage info, membership vouchers, and contact details
             </p>
           </div>
 
@@ -2384,245 +3080,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           )}
 
-          {/* ── Travel Agency Benefits Banner ───────────────────────────── */}
-          {isTravelAgency && (
-            <div
-              className="rounded-xl p-4"
-              style={{
-                background: isDark 
-                  ? 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.12) 100%)',
-                border: isDark ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(16,185,129,0.5)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.3)' }}
-                >
-                  <BadgeCheck className="w-5 h-5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm mb-1" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>Travel Agency – Pre-Negotiated Benefits Active</div>
-                  <div className="text-xs mb-3" style={textMuted}>
-                    Your account has pre-negotiated rates and a dedicated billing arrangement. Discounts are automatically applied to all add-on services.
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {[
-                      { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: 500, disc: loungeRate },
-                      { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1200, disc: limoRate },
-                      { label: 'Wheelchair Assist.', pct: Math.round(TA_DISCOUNT_WHEELCHAIR * 100), orig: 300, disc: wheelchairRate },
-                    ].map((item) => (
-                      <div
-                        key={item.label}
-                        className="rounded-lg p-2 text-center"
-                        style={taInfoBoxBg}
-                      >
-                        <div className="text-green-400 text-xs mb-0.5">{item.pct}% off</div>
-                        <div className="text-xs line-through" style={textMuted}>HK${item.orig.toLocaleString()}</div>
-                        <div className="text-xs" style={textPrimary}>HK${item.disc.toLocaleString()}</div>
-                        <div className="text-xs mt-0.5" style={textMuted}>{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Banknote className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                    <span className="text-green-300 text-xs">
-                      Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Add-on Services ─────────────────────────────────────────── */}
-          {!noAddonRequired && <div className="p-5" style={card}>
-            <SectionHeader
-              title="Add-on Services"
-              subtitle="Enhance your experience with optional services"
-              onQuickFill={handleStep2QuickFill}
-            />
-
-            {/* Lounge Extension */}
-            <SubSectionLabel label="Extension of Stay in VIP Lounge (Hours)" />
-            <StepperCard
-              icon={<Clock className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Lounge Extension"
-              subtitle={isTravelAgency ? `HK$${loungeRate}/hr (was HK$500 · 15% TA off)` : 'HK$500 per hour'}
-              value={step2Form.loungeExtension}
-              onDecrement={() => updateStep2Count('loungeExtension', -1)}
-              onIncrement={() => updateStep2Count('loungeExtension', 1)}
-            />
-
-            {/* Limousine Service */}
-            <SubSectionLabel label="Airport Limousine Transfer Service" />
-            <StepperCard
-              icon={<Car className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Limousine Service"
-              subtitle={isTravelAgency ? `HK$${limoRate}/vehicle (was HK$1,200 · 20% TA off)` : 'HK$1,200 per vehicle'}
-              value={step2Form.limousineService}
-              onDecrement={() => updateStep2Count('limousineService', -1)}
-              onIncrement={() => updateStep2Count('limousineService', 1)}
-            />
-
-            {step2Form.limousineService > 0 && (
-              <div className="mt-3 space-y-3">
-                {/* Extra charge warning for Departure flights */}
-                {form.flightType === 'Departure' && (
-                  <div 
-                    className="p-3 rounded-lg text-sm"
-                    style={{
-                      background: isDark ? 'rgba(220, 181, 21, 0.1)' : 'rgba(220, 181, 21, 0.15)',
-                      border: isDark ? '1px solid rgba(220, 181, 21, 0.3)' : '1px solid rgba(220, 181, 21, 0.4)',
-                      color: isDark ? 'rgba(220, 181, 21, 1)' : 'rgba(180, 145, 17, 1)',
-                    }}
-                  >
-                    ⚠️ Extra charges will apply if waiting time is exceeded at pick-up point.
-                  </div>
-                )}
-                
-                {/* Destination/Pick-up addresses for each vehicle */}
-                {step2Form.destinationAddresses.map((address, index) => (
-                  <div key={index}>
-                    <label className={labelClass}>
-                      Destination / Pick-up Point {step2Form.limousineService > 1 ? `#${index + 1}` : ''} *
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={address}
-                        onChange={(e) => handleDestinationAddressChange(index, e.target.value)}
-                        required
-                        placeholder="Enter destination or pick-up point"
-                        style={fieldStyle}
-                        className={fieldClass + ' pl-10'}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {/* Pick-up Time - Only for Departure flights */}
-                {form.flightType === 'Departure' && (
-                  <div>
-                    <label className={labelClass}>Pick-up Time *</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="time"
-                        value={step2Form.limousinePickupTime}
-                        onChange={(e) => setStep2Form((p) => ({ ...p, limousinePickupTime: e.target.value }))}
-                        required
-                        style={fieldStyle}
-                        className={fieldClass + ' pl-10'}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Additional stops */}
-                {step2Form.limousineStops.map((stop, index) => (
-                  <div key={`stop-${index}`}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className={labelClass}>Additional Stop #{index + 1}</label>
-                      <button
-                        type="button"
-                        onClick={() => removeStop(index)}
-                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        value={stop}
-                        onChange={(e) => handleStopChange(index, e.target.value)}
-                        placeholder="Enter stop address"
-                        style={fieldStyle}
-                        className={fieldClass + ' pl-10'}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {/* Add stop button */}
-                <button
-                  type="button"
-                  onClick={addStop}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-all hover:opacity-80"
-                  style={{
-                    background: isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(59, 130, 246, 0.25)',
-                    border: isDark ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(59, 130, 246, 0.5)',
-                    color: isDark ? '#ffffff' : 'rgb(37, 99, 235)',
-                  }}
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Stop
-                </button>
-              </div>
-            )}
-
-            {/* Wheelchair Service */}
-            <SubSectionLabel label="Wheelchair Service" />
-            <StepperCard
-              icon={<Accessibility className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Wheelchair Assistance"
-              subtitle={isTravelAgency ? `HK$${wheelchairRate}/service (was HK$300 · 10% TA off)` : 'HK$300 per service'}
-              value={step2Form.wheelchairService}
-              onDecrement={() => updateStep2Count('wheelchairService', -1)}
-              onIncrement={() => updateStep2Count('wheelchairService', 1)}
-            />
-
-            {step2Form.wheelchairService > 0 && (
-              <div className="mt-3">
-                <label className={labelClass}>Passenger Name *</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={step2Form.wheelchairPassengerName}
-                    onChange={(e) =>
-                      setStep2Form((p) => ({ ...p, wheelchairPassengerName: e.target.value }))
-                    }
-                    required
-                    placeholder="Enter passenger name"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10'}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Security Service */}
-            <SubSectionLabel label="Security Service" />
-            <ToggleCard
-              icon={<Shield className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Security Escort Service"
-              subtitle="Personal security personnel"
-              checked={step2Form.securityService}
-              onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
-            />
-
-            {step2Form.securityService && (
-              <div 
-                className="mt-3 p-3 rounded-lg text-sm"
-                style={{
-                  background: isDark ? 'rgba(220, 181, 21, 0.1)' : 'rgba(220, 181, 21, 0.15)',
-                  border: isDark ? '1px solid rgba(220, 181, 21, 0.3)' : '1px solid rgba(220, 181, 21, 0.4)',
-                  color: isDark ? 'rgba(220, 181, 21, 1)' : 'rgba(180, 145, 17, 1)',
-                }}
-              >
-                💰 Separate charges are required for security service. Our team will contact you for pricing details.
-              </div>
-            )}
-          </div>}
 
           {/* ── Other Information ───────────────────────────────────────── */}
           <div className="p-5" style={card}>
@@ -3155,6 +3612,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           </div>
 
+          {/* ── Booking Summary ─────────────────────────────────────────────── */}
+          <BookingSummaryCard />
+
           {/* ── Complete Booking Summary ────────────────────────────────── */}
           <div
             className="rounded-xl overflow-hidden"
@@ -3253,124 +3713,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 )}
               </div>
 
-              {/* Price Breakdown Section */}
-              {hasStep2Breakdown && (
-                  <>
-                    <div className="pt-4 mt-4" style={{ borderTop: borderDivider }}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-xs uppercase tracking-wider" style={textMuted}>Add-on Services Breakdown</div>
-                        {isTravelAgency && <div className="text-xs text-green-400">TA rates applied</div>}
-                      </div>
-                      <div className="space-y-2">
-                        {step2Form.loungeExtension > 0 && (
-                          <div className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <Clock className="w-3.5 h-3.5 text-orange-400" />
-                              <span className="text-xs" style={textPrimary}>
-                                Lounge Extension × {step2Form.loungeExtension}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              {isTravelAgency && <div className="text-xs line-through" style={textMuted}>HK${(step2Form.loungeExtension * 500).toLocaleString()}</div>}
-                              <span className="text-xs" style={textPrimary}>
-                                HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {step2Form.limousineService > 0 && (
-                          <div className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <Car className="w-3.5 h-3.5 text-blue-400" />
-                              <span className="text-xs" style={textPrimary}>
-                                Limousine Service × {step2Form.limousineService}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              {isTravelAgency && <div className="text-xs line-through" style={textMuted}>HK${(step2Form.limousineService * 1200).toLocaleString()}</div>}
-                              <span className="text-xs" style={textPrimary}>
-                                HK${(step2Form.limousineService * limoRate).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {step2Form.wheelchairService > 0 && (
-                          <div className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <Accessibility className="w-3.5 h-3.5 text-pink-400" />
-                              <span className="text-xs" style={textPrimary}>
-                                Wheelchair Assistance × {step2Form.wheelchairService}
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              {isTravelAgency && <div className="text-xs line-through" style={textMuted}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>}
-                              <span className="text-xs" style={textPrimary}>
-                                HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        {step2Form.securityService && (
-                          <div className="flex items-center justify-between py-1">
-                            <div className="flex items-center gap-2">
-                              <Shield className="w-3.5 h-3.5 text-yellow-400" />
-                              <span className="text-xs" style={textPrimary}>
-                                Security Escort Service
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs" style={textPrimary}>
-                                Upon Request
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Savings row for TA */}
-                    {isTravelAgency && s2Saving > 0 && (
-                      <div className="mt-3 flex items-center justify-between px-3 py-2 rounded-lg"
-                        style={{ 
-                          background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.18)', 
-                          border: isDark ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(16,185,129,0.4)' 
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Percent className="w-3 h-3" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                          <span className="text-xs" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }}>Agency Savings</span>
-                        </div>
-                        <span className="text-xs" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }}>−HK${s2Saving.toLocaleString()}</span>
-                      </div>
-                    )}
-
-                    {/* Total Price */}
-                    <div 
-                      className="mt-3 flex items-center justify-between"
-                      style={{
-                        ...priceBreakdownTotalBg,
-                        borderTop: borderDivider,
-                        margin: '0 -20px',
-                        padding: '12px 20px',
-                      }}
-                    >
-                      <div>
-                        <span className="text-sm" style={textPrimary}>Total Add-on Services</span>
-                        {isTravelAgency && (
-                          <div className="text-xs text-green-400 mt-0.5">{TA_PAYMENT_METHOD}</div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        {isTravelAgency && s2Saving > 0 && (
-                          <div className="text-xs line-through" style={textMuted}>HK${s2Original.toLocaleString()}</div>
-                        )}
-                        <span className="text-lg" style={textPrimary}>
-                          HK${s2Total.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  </>
-              )}
 
               <div className="pt-4 mt-4" style={{ borderTop: borderDivider }}>
                 {vipContact !== '—' && (
@@ -3384,7 +3726,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={handleBackToStep1}
+              onClick={handleBackFromStep4}
               className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
               style={backBtnStyle}
             >
@@ -3413,10 +3755,371 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           />
         )}
       </form>
+      {stepLoadingOverlay}
+      </>
     );
   }
 
-  // ── Step 1 render ─────────────────────────────────────────────────────────
+  // ── Step 1: Flight Information (standalone) ───────────────────────────────
+  if (currentStep === 1) {
+    const gradientTextS1: React.CSSProperties = {
+      background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text',
+    };
+    const taBadgeBgS1 = isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.2)';
+    const taBadgeBorderS1 = isDark ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(16,185,129,0.5)';
+    const histBtnBgS1 = isDark
+      ? 'linear-gradient(135deg,rgba(220,181,21,0.2) 0%,rgba(180,140,10,0.12) 100%)'
+      : 'linear-gradient(135deg,rgba(220,181,21,0.25) 0%,rgba(180,140,10,0.15) 100%)';
+    const histBtnBorderS1 = isDark ? '1px solid rgba(220,181,21,0.4)' : '1px solid rgba(220,181,21,0.5)';
+    const histBtnColorS1 = isDark ? 'rgb(220,181,21)' : 'rgb(160,128,8)';
+    const flightFoundBgS1 = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.15)';
+    const flightFoundBorderS1 = isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(16,185,129,0.4)';
+    const flightFoundColorS1 = isDark ? '#34d399' : 'rgb(5, 150, 105)';
+    const flightFoundTimeColorS1 = isDark ? '#34d399' : 'rgb(5, 150, 105)';
+    const hintBgS1 = isDark ? 'rgba(220, 181, 21, 0.1)' : 'rgba(220, 181, 21, 0.15)';
+    const hintBorderS1 = isDark ? '1px solid rgba(220, 181, 21, 0.2)' : '1px solid rgba(220, 181, 21, 0.3)';
+    const hintColorS1 = isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)';
+    const memberBannerBgS1 = isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)';
+    const memberBannerBorderS1 = isDark ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(59,130,246,0.3)';
+    const memberBannerIconBgS1 = isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)';
+    const memberBannerTextS1 = isDark ? '#93c5fd' : 'rgb(37,99,235)';
+    const memberBannerSubS1 = isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)';
+    return (
+      <>
+      <form onSubmit={handleNextStep}>
+        <div className="space-y-4 pb-8">
+          {/* Progress bar */}
+          <BookingStepProgress skipAddons={false} />
+
+          {/* Header row */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="text-xl" style={gradientTextS1}>Step 1: Flight Information</h1>
+              <p className="text-xs mt-1" style={textMuted}>
+                Reserve your lounge experience at Hong Kong International Airport
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {isTravelAgency && (
+                <div
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                  style={{ background: taBadgeBgS1, border: taBadgeBorderS1 }}
+                >
+                  <BadgeCheck className="w-3.5 h-3.5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
+                  <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>TA Rates Active</span>
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handleOpenHistoryDialog}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
+                style={{ background: histBtnBgS1, border: histBtnBorderS1, color: histBtnColorS1 }}
+              >
+                <History className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline">Use History as New Booking</span>
+                <span className="sm:hidden">Use History</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Book for Member Banner */}
+          {prefillMember && (
+            <div
+              className="rounded-xl px-4 py-3.5 flex items-start gap-3"
+              style={{ background: memberBannerBgS1, border: memberBannerBorderS1 }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                style={{ background: memberBannerIconBgS1 }}
+              >
+                <CalendarPlus className="w-4 h-4" style={{ color: '#60a5fa' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm" style={{ color: memberBannerTextS1 }}>
+                  Booking on behalf of{' '}
+                  <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: memberBannerSubS1 }}>
+                  Membership: {prefillMember.membershipLabel}
+                  {' · '}
+                  Voucher balance: {prefillMember.voucherCount} voucher{prefillMember.voucherCount !== 1 ? 's' : ''}
+                  {' '}(booking vouchers deducted from this member&apos;s account)
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Flight Information card */}
+          <div className="p-5" style={card}>
+            <SectionHeader title="Flight Information" onQuickFill={handleQuickFill} />
+
+            {/* Flight Type toggle */}
+            <div className="mb-4">
+              <label className={labelClass}>Flight Type *</label>
+              <div className="grid grid-cols-3 gap-3">
+                {(['Arrival', 'Departure', 'Transition'] as const).map((type) => {
+                  const active = form.flightType === type;
+                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transition' ? 'rotate(90deg)' : 'none';
+                  const ftActiveBg = 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)';
+                  const ftInactiveBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)';
+                  const ftInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
+                  const ftBtnStyle: React.CSSProperties = active
+                    ? { background: ftActiveBg }
+                    : { background: ftInactiveBg, border: ftInactiveBorder };
+                  const ftPlaneColor = active ? '#ffffff' : colors.text;
+                  const ftLabelColor = active ? '#ffffff' : colors.text;
+                  const handleFTClick = () => setForm((p) => ({ ...p, flightType: type }));
+                  return (
+                    <button key={type} type="button" onClick={handleFTClick} className="py-5 rounded-xl flex flex-col items-center gap-2 transition-all" style={ftBtnStyle}>
+                      <Plane className="w-8 h-8" style={{ color: ftPlaneColor, transform: planeRotation }} />
+                      <span className="text-sm" style={{ color: ftLabelColor }}>{type}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Arrival Date */}
+            <div className="mb-4">
+              <label className={labelClass}>Arrival Date *</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                  required
+                  style={fieldStyle}
+                  className={fieldClass + ' pr-10'}
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Flight Number */}
+            <div className="mb-4">
+              <label className={labelClass}>Flight Number</label>
+              <div className="relative">
+                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={form.flightNumber}
+                  onChange={(e) => handleFlightNumber(e.target.value)}
+                  required
+                  placeholder="e.g. CX888"
+                  style={fieldStyle}
+                  className={fieldClass + ' pl-10 uppercase'}
+                />
+              </div>
+            </div>
+
+            {/* Flight Info Found */}
+            {flightDetails && (
+              <div
+                className="rounded-lg p-3 mb-4"
+                style={{ background: flightFoundBgS1, border: flightFoundBorderS1 }}
+              >
+                <div className="flex items-center gap-1.5 text-xs mb-2" style={{ color: flightFoundColorS1 }}>
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Flight Information Found</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-1 text-xs">
+                  <div><span style={textMuted}>Origin: </span><span style={textPrimary}>{flightDetails.origin}</span></div>
+                  <div><span style={textMuted}>Destination: </span><span style={textPrimary}>{flightDetails.destination}</span></div>
+                  <div><span style={textMuted}>Arrival Time: </span><span style={{ color: flightFoundTimeColorS1 }}>{flightDetails.arrivalTime}</span></div>
+                </div>
+              </div>
+            )}
+
+            {/* Destination (Departure / Transition only) */}
+            {(form.flightType === 'Departure' || form.flightType === 'Transition') && (
+              <div className="mb-4">
+                <label className={labelClass}>Destination *</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.destination}
+                    onChange={(e) => setForm((p) => ({ ...p, destination: e.target.value }))}
+                    required
+                    placeholder="e.g. London Heathrow (LHR)"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Flight Class */}
+            <div className={isCompany ? 'mb-4' : ''}>
+              <label className={labelClass}>Flight Class of Main VIP Passenger *</label>
+              <div className="relative">
+                <select
+                  value={form.flightClass}
+                  onChange={(e) => setForm((p) => ({ ...p, flightClass: e.target.value }))}
+                  required
+                  style={fieldStyle}
+                  className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
+                >
+                  <option value="Economy Class" className={optionBg}>Economy Class</option>
+                  <option value="Business Class" className={optionBg}>Business Class</option>
+                  <option value="First Class" className={optionBg}>First Class</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Company Code (Corporate / Travel Agency) */}
+            {isCompany && (
+              <div>
+                <label className={labelClass}>Client Company Code</label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.companyCode}
+                    onChange={(e) => handleCompanyCode(e.target.value)}
+                    placeholder="e.g. CATHAY01"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10 uppercase'}
+                  />
+                </div>
+                {companyName && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs" style={{ color: flightFoundColorS1 }}>
+                    <CheckCircle className="w-3 h-3" />
+                    <span>{companyName}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Booking Summary ────────────────────────────────────────────── */}
+          <BookingSummaryCard />
+
+          {/* Navigation */}
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/mybooking')}
+              className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80"
+              style={{ ...secondaryBtnStyle, color: colors.text }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!step1FlightValid}
+              className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
+            >
+              Next: Guest Selection
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {!step1FlightValid && (
+            <div
+              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
+              style={{ background: hintBgS1, border: hintBorderS1 }}
+            >
+              <Info className="w-4 h-4 flex-shrink-0" style={{ color: hintColorS1 }} />
+              <p className="text-xs text-center" style={{ color: hintColorS1 }}>
+                {step1FlightHintMsg}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* History Dialog */}
+        {showHistoryDialog && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl overflow-hidden"
+              style={{
+                background: isDark ? '#0a1929' : '#FFFFFF',
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)',
+                boxShadow: '0 30px 70px rgba(0,0,0,0.5)',
+              }}
+            >
+              <div
+                className="flex items-center justify-between px-5 py-4"
+                style={{
+                  background: isDark
+                    ? 'linear-gradient(90deg,rgba(220,181,21,0.2) 0%,rgba(180,140,10,0.1) 100%)'
+                    : 'linear-gradient(90deg,rgba(220,181,21,0.18) 0%,rgba(180,140,10,0.08) 100%)',
+                  borderBottom: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.3)',
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ background: 'rgba(220,181,21,0.2)', border: '1px solid rgba(220,181,21,0.35)' }}
+                  >
+                    <History className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
+                  </div>
+                  <div>
+                    <div className="text-sm" style={textPrimary}>Use History as New Booking</div>
+                    <div className="text-xs" style={textMuted}>Select a past booking to pre-fill this form</div>
+                  </div>
+                </div>
+                <button type="button" onClick={handleCloseHistoryDialog} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/10">
+                  <X className="w-4 h-4" style={textMuted} />
+                </button>
+              </div>
+              <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+                {HISTORY_BOOKINGS.map((b) => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handleSelectHistory(b)}
+                    className="w-full text-left rounded-xl px-4 py-3.5 transition-all hover:opacity-80"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)',
+                      border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)',
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm" style={textPrimary}>{b.bookingRef}</span>
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full"
+                            style={{
+                              background: b.status === 'confirmed' ? 'rgba(220,181,21,0.15)' : 'rgba(16,185,129,0.15)',
+                              color: b.status === 'confirmed' ? 'rgb(220,181,21)' : 'rgb(16,185,129)',
+                              border: b.status === 'confirmed' ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(16,185,129,0.3)',
+                            }}
+                          >
+                            {b.status}
+                          </span>
+                        </div>
+                        <div className="text-xs" style={textMuted}>{b.flightNumber} · {b.flightType} · {b.flightClass}</div>
+                        <div className="text-xs mt-1" style={textMuted}>
+                          Suite: {b.premiereSuites} · VIP: {b.premiereVipPassengers + b.vipPassengers} · Guests: {b.premiereNonFlyingGuests + b.nonFlyingGuests}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1" style={textMuted} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </form>
+      {stepLoadingOverlay}
+      </>
+    );
+  }
+
+  // ── Step 2 render (Suite & Guest Selection) ───────────────────────────────
+  if (currentStep === 2) {
   // Pre-computed styles to avoid nested ternaries inside JSX style props
   const noAddonContainerBg = noAddonRequired
     ? (isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.12)')
@@ -3427,10 +4130,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const noAddonToggleBg = noAddonRequired
     ? 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)'
     : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(180,178,168,0.5)');
-  const summaryCardBg = isDark ? 'rgba(0,0,0,0.45)' : 'rgba(231,230,221,0.6)';
-  const summaryCardBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
-  const totalGuestsBorderTop = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)';
-
   // Pre-compute helperText values to avoid chained ternaries and complex template literals in JSX props
   let premiereVipHelperText: string | undefined = undefined;
   if (form.premiereSuites === 0) {
@@ -3457,47 +4156,26 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     loungeNfgHelperText = 'Maximum 3 non-flying guests per booking';
   }
 
+  const gradientTextS2: React.CSSProperties = {
+    background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)',
+    WebkitBackgroundClip: 'text',
+    WebkitTextFillColor: 'transparent',
+    backgroundClip: 'text',
+  };
+
   return (
-    <form onSubmit={handleNextStep}>
+    <>
+    <form onSubmit={handleNextFromStep2}>
       <div className="space-y-4 pb-8">
-        {/* Page header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl" style={textPrimary}>New Booking</h1>
-            <p className="text-xs mt-1" style={textMuted}>
-              Reserve your lounge experience at Hong Kong International Airport
-            </p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {isTravelAgency && (
-              <div
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                style={{ 
-                  background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.2)', 
-                  border: isDark ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(16,185,129,0.5)' 
-                }}
-              >
-                <BadgeCheck className="w-3.5 h-3.5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>TA Rates Active</span>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleOpenHistoryDialog}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg,rgba(220,181,21,0.2) 0%,rgba(180,140,10,0.12) 100%)'
-                  : 'linear-gradient(135deg,rgba(220,181,21,0.25) 0%,rgba(180,140,10,0.15) 100%)',
-                border: isDark ? '1px solid rgba(220,181,21,0.4)' : '1px solid rgba(220,181,21,0.5)',
-                color: isDark ? 'rgb(220,181,21)' : 'rgb(160,128,8)',
-              }}
-            >
-              <History className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Use History as New Booking</span>
-              <span className="sm:hidden">Use History</span>
-            </button>
-          </div>
+        {/* Progress bar */}
+        <BookingStepProgress skipAddons={noAddonRequired} />
+
+        {/* Step 2 header */}
+        <div>
+          <h1 className="text-xl" style={gradientTextS2}>Step 2: Suite &amp; Guest Selection</h1>
+          <p className="text-xs mt-1" style={textMuted}>
+            Select lounge areas, add VIP passengers and non-flying guests
+          </p>
         </div>
 
         {/* ── Book for Member Banner ──────────────────────────────────────── */}
@@ -3530,144 +4208,66 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
         )}
 
-        {/* ── 1. Flight Information ───────────────────────────────────────── */}
-        <div className="p-5" style={card}>
-          <SectionHeader title="Flight Information" onQuickFill={handleQuickFill} />
-
-          {/* Flight Type toggle */}
-          <div className="mb-4">
-            <label className={labelClass}>Flight Type *</label>
-            <div className="grid grid-cols-3 gap-3">
-              {(['Arrival', 'Departure', 'Transition'] as const).map((type) => {
-                const active = form.flightType === type;
-                const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transition' ? 'rotate(90deg)' : 'none';
-                const btnStyle = active
-                  ? { background: 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }
-                  : {
-                      background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)',
-                      border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)',
-                    };
-                const handleFlightTypeClick = () => setForm((p) => ({ ...p, flightType: type }));
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={handleFlightTypeClick}
-                    className="py-5 rounded-xl flex flex-col items-center gap-2 transition-all"
-                    style={btnStyle}
-                  >
-                    <Plane
-                      className="w-8 h-8"
-                      style={{ color: active ? '#ffffff' : colors.text, transform: planeRotation }}
-                    />
-                    <span className="text-sm" style={{ color: active ? '#ffffff' : colors.text }}>{type}</span>
-                  </button>
-                );
-              })}
+        {/* ── Flight summary (read-only recap from step 1) ───────────────── */}
+        {flightDetails && (
+          <div
+            className="rounded-xl px-4 py-3 flex items-center gap-3"
+            style={{
+              background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.1)',
+              border: isDark ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(16,185,129,0.35)',
+            }}
+          >
+            <Plane className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }} />
+            <div className="flex-1 min-w-0">
+              <span className="text-xs" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }}>
+                {form.flightNumber} · {form.flightType} · {form.flightClass}
+              </span>
+              <span className="text-xs ml-2" style={textMuted}>
+                {flightDetails.origin} → {flightDetails.destination}
+              </span>
             </div>
-          </div>
-
-          {/* Arrival Date */}
-          <div className="mb-4">
-            <label className={labelClass}>Arrival Date *</label>
-            <div className="relative">
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                required
-                style={fieldStyle}
-                className={fieldClass + ' pr-10'}
-              />
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Flight Number */}
-          <div className="mb-4">
-            <label className={labelClass}>Flight Number</label>
-            <div className="relative">
-              <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                value={form.flightNumber}
-                onChange={(e) => handleFlightNumber(e.target.value)}
-                required
-                placeholder="e.g. CX888"
-                style={fieldStyle}
-                className={fieldClass + ' pl-10 uppercase'}
-              />
-            </div>
-          </div>
-
-          {/* Flight Info Found */}
-          {flightDetails && (
-            <div
-              className="rounded-lg p-3 mb-4"
+            <button
+              type="button"
+              onClick={handleBackToStep1}
+              className="text-xs px-2.5 py-1 rounded-lg transition-all hover:opacity-80 flex-shrink-0"
               style={{
-                background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.15)',
-                border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(16,185,129,0.4)',
+                background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(231,230,221,0.7)',
+                color: colors.textMuted,
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)',
               }}
             >
-              <div className="flex items-center gap-1.5 text-xs mb-2" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }}>
-                <CheckCircle className="w-3.5 h-3.5" />
-                <span>Flight Information Found</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-1 text-xs">
-                <div>
-                  <span style={textMuted}>Origin: </span>
-                  <span style={textPrimary}>{flightDetails.origin}</span>
-                </div>
-                <div>
-                  <span style={textMuted}>Destination: </span>
-                  <span style={textPrimary}>{flightDetails.destination}</span>
-                </div>
-                <div>
-                  <span style={textMuted}>Arrival Time: </span>
-                  <span style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }}>{flightDetails.arrivalTime}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Destination (for Departure and Transition) */}
-          {(form.flightType === 'Departure' || form.flightType === 'Transition') && (
-            <div className="mb-4">
-              <label className={labelClass}>Destination *</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={form.destination}
-                  onChange={(e) => setForm((p) => ({ ...p, destination: e.target.value }))}
-                  required
-                  placeholder="e.g. London Heathrow (LHR)"
-                  style={fieldStyle}
-                  className={fieldClass + ' pl-10'}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Flight Class */}
-          <div>
-            <label className={labelClass}>Flight Class of Main VIP Passenger *</label>
-            <div className="relative">
-              <select
-                value={form.flightClass}
-                onChange={(e) => setForm((p) => ({ ...p, flightClass: e.target.value }))}
-                required
-                style={fieldStyle}
-                className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
-              >
-                <option value="Economy Class" className={optionBg}>Economy Class</option>
-                <option value="Business Class" className={optionBg}>Business Class</option>
-                <option value="First Class" className={optionBg}>First Class</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
+              Edit
+            </button>
           </div>
-        </div>
+        )}
+
+        {/* ── PLACEHOLDER to satisfy removed Flight Number section ─────── */}
+        {!flightDetails && form.flightNumber && (
+          <div
+            className="rounded-xl px-4 py-3 flex items-center gap-3"
+            style={{
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)',
+              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)',
+            }}
+          >
+            <Plane className="w-4 h-4 flex-shrink-0" style={textMuted} />
+            <span className="text-xs flex-1" style={textMuted}>
+              {form.flightNumber} · {form.flightType} · {form.flightClass}
+            </span>
+            <button
+              type="button"
+              onClick={handleBackToStep1}
+              className="text-xs px-2.5 py-1 rounded-lg transition-all hover:opacity-80 flex-shrink-0"
+              style={{
+                background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(231,230,221,0.7)',
+                color: colors.textMuted,
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)',
+              }}
+            >
+              Edit
+            </button>
+          </div>
+        )}
 
         {/* ── 2. Premiere Suite ──────────────────────────────────────────── */}
         <div className="p-5" style={card}>
@@ -4065,49 +4665,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         })}
 
         {/* ── 7. Booking Summary ─────────────────────────────────────────── */}
-        <div
-          className="rounded-xl overflow-hidden"
-          style={{ background: summaryCardBg, border: summaryCardBorder }}
-        >
-          <div className="p-5">
-            <div className="text-sm mb-3" style={textPrimary}>Booking Summary</div>
-            <div className={`divide-y ${isDark ? 'divide-white/[0.06]' : 'divide-[rgba(200,199,190,0.3)]'}`}>
-              <SummaryRow label="Flight Number" value={form.flightNumber || '—'} />
-              <SummaryRow label="Flight Class" value={form.flightClass} />
-              <SummaryRow
-                label="Route"
-                value={
-                  flightDetails
-                    ? `${flightDetails.origin} → ${flightDetails.destination}`
-                    : '—'
-                }
-              />
-              {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
-              <SummaryRow label="Arrival Date" value={formatDate(form.date)} />
-              <SummaryRow label="Arrival Time" value={flightDetails?.arrivalTime ?? '—'} />
-              <SummaryRow label="Flight Type" value={form.flightType} />
-              <SummaryRow label="Premiere Suites" value={String(form.premiereSuites)} />
-              <SummaryRow label="Premiere VIP Passengers" value={String(form.premiereVipPassengers)} />
-              <SummaryRow label="Premiere Non-Flying Guests" value={String(form.premiereNonFlyingGuests)} />
-              <SummaryRow label="Lounge VIP Passengers" value={String(form.vipPassengers)} />
-              <SummaryRow label="Lounge Non-Flying Guests" value={String(form.nonFlyingGuests)} />
-              {vipData.length > 0 && <SummaryRow label="VIP Contact" value={vipContact} />}
-            </div>
-          </div>
-
-          {/* Total guests */}
-          <div
-            className="px-5 py-4 flex items-center justify-between"
-            style={{
-              background:
-                'linear-gradient(90deg, rgba(209, 175, 125, 0.18) 0%, rgba(167, 139, 100, 0.18) 100%)',
-              borderTop: totalGuestsBorderTop,
-            }}
-          >
-            <span className="text-sm" style={textPrimary}>Total Guests</span>
-            <span className="text-2xl tabular-nums" style={textPrimary}>{totalGuests}</span>
-          </div>
-        </div>
+        <BookingSummaryCard />
 
         {/* ── 8. Action buttons ──────────────────────────────────────────── */}
         {/* No add-on service toggle */}
@@ -4494,5 +5052,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       )}
     </form>
+    {stepLoadingOverlay}
+    </>
   );
+  } // end if (currentStep === 2)
+
+  return null;
 }
