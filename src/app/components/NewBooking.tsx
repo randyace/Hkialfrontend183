@@ -2966,9 +2966,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             )}
           </div>
 
-          {/* ── Booking Summary ─────────────────────────────────────────────── */}
-          <BookingSummaryCard />
-
           {/* ── Navigation Buttons ──────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
             <button
@@ -3637,9 +3634,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           </div>
 
-          {/* ── Booking Summary ─────────────────────────────────────────────── */}
-          <BookingSummaryCard />
-
           {/* ── Complete Booking Summary ────────────────────────────────── */}
           <div
             className="rounded-xl overflow-hidden"
@@ -4020,9 +4014,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
           </div>
-
-          {/* ── Booking Summary ────────────────────────────────────────────── */}
-          <BookingSummaryCard />
 
           {/* Navigation */}
           <div className="grid grid-cols-2 gap-4">
@@ -4697,9 +4688,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           );
         })}
-
-        {/* ── 7. Booking Summary ─────────────────────────────────────────── */}
-        <BookingSummaryCard />
 
         {/* ── 8. Action buttons ──────────────────────────────────────────── */}
         {/* No add-on service toggle */}

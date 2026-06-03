@@ -100,7 +100,7 @@ export function AppLayout() {
       />
 
       {/* Main content */}
-      <main className="relative z-10 md:ml-64 min-h-screen p-4 md:p-6 pt-14 md:pt-0 overflow-y-auto">
+      <main className="relative z-10 md:ml-64 min-h-screen p-4 md:p-6 pt-14 md:pt-5 overflow-y-auto">
         <Outlet />
       </main>
 
