@@ -28,6 +28,25 @@ interface MemberDashboardProps {
     membershipExpiryDate?: string;
     membershipStartDate?: string;
   };
+  // Optional real-data overrides. The parent DashboardContainer fetches
+  // /member/bookings and passes the derived arrays, so the dashboard
+  // shows real data when these are provided. The legacy figma prototype
+  // (no real API) renders the hardcoded fallback arrays below. The
+  // figma code base can either pass these or omit them — the component
+  // is fully backwards-compatible.
+  upcomingBookings?: Array<{
+    id: number;
+    lounge: string;
+    date: string;
+    time: string;
+    flight?: string;
+    guests?: number;
+    status?: string;
+  }>;
+  recentActivity?: Array<{ date: string; lounge: string; duration: string }>;
+  quickStats?: Array<{ label: string; value: string; icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; color?: string }>;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 // ── Membership status helper ───────────────────────────────────────────────
@@ -62,7 +81,7 @@ function getMembershipStatus(expiryDate: string) {
   };
 }
 
-export function MemberDashboard({ memberData: propMemberData }: MemberDashboardProps) {
+export function MemberDashboard({ memberData: propMemberData, upcomingBookings: propUpcoming, recentActivity: propRecent, quickStats: propQuickStats, isLoading: propIsLoading, error: propError }: MemberDashboardProps) {
   const { colors, glassStyle, mode } = useTheme();
   const [memberData, setMemberData] = useState({
     name: propMemberData.name || 'Sarah Chen',
@@ -99,38 +118,59 @@ export function MemberDashboard({ memberData: propMemberData }: MemberDashboardP
     });
   }, [propMemberData]);
 
-  const [upcomingBookings, setUpcomingBookings] = useState([
-    {
-      id: 1,
-      lounge: 'The Wing First Class Lounge',
-      date: '2026-01-12',
-      time: '14:30',
-      flight: 'CX 888 to London',
-      guests: 1,
-      status: 'confirmed'
-    },
-    {
-      id: 2,
-      lounge: 'The Pier Business Class Lounge',
-      date: '2026-01-20',
-      time: '10:15',
-      flight: 'CX 250 to Tokyo',
-      guests: 0,
-      status: 'confirmed'
-    }
-  ]);
+  const [upcomingBookings, setUpcomingBookings] = useState(
+    propUpcoming ?? [
+      {
+        id: 1,
+        lounge: 'The Wing First Class Lounge',
+        date: '2026-01-12',
+        time: '14:30',
+        flight: 'CX 888 to London',
+        guests: 1,
+        status: 'confirmed'
+      },
+      {
+        id: 2,
+        lounge: 'The Pier Business Class Lounge',
+        date: '2026-01-20',
+        time: '10:15',
+        flight: 'CX 250 to Tokyo',
+        guests: 0,
+        status: 'confirmed'
+      }
+    ]
+  );
 
-  const [quickStats, setQuickStats] = useState([
-    { label: 'Visits This Month', value: '4', icon: Clock, color: 'purple' },
-    { label: 'Total Bookings', value: '47', icon: Calendar, color: 'teal' }
-  ]);
+  const [quickStats, setQuickStats] = useState(
+    propQuickStats ?? [
+      { label: 'Visits This Month', value: '4', icon: Clock, color: 'purple' },
+      { label: 'Total Bookings', value: '47', icon: Calendar, color: 'teal' }
+    ]
+  );
 
-  const [recentActivity, setRecentActivity] = useState([
-    { date: '2026-01-05', lounge: 'The Wing', duration: '3h 20m' },
-    { date: '2025-12-28', lounge: 'The Pier', duration: '2h 45m' },
-    { date: '2025-12-15', lounge: 'The Cabin', duration: '1h 30m' },
-    { date: '2025-12-08', lounge: 'The Arrival', duration: '2h 10m' }
-  ]);
+  const [recentActivity, setRecentActivity] = useState(
+    propRecent ?? [
+      { date: '2026-01-05', lounge: 'The Wing', duration: '3h 20m' },
+      { date: '2025-12-28', lounge: 'The Pier', duration: '2h 45m' },
+      { date: '2025-12-15', lounge: 'The Cabin', duration: '1h 30m' },
+      { date: '2025-12-08', lounge: 'The Arrival', duration: '2h 10m' }
+    ]
+  );
+
+  // When the parent container provides fresh real data, sync it into local
+  // state. The container now fetches /member/bookings and passes the
+  // derived arrays, so this is what makes the dashboard show real data
+  // instead of the legacy hardcoded mocks. The figma code base (no real
+  // data) just doesn't pass these props, so the fallback is rendered.
+  useEffect(() => {
+    if (propUpcoming) setUpcomingBookings(propUpcoming);
+  }, [propUpcoming]);
+  useEffect(() => {
+    if (propRecent) setRecentActivity(propRecent);
+  }, [propRecent]);
+  useEffect(() => {
+    if (propQuickStats) setQuickStats(propQuickStats);
+  }, [propQuickStats]);
 
   const getTierGradient = (tier: string) => {
     switch(tier) {

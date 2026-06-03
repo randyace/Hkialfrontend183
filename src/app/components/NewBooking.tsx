@@ -76,13 +76,19 @@ interface NewBookingProps {
   prefillMember?: BookForMemberData | null;
   // Container-provided submission handlers
   // onSubmit receives the view's complete internal form state so container can build the API payload
-  // formData includes: { form, step2Form, vipData, nonFlyingGuestData, memberData }
+  // formData includes: { form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails }
+  // flightDetails is the looked-up origin/destination from the flight
+  // database (e.g. { origin: 'Hong Kong (HKG)', destination: 'London
+  // Heathrow (LHR)' }). Optional because the figma code base's onSubmit
+  // signature doesn't include it; the parent's container ignores it
+  // when not provided.
   onSubmit?: (formData: {
     form: Record<string, unknown>;
     step2Form: Record<string, unknown>;
     vipData: Array<Record<string, unknown>>;
     nonFlyingGuestData: Array<Record<string, unknown>>;
     memberData: { name: string; memberType: string };
+    flightDetails?: { origin?: string; destination?: string } | null;
   }) => void;
   isSubmitting?: boolean;
   error?: string;
@@ -985,7 +991,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     billingReference: memberData.memberType === 'Travel Agency' ? TA_AGENCY_CODE : '',
   });
 
-  const totalVip = form.premiereSuites + form.premiereVipPassengers + form.vipPassengers;
+  // totalVip is the count of VIP passenger info boxes to render. Each box
+  // represents one VIP passenger — the suites themselves don't get a box.
+  // Bug fix: the old formula was `premiereSuites + premiereVipPassengers +
+  // vipPassengers`, which double-counted each suite as a VIP. Result: 1
+  // Premiere Suite + 1 VIP Passenger rendered 2 boxes instead of 1.
+  const totalVip = form.premiereVipPassengers + form.vipPassengers;
   const totalGuests =
     form.premiereVipPassengers +
     form.premiereNonFlyingGuests +
@@ -1220,10 +1231,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       flightClass: 'Business Class',
       companyCode: isCompany ? 'CATHAY01' : '',
       destination: '',
+      // Quick Fill needs to populate these because the backend validates
+      // lounge/terminal as required. Look up the lounge/terminal from the
+      // flight database, falling back to a generic lounge so the submit
+      // doesn't fail with 422.
+      lounge: (flightDatabase[randomFlight]?.lounge) || 'The Wing First Class Lounge',
+      terminal: (flightDatabase[randomFlight]?.terminal) || 'Terminal 1',
       premiereSuites: 1,
+      // Keep the Premiere/Lounge VIP counts in sync with the number of
+      // hardcoded vipData entries below (2 Premiere VIPs + 3 Lounge VIPs = 5
+      // total). Previously this was 2 + 2, but vipData was hardcoded to 5
+      // entries, which (after the totalVip fix) caused a "Delete VIP" dialog
+      // to appear. Now they match exactly.
       premiereVipPassengers: 2,
       premiereNonFlyingGuests: 0,
-      vipPassengers: 2,
+      vipPassengers: 3,
       nonFlyingGuests: 2,
     });
     setFlightDetails(flightDatabase[randomFlight]);
@@ -1457,7 +1479,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const handleFinalConfirm = () => {
     // Delegate to container — container handles API call, navigation, and error/success state
     if (onSubmit) {
-      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData });
+      // Include flightDetails (origin/destination) so the API service can save
+      // them to the backend. The form only holds flightNumber, not the looked-up
+      // airport codes from the flight database.
+      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
       const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
@@ -4269,103 +4294,112 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
         )}
 
-        {/* ── 2. Premiere Suite ──────────────────────────────────────────── */}
-        <div className="p-5" style={card}>
-          <SectionHeader
-            title="Premiere Suite"
-            subtitle="Includes stays equivalent to exclusive benefits"
-            onQuickFill={handleQuickFill}
-          />
+        {/* ── 2 & 4. Premiere Suite + Lounge Deluxe — 2-col on desktop ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          <div className="mb-4">
-            <label className={labelClass}>Number of Premiere Suite</label>
-            <StepperCard
-              icon={<Building className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+          {/* Premiere Suite */}
+          <div className="p-5" style={card}>
+            <SectionHeader
               title="Premiere Suite"
-              subtitle="Private suite with exclusive benefits"
-              value={form.premiereSuites}
-              onDecrement={() => updateCount('premiereSuites', -1)}
-              onIncrement={() => updateCount('premiereSuites', 1)}
+              subtitle="Includes stays equivalent to exclusive benefits"
+              onQuickFill={handleQuickFill}
             />
+
+            <div className="mb-4">
+              <label className={labelClass}>Number of Premiere Suite</label>
+              <StepperCard
+                icon={<Building className="w-5 h-5 text-white" />}
+                iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                title="Premiere Suite"
+                subtitle="Private suite with exclusive benefits"
+                value={form.premiereSuites}
+                onDecrement={() => updateCount('premiereSuites', -1)}
+                onIncrement={() => updateCount('premiereSuites', 1)}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className={labelClass}>Number of VIP Passengers in Premiere Suite</label>
+              <StepperCard
+                icon={<Users className="w-5 h-5 text-white" />}
+                iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                title="VIP Passengers"
+                subtitle="Select your VIP Passengers"
+                value={form.premiereVipPassengers}
+                onDecrement={() => updateCount('premiereVipPassengers', -1)}
+                onIncrement={() => updateCount('premiereVipPassengers', 1)}
+                incrementDisabled={
+                  form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
+                }
+                helperText={premiereVipHelperText}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Number of Non Flying Guests in Premiere Suite</label>
+              <StepperCard
+                icon={<User className="w-5 h-5 text-white" />}
+                iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                title="Non-Flying Guests"
+                subtitle="Select non-flying Guests"
+                value={form.premiereNonFlyingGuests}
+                onDecrement={() => updateCount('premiereNonFlyingGuests', -1)}
+                onIncrement={() => updateCount('premiereNonFlyingGuests', 1)}
+                incrementDisabled={
+                  form.premiereVipPassengers === 0 ||
+                  form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
+                }
+                helperText={premiereNfgHelperText}
+              />
+            </div>
           </div>
 
-          <div className="mb-4">
-            <label className={labelClass}>Number of VIP Passengers in Premiere Suite</label>
-            <StepperCard
-              icon={<Users className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="VIP Passengers"
-              subtitle="Select your VIP Passengers"
-              value={form.premiereVipPassengers}
-              onDecrement={() => updateCount('premiereVipPassengers', -1)}
-              onIncrement={() => updateCount('premiereVipPassengers', 1)}
-              incrementDisabled={
-                form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
-              }
-              helperText={premiereVipHelperText}
+          {/* Lounge Deluxe */}
+          <div className="p-5" style={card}>
+            <SectionHeader
+              title="Lounge Deluxe"
+              subtitle="Exclusive lounge for VIP passengers and guests"
+              onQuickFill={handleLoungeDeluxeQuickFill}
             />
+
+            <div className="mb-4">
+              <label className={labelClass}>Number of VIP Passengers in Lounge Deluxe</label>
+              <StepperCard
+                icon={<Users className="w-5 h-5 text-white" />}
+                iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                title="VIP Passengers"
+                subtitle="Select your VIP Passengers"
+                value={form.vipPassengers}
+                onDecrement={() => updateCount('vipPassengers', -1)}
+                onIncrement={() => updateCount('vipPassengers', 1)}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Number of Non Flying Guests in Lounge Deluxe</label>
+              <StepperCard
+                icon={<User className="w-5 h-5 text-white" />}
+                iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                title="Non-Flying Guests"
+                subtitle="Select non-flying Guests"
+                value={form.nonFlyingGuests}
+                onDecrement={() => updateCount('nonFlyingGuests', -1)}
+                onIncrement={() => updateCount('nonFlyingGuests', 1)}
+                incrementDisabled={form.vipPassengers === 0 || form.nonFlyingGuests >= 3}
+                helperText={loungeNfgHelperText}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className={labelClass}>Number of Non Flying Guests in Premiere Suite</label>
-            <StepperCard
-              icon={<User className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Non-Flying Guests"
-              subtitle="Select non-flying Guests"
-              value={form.premiereNonFlyingGuests}
-              onDecrement={() => updateCount('premiereNonFlyingGuests', -1)}
-              onIncrement={() => updateCount('premiereNonFlyingGuests', 1)}
-              incrementDisabled={
-                form.premiereVipPassengers === 0 || 
-                form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
-              }
-              helperText={premiereNfgHelperText}
-            />
-          </div>
-        </div>
-
-        {/* ── 4. Lounge Deluxe ───────────────────────────────────────────── */}
-        <div className="p-5" style={card}>
-          <SectionHeader
-            title="Lounge Deluxe"
-            subtitle="Exclusive lounge for VIP passengers and guests"
-            onQuickFill={handleLoungeDeluxeQuickFill}
-          />
-
-          <div className="mb-4">
-            <label className={labelClass}>Number of VIP Passengers in Lounge Deluxe</label>
-            <StepperCard
-              icon={<Users className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="VIP Passengers"
-              subtitle="Select your VIP Passengers"
-              value={form.vipPassengers}
-              onDecrement={() => updateCount('vipPassengers', -1)}
-              onIncrement={() => updateCount('vipPassengers', 1)}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Number of Non Flying Guests in Lounge Deluxe</label>
-            <StepperCard
-              icon={<User className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Non-Flying Guests"
-              subtitle="Select non-flying Guests"
-              value={form.nonFlyingGuests}
-              onDecrement={() => updateCount('nonFlyingGuests', -1)}
-              onIncrement={() => updateCount('nonFlyingGuests', 1)}
-              incrementDisabled={form.vipPassengers === 0 || form.nonFlyingGuests >= 3}
-              helperText={loungeNfgHelperText
-              }
-            />
-          </div>
         </div>
 
         {/* ── 5. VIP Passenger Information sections ──────────────────────── */}
-        {vipData.map((passenger, index) => {
+        {/* Cap the rendered boxes to `totalVip` so the form always shows
+            exactly the right number of boxes for the configured VIP passenger
+            counts. If vipData has extra entries (e.g. leftover from Quick
+            Fill's hardcoded 5 entries when totalVip is now 4), they are
+            hidden from the UI but kept in state for user data preservation. */}
+        {vipData.slice(0, totalVip).map((passenger, index) => {
           const premiereSuiteEnd = form.premiereSuites;
           const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
 
