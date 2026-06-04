@@ -89,10 +89,13 @@ interface NewBookingProps {
     nonFlyingGuestData: Array<Record<string, unknown>>;
     memberData: { name: string; memberType: string };
     flightDetails?: { origin?: string; destination?: string } | null;
-  }) => void;
+  }) => void | Promise<void>;
   isSubmitting?: boolean;
   error?: string;
   successRef?: string;
+  /** Container-tracked security escort (Step 3 toggle); kept in sync with step2Form.securityService */
+  securityEscortQuantity?: number;
+  onSecurityEscortChange?: (quantity: number) => void;
 }
 
 interface VipPassenger {
@@ -477,7 +480,7 @@ function ReviewSection({
 }: {
   icon: React.ReactNode;
   iconBg: string;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { isDark, textPrimary, reviewSectionBg, reviewHeaderBg } = useThemedStyles();
@@ -495,7 +498,9 @@ function ReviewSection({
         >
           {icon}
         </div>
-        <span className="text-sm" style={textPrimary}>{title}</span>
+        <div className="text-sm flex items-center gap-2 flex-wrap min-w-0" style={textPrimary}>
+          {title}
+        </div>
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>
@@ -854,7 +859,15 @@ const HISTORY_BOOKINGS = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting }: NewBookingProps) {
+export function NewBooking({
+  setActiveTab,
+  memberData,
+  prefillMember: prefillMemberProp,
+  onSubmit,
+  isSubmitting,
+  securityEscortQuantity = 0,
+  onSecurityEscortChange,
+}: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -915,6 +928,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [bookingVouchersToUse, setBookingVouchersToUse] = useState(0);
   const [suiteVouchersToUse, setSuiteVouchersToUse] = useState(0);
   const [stepLoading, setStepLoading] = useState(false);
+  const [confirmPending, setConfirmPending] = useState(false);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setConfirmPending(false);
+    }
+  }, [isSubmitting]);
 
   // ── Derived member flags (computed before any state that references them) ──
   const isCompany      = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
@@ -991,6 +1011,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     paymentMethod: memberData.memberType === 'Travel Agency' ? 'direct-billing' : 'credit-card',
     billingReference: memberData.memberType === 'Travel Agency' ? TA_AGENCY_CODE : '',
   });
+
+  const securitySelected =
+    step2Form.securityService || securityEscortQuantity > 0;
+
+  const updateSecurityService = (enabled: boolean) => {
+    setStep2Form((p) => ({ ...p, securityService: enabled }));
+    onSecurityEscortChange?.(enabled ? 1 : 0);
+  };
+
+  useEffect(() => {
+    if (securityEscortQuantity > 0 && !step2Form.securityService) {
+      setStep2Form((p) => ({ ...p, securityService: true }));
+    }
+  }, [securityEscortQuantity, step2Form.securityService]);
 
   // totalVip is the count of VIP passenger info boxes to render. Each box
   // represents one VIP passenger — the suites themselves don't get a box.
@@ -1420,6 +1454,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       paymentMethod: isTravelAgency ? 'direct-billing' : 'credit-card',
       billingReference: isTravelAgency ? TA_AGENCY_CODE : '',
     });
+    onSecurityEscortChange?.(1);
   };
 
   const updateStep2Count = (
@@ -1492,14 +1527,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     advanceStep(5);
   };
 
-  const handleFinalConfirm = () => {
+  const handleFinalConfirm = async () => {
+    if (confirmPending || isSubmitting) return;
     // Delegate to container — container handles API call, navigation, and error/success state
     if (onSubmit) {
-      // Include flightDetails (origin/destination) so the API service can save
-      // them to the backend. The form only holds flightNumber, not the looked-up
-      // airport codes from the flight database.
-      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
-    } else {
+      setConfirmPending(true);
+      try {
+        // Include flightDetails (origin/destination) so the API service can save
+        // them to the backend. The form only holds flightNumber, not the looked-up
+        // airport codes from the flight database.
+        await Promise.resolve(
+          onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails }),
+        );
+      } catch {
+        setConfirmPending(false);
+      }
+      return;
+    }
+    {
       // Fallback: generate mock booking number (Figma demo site only, no container)
       const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
       const flightPrefix = flightPrefixMap[form.flightType] || 'D';
@@ -1783,7 +1828,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       form.premiereSuites > 0 ||
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
+      step2Form.wheelchairService > 0 ||
+      securitySelected;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -1871,6 +1917,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</span>
                   </div>
+                </div>
+              )}
+              {securitySelected && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Security Escort Service</span>
+                  <span className="text-xs font-medium" style={textPrimary}>To be confirmed</span>
                 </div>
               )}
               <div
@@ -1986,6 +2038,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step 5: Final Review ──────────────────────────────────────────────────
   if (currentStep === 5) {
+    const confirmBusy = Boolean(isSubmitting || confirmPending);
 
     const addonOriginal =
       step2Form.loungeExtension * 500 +
@@ -1999,7 +2052,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const hasAddons =
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
+      step2Form.wheelchairService > 0 ||
+      securitySelected;
     const hasSuiteVouchers = availableSuiteVouchers > 0;
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
@@ -2184,30 +2238,97 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </ReviewSection>
 
         {/* ── VIP Passengers ─────────────────────────────────────────────── */}
-        {vipData.map((p, i) => (
-          <ReviewSection
-            key={i}
-            icon={<User className="w-4 h-4 text-white" />}
-            iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title={`VIP Passenger #${i + 1}`}
-          >
-            <ReviewGrid>
-              <ReviewField
-                label="Full Name"
-                value={`${p.vipTitle} ${p.vipFirstName} ${p.vipLastName}`.trim() || '—'}
-              />
-              <ReviewField label="Travel Document No." value={p.vipTravelDocNo || '—'} />
+        {vipData.slice(0, totalVip).map((p, i) => {
+          const isPremiereSuite = i < form.premiereVipPassengers;
+          const segmentBadge = isPremiereSuite ? 'Suite' : 'Lounge Deluxe';
+          const segmentBadgeStyle: React.CSSProperties = isPremiereSuite
+            ? {
+                background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
+                color: isDark ? '#c084fc' : '#7e22ce',
+                border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
+              }
+            : {
+                background: isDark ? 'rgba(59,130,246,0.18)' : 'rgba(37,99,235,0.12)',
+                color: isDark ? '#60a5fa' : '#1d4ed8',
+                border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : 'rgba(29,78,216,0.4)'}`,
+              };
 
-              <ReviewField label="Age Group" value={p.vipAgeGroup} />
-              {p.vipBirthday && (
-                <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
-              )}
-              {p.foodAllergies && (
-                <ReviewField label="Food Allergies" value={p.foodAllergies} />
-              )}
-            </ReviewGrid>
-          </ReviewSection>
-        ))}
+          return (
+            <ReviewSection
+              key={`vip-${i}`}
+              icon={<User className="w-4 h-4 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title={
+                <>
+                  <span>VIP Passenger #{i + 1}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-normal" style={segmentBadgeStyle}>
+                    {segmentBadge}
+                  </span>
+                </>
+              }
+            >
+              <ReviewGrid>
+                <ReviewField
+                  label="Full Name"
+                  value={`${p.vipTitle} ${p.vipFirstName} ${p.vipLastName}`.trim() || '—'}
+                />
+                <ReviewField label="Travel Document No." value={p.vipTravelDocNo || '—'} />
+
+                <ReviewField label="Age Group" value={p.vipAgeGroup || '—'} />
+                {p.vipBirthday && (
+                  <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
+                )}
+                {p.foodAllergies && (
+                  <ReviewField label="Food Allergies" value={p.foodAllergies} />
+                )}
+              </ReviewGrid>
+            </ReviewSection>
+          );
+        })}
+
+        {/* ── Non-Flying Guests ──────────────────────────────────────────── */}
+        {nonFlyingGuestData.slice(0, totalNonFlying).map((guest, i) => {
+          const isPremiereSuite = i < form.premiereNonFlyingGuests;
+          const segmentBadge = isPremiereSuite ? 'Suite' : 'Lounge Deluxe';
+          const segmentBadgeStyle: React.CSSProperties = isPremiereSuite
+            ? {
+                background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
+                color: isDark ? '#c084fc' : '#7e22ce',
+                border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
+              }
+            : {
+                background: isDark ? 'rgba(59,130,246,0.18)' : 'rgba(37,99,235,0.12)',
+                color: isDark ? '#60a5fa' : '#1d4ed8',
+                border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : 'rgba(29,78,216,0.4)'}`,
+              };
+
+          return (
+            <ReviewSection
+              key={`nfg-${i}`}
+              icon={<Users className="w-4 h-4 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title={
+                <>
+                  <span>Non-Flying Guest #{i + 1}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-normal" style={segmentBadgeStyle}>
+                    {segmentBadge}
+                  </span>
+                </>
+              }
+            >
+              <ReviewGrid>
+                <ReviewField
+                  label="Full Name"
+                  value={`${guest.guestTitle} ${guest.guestFirstName} ${guest.guestLastName}`.trim() || '—'}
+                />
+                <ReviewField label="Age Group" value={guest.guestAgeGroup || '—'} />
+                {guest.foodAllergies && (
+                  <ReviewField label="Food Allergies" value={guest.foodAllergies} />
+                )}
+              </ReviewGrid>
+            </ReviewSection>
+          );
+        })}
 
         {/* ── Add-on Services ────────────────────────────────────────────── */}
         {hasAddons && (
@@ -2353,6 +2474,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>
                         </>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {securitySelected && (
+                <div className="rounded-lg px-4 py-3" style={addonItemBg}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs" style={textMuted}>Security Escort Service</div>
+                        <div className="text-xs mt-1" style={textMuted}>
+                          Separate charges apply — our team will contact you for pricing.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-sm" style={textPrimary}>Yes</span>
                     </div>
                   </div>
                 </div>
@@ -2678,11 +2818,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <button
               type="button"
               onClick={handleFinalConfirm}
-              disabled={!acceptedTC || isSubmitting}
+              disabled={!acceptedTC || confirmBusy}
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              {isSubmitting ? (
+              {confirmBusy ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Processing...
@@ -2970,10 +3110,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               title="Security Escort Service"
               subtitle="Personal security personnel"
               checked={step2Form.securityService}
-              onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
+              onChange={updateSecurityService}
             />
 
-            {step2Form.securityService && (
+            {securitySelected && (
               <div
                 className="mt-3 p-3 rounded-lg text-sm"
                 style={{
@@ -3720,10 +3860,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     value={String(step2Form.wheelchairService)}
                   />
                 )}
-                {step2Form.securityService && (
+                {securitySelected && (
                   <SummaryRow
                     label="Security Escort Service"
-                    value="Yes"
+                    value="To be confirmed"
                   />
                 )}
                 {step2Form.luggageCount > 0 && (
