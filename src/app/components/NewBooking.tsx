@@ -977,10 +977,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     securityService: false,
     luggageCount: 0,
     privateTransport: 0,
-    driverName: '',
-    driverContact: '',
-    carPlateNo: '',
-    hotelName: '',
+    vehicles: [] as Array<{ driverName: string; driverContact: string; carPlateNo: string; address: string }>,
     promotionCode: '',
     contactName: memberData.name || '',
     contactEmail: '',
@@ -1391,10 +1388,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       securityService: true,
       luggageCount: 3,
       privateTransport: 1,
-      driverName: 'Michael Wong',
-      driverContact: '+852 9123 4587',
-      carPlateNo: 'HK1234',
-      hotelName: 'The Peninsula Hong Kong',
+      vehicles: [{ driverName: 'Michael Wong', driverContact: '+852 9123 4587', carPlateNo: 'HK1234', address: 'The Peninsula Hong Kong' }],
       promotionCode: isTravelAgency ? '' : 'HKIAL2024',
       contactName: memberData.name || 'Sarah Chen',
       contactEmail: 'agency.bookings@globaltravel.com.hk',
@@ -1437,6 +1431,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       if (field === 'wheelchairService') {
         const updatedNames = prev.wheelchairPassengerNames.slice(0, newValue);
         return { ...prev, wheelchairService: newValue, wheelchairPassengerNames: updatedNames };
+      }
+
+      if (field === 'privateTransport') {
+        const empty = { driverName: '', driverContact: '', carPlateNo: '', address: '' };
+        const updatedVehicles = newValue > prev.vehicles.length
+          ? [...prev.vehicles, ...Array.from({ length: newValue - prev.vehicles.length }, () => ({ ...empty }))]
+          : prev.vehicles.slice(0, newValue);
+        return { ...prev, privateTransport: newValue, vehicles: updatedVehicles };
       }
 
       return {
@@ -2442,33 +2444,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </ReviewGrid>
         </ReviewSection>
 
-        {/* ── Driver Information ─────────────────────────────────────────── */}
-        {step2Form.privateTransport > 0 && (
+        {/* ── Private Vehicles ───────────────────────────────────────────── */}
+        {step2Form.vehicles.map((vehicle, idx) => (
           <ReviewSection
-            icon={<User className="w-4 h-4 text-white" />}
+            key={idx}
+            icon={<Car className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Driver Information"
+            title={step2Form.vehicles.length > 1 ? `Vehicle ${idx + 1}` : 'Private Vehicle'}
           >
             <ReviewGrid>
-              <ReviewField label="Driver Name" value={step2Form.driverName || '—'} />
-              <ReviewField label="Driver Contact" value={step2Form.driverContact || '—'} />
+              <ReviewField label="Driver Name" value={vehicle.driverName || '—'} />
+              <ReviewField label="Driver Contact" value={vehicle.driverContact || '—'} />
+              <ReviewField label="Car Plate No." value={vehicle.carPlateNo || '—'} />
+              <ReviewField label="Address" value={vehicle.address || '—'} />
             </ReviewGrid>
           </ReviewSection>
-        )}
-
-        {/* ── Private Car ────────────────────────────────────────────────── */}
-        {step2Form.privateTransport > 0 && (
-          <ReviewSection
-            icon={<Hotel className="w-4 h-4 text-white" />}
-            iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Private Car"
-          >
-            <ReviewGrid>
-              <ReviewField label="Car Plate No." value={step2Form.carPlateNo || '—'} />
-              <ReviewField label="Address" value={step2Form.hotelName || '—'} />
-            </ReviewGrid>
-          </ReviewSection>
-        )}
+        ))}
 
         {/* ── Membership Checkout ─────────────────────────────────────────────── */}
         {useMembership && (
@@ -3151,91 +3142,95 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             />
 
             {step2Form.privateTransport > 0 && (
-              <div className="mt-4 space-y-4">
-                {/* Driver Information */}
-                <div>
-                  <div className="text-xs mb-3" style={textPrimary}>Driver Information</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Driver Name *</label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={step2Form.driverName}
-                          onChange={(e) =>
-                            setStep2Form((p) => ({ ...p, driverName: e.target.value }))
-                          }
-                          required
-                          placeholder="Driver name"
-                          style={fieldStyle}
-                          className={fieldClass + ' pl-10'}
-                        />
+              <div className="mt-4 space-y-5">
+                {step2Form.vehicles.map((vehicle, idx) => {
+                  const updateVehicle = (field: keyof typeof vehicle, value: string) => {
+                    setStep2Form((p) => {
+                      const updated = [...p.vehicles];
+                      updated[idx] = { ...updated[idx], [field]: field === 'carPlateNo' ? value.toUpperCase() : value };
+                      return { ...p, vehicles: updated };
+                    });
+                  };
+                  return (
+                    <div key={idx} className="rounded-xl p-4 space-y-4" style={{ border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)', background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(231,230,221,0.3)' }}>
+                      {step2Form.privateTransport > 1 && (
+                        <div className="text-xs font-medium" style={{ color: 'rgb(220,181,21)' }}>Vehicle {idx + 1}</div>
+                      )}
+                      {/* Driver Information */}
+                      <div>
+                        <div className="text-xs mb-3" style={textPrimary}>Driver Information</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelClass}>Driver Name *</label>
+                            <div className="relative">
+                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={vehicle.driverName}
+                                onChange={(e) => updateVehicle('driverName', e.target.value)}
+                                required
+                                placeholder="Driver name"
+                                style={fieldStyle}
+                                className={fieldClass + ' pl-10'}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Driver Contact *</label>
+                            <div className="relative">
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={vehicle.driverContact}
+                                onChange={(e) => updateVehicle('driverContact', e.target.value)}
+                                required
+                                placeholder="+852 XXXX XXXX"
+                                style={fieldStyle}
+                                className={fieldClass + ' pl-10'}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Private Car */}
+                      <div>
+                        <div className="text-xs mb-3" style={textPrimary}>Private Car</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className={labelClass}>Car Plate No. *</label>
+                            <div className="relative">
+                              <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={vehicle.carPlateNo}
+                                onChange={(e) => updateVehicle('carPlateNo', e.target.value)}
+                                required
+                                placeholder="e.g. HK1234"
+                                style={fieldStyle}
+                                className={fieldClass + ' pl-10 uppercase'}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Address *</label>
+                            <div className="relative">
+                              <Hotel className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={vehicle.address}
+                                onChange={(e) => updateVehicle('address', e.target.value)}
+                                required
+                                placeholder="Address"
+                                style={fieldStyle}
+                                className={fieldClass + ' pl-10'}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <label className={labelClass}>Driver Contact *</label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={step2Form.driverContact}
-                          onChange={(e) =>
-                            setStep2Form((p) => ({ ...p, driverContact: e.target.value }))
-                          }
-                          required
-                          placeholder="+852 XXXX XXXX"
-                          style={fieldStyle}
-                          className={fieldClass + ' pl-10'}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Private Car */}
-                <div>
-                  <div className="text-xs mb-3" style={textPrimary}>Private Car</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Car Plate No. *</label>
-                      <div className="relative">
-                        <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={step2Form.carPlateNo}
-                          onChange={(e) =>
-                            setStep2Form((p) => ({
-                              ...p,
-                              carPlateNo: e.target.value.toUpperCase(),
-                            }))
-                          }
-                          required
-                          placeholder="e.g. HK1234"
-                          style={fieldStyle}
-                          className={fieldClass + ' pl-10 uppercase'}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Address *</label>
-                      <div className="relative">
-                        <Hotel className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          value={step2Form.hotelName}
-                          onChange={(e) =>
-                            setStep2Form((p) => ({ ...p, hotelName: e.target.value }))
-                          }
-                          required
-                          placeholder="Address"
-                          style={fieldStyle}
-                          className={fieldClass + ' pl-10'}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             )}
           </div>
