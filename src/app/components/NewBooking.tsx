@@ -973,7 +973,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     limousineStops: [] as string[],
     limousinePickupTime: '',
     wheelchairService: 0,
-    wheelchairPassengerName: '',
+    wheelchairPassengerNames: [] as string[],
     securityService: false,
     luggageCount: 0,
     privateTransport: 0,
@@ -1387,7 +1387,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       limousineStops: [],
       limousinePickupTime: '14:30',
       wheelchairService: 1,
-      wheelchairPassengerName: 'John Smith',
+      wheelchairPassengerNames: ['John Smith'],
       securityService: true,
       luggageCount: 3,
       privateTransport: 1,
@@ -1434,6 +1434,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         };
       }
       
+      if (field === 'wheelchairService') {
+        const updatedNames = prev.wheelchairPassengerNames.slice(0, newValue);
+        return { ...prev, wheelchairService: newValue, wheelchairPassengerNames: updatedNames };
+      }
+
       return {
         ...prev,
         [field]: newValue,
@@ -2312,9 +2317,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           {step2Form.wheelchairService} wheelchair
                           {step2Form.wheelchairService !== 1 ? 's' : ''}
                         </div>
-                        {step2Form.wheelchairPassengerName && (
+                        {step2Form.wheelchairPassengerNames.filter(Boolean).length > 0 && (
                           <div className="text-xs mt-1" style={textMuted}>
-                            Passenger: {step2Form.wheelchairPassengerName}
+                            {step2Form.wheelchairPassengerNames.filter(Boolean).map((n, i) => (
+                              <div key={i}>Passenger {i + 1}: {n}</div>
+                            ))}
                           </div>
                         )}
                       </div>
@@ -2924,20 +2931,28 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             />
 
             {step2Form.wheelchairService > 0 && (
-              <div className="mt-3">
-                <label className={labelClass}>Passenger Name *</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={step2Form.wheelchairPassengerName}
-                    onChange={(e) => setStep2Form((p) => ({ ...p, wheelchairPassengerName: e.target.value }))}
-                    required
-                    placeholder="Enter passenger name"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10'}
-                  />
-                </div>
+              <div className="mt-3 space-y-3">
+                {Array.from({ length: step2Form.wheelchairService }, (_, i) => (
+                  <div key={i}>
+                    <label className={labelClass}>Passenger {i + 1} Name *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={step2Form.wheelchairPassengerNames[i] ?? ''}
+                        onChange={(e) => {
+                          const updated = [...step2Form.wheelchairPassengerNames];
+                          updated[i] = e.target.value;
+                          setStep2Form((p) => ({ ...p, wheelchairPassengerNames: updated }));
+                        }}
+                        required
+                        placeholder={`Enter name for wheelchair ${i + 1}`}
+                        style={fieldStyle}
+                        className={fieldClass + ' pl-10'}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
