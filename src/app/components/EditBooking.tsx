@@ -424,33 +424,22 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <Building className="w-5 h-5 text-blue-400" />
             <h3 className="font-medium" style={{ color: colors.text }}>Suite & Guest Counts</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Premiere Suites', name: 'premiereSuites' },
-              { label: 'Non-Flying Guests (Premiere)', name: 'premiereNonFlyingGuests' },
-              { label: 'Non-Flying Guests (Deluxe)', name: 'nonFlyingGuests' },
-            ].map(({ label, name }) => (
-              <div key={name}>
-                <label className={labelClass} style={labelStyle}>{label}</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left column: Premiere */}
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass} style={labelStyle}>Premiere Suites</label>
                 <input
                   type="number"
-                  name={name}
+                  name="premiereSuites"
                   min="0"
                   max="20"
-                  value={(form as any)[name]}
+                  value={form.premiereSuites}
                   onChange={handleSimpleNumberChange}
                   className={inputClass}
                   style={inputStyle}
                 />
               </div>
-            ))}
-          </div>
-
-          <div className="pt-3" style={{ borderTop: `1px solid ${colors.glassBorder}` }}>
-            <p className="text-xs uppercase tracking-wide mb-3" style={{ color: colors.textMuted }}>
-              VIP Passenger Counts — linked to passenger records below
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass} style={labelStyle}>VIP Passengers (Premiere)</label>
                 <input
@@ -464,6 +453,22 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
                 />
               </div>
               <div>
+                <label className={labelClass} style={labelStyle}>Non-Flying Guests (Premiere)</label>
+                <input
+                  type="number"
+                  name="premiereNonFlyingGuests"
+                  min="0"
+                  max="20"
+                  value={form.premiereNonFlyingGuests}
+                  onChange={handleSimpleNumberChange}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+            {/* Right column: Deluxe */}
+            <div className="space-y-4">
+              <div>
                 <label className={labelClass} style={labelStyle}>VIP Passengers (Deluxe)</label>
                 <input
                   type="number"
@@ -475,17 +480,30 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
                   style={inputStyle}
                 />
               </div>
+              <div>
+                <label className={labelClass} style={labelStyle}>Non-Flying Guests (Deluxe)</label>
+                <input
+                  type="number"
+                  name="nonFlyingGuests"
+                  min="0"
+                  max="20"
+                  value={form.nonFlyingGuests}
+                  onChange={handleSimpleNumberChange}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
             </div>
-            <p className="text-xs mt-2" style={{ color: colors.textMuted }}>
-              Total named VIP passengers:{' '}
-              <span style={{ color: colors.text }}>{passengers.length}</span>
-              {' '}/ count:{' '}
-              <span style={{ color: colors.text }}>{form.premiereVipPassengers + form.vipPassengers}</span>
-              {passengers.length !== form.premiereVipPassengers + form.vipPassengers && (
-                <span className="ml-2 text-yellow-400">⚠ Count mismatch — please add or remove passenger records</span>
-              )}
-            </p>
           </div>
+          <p className="text-xs" style={{ color: colors.textMuted }}>
+            Total named VIP passengers:{' '}
+            <span style={{ color: colors.text }}>{passengers.length}</span>
+            {' '}/ count:{' '}
+            <span style={{ color: colors.text }}>{form.premiereVipPassengers + form.vipPassengers}</span>
+            {passengers.length !== form.premiereVipPassengers + form.vipPassengers && (
+              <span className="ml-2 text-yellow-400">⚠ Count mismatch — please add or remove passenger records</span>
+            )}
+          </p>
         </div>
 
         {/* VIP Passenger Details */}
