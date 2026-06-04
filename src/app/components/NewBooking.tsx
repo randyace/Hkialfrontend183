@@ -1349,7 +1349,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       vipBirthday: '',
       foodAllergies: '',
     }));
-    const totalVipNeeded = booking.premiereSuites + booking.premiereVipPassengers + booking.vipPassengers;
+    const totalVipNeeded = booking.premiereVipPassengers + booking.vipPassengers;
     const paddedVip = clonedVip.slice(0, totalVipNeeded);
     while (paddedVip.length < totalVipNeeded) {
       paddedVip.push({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '' });
@@ -4391,20 +4391,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             Fill's hardcoded 5 entries when totalVip is now 4), they are
             hidden from the UI but kept in state for user data preservation. */}
         {vipData.slice(0, totalVip).map((passenger, index) => {
-          const premiereSuiteEnd = form.premiereSuites;
-          const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
+          const premiereVipEnd = form.premiereVipPassengers;
 
           let guestType: string;
           let badgeStyle: React.CSSProperties;
 
-          if (index < premiereSuiteEnd) {
-            guestType = 'Premiere Suite';
-            badgeStyle = {
-              background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
-              color: isDark ? '#c084fc' : '#7e22ce',
-              border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
-            };
-          } else if (index < premiereVipEnd) {
+          if (index < premiereVipEnd) {
             guestType = 'Premiere Suite - VIP Passenger';
             badgeStyle = {
               background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
@@ -4777,17 +4769,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </p>
 
             <div className="space-y-3 mb-6">
-              {vipData.map((vip, index) => {
-                const premiereSuiteEnd = form.premiereSuites;
-                const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
-                let guestType = '';
-                if (index < premiereSuiteEnd) {
-                  guestType = 'Premiere Suite';
-                } else if (index < premiereVipEnd) {
-                  guestType = 'Premiere Suite - VIP Passenger';
-                } else {
-                  guestType = 'Lounge Deluxe - VIP Passenger';
-                }
+              {vipData.slice(0, totalVip).map((vip, index) => {
+                const premiereVipEnd = form.premiereVipPassengers;
+                const guestType =
+                  index < premiereVipEnd
+                    ? 'Premiere Suite - VIP Passenger'
+                    : 'Lounge Deluxe - VIP Passenger';
 
                 const displayName = vip.vipFirstName || vip.vipLastName
                   ? `${vip.vipTitle} ${vip.vipFirstName} ${vip.vipLastName}`.trim()
