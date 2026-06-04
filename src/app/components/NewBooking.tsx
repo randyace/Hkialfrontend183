@@ -868,6 +868,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     flightType: 'Arrival',
     flightClass: 'Economy Class',
     companyCode: '',
+    origin: '',
     destination: '',
     premiereSuites: 0,
     premiereVipPassengers: 0,
@@ -1107,8 +1108,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // ── Step 1 Handlers ───────────────────────────────────────────────────────
   const handleFlightNumber = (v: string) => {
     const upper = v.toUpperCase();
-    setForm((p) => ({ ...p, flightNumber: upper }));
-    setFlightDetails(flightDatabase[upper] ?? null);
+    const fd = flightDatabase[upper] ?? null;
+    setForm((p) => {
+      const next = { ...p, flightNumber: upper };
+      if (fd) {
+        if (p.flightType === 'Arrival') next.origin = fd.origin;
+        if (p.flightType === 'Departure' || p.flightType === 'Transit') {
+          next.destination = fd.destination;
+        }
+      }
+      return next;
+    });
+    setFlightDetails(fd);
   };
 
   const handleCompanyCode = (v: string) => {
@@ -1230,6 +1241,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       flightType: 'Arrival',
       flightClass: 'Business Class',
       companyCode: isCompany ? 'CATHAY01' : '',
+      origin: flightDatabase[randomFlight]?.origin ?? '',
       destination: '',
       // Quick Fill needs to populate these because the backend validates
       // lounge/terminal as required. Look up the lounge/terminal from the
@@ -1324,20 +1336,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
   const handleSelectHistory = (booking: typeof HISTORY_BOOKINGS[0]) => {
+    const fd = flightDatabase[booking.flightNumber] ?? null;
     setForm({
       date: '',
       flightNumber: booking.flightNumber,
       flightType: booking.flightType,
       flightClass: booking.flightClass,
       companyCode: '',
-      destination: '',
+      origin: fd && booking.flightType === 'Arrival' ? fd.origin : '',
+      destination:
+        fd && (booking.flightType === 'Departure' || booking.flightType === 'Transit')
+          ? fd.destination
+          : '',
       premiereSuites: booking.premiereSuites,
       premiereVipPassengers: booking.premiereVipPassengers,
       premiereNonFlyingGuests: booking.premiereNonFlyingGuests,
       vipPassengers: booking.vipPassengers,
       nonFlyingGuests: booking.nonFlyingGuests,
     });
-    const fd = flightDatabase[booking.flightNumber];
     if (fd) setFlightDetails(fd);
     const clonedVip: VipPassenger[] = booking.passengers.map((p) => ({
       vipTitle: p.title,
@@ -1485,7 +1501,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
-      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
+      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
       const flightPrefix = flightPrefixMap[form.flightType] || 'D';
       const now = new Date();
       const year = now.getFullYear();
@@ -2097,12 +2113,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
             <ReviewField label="Flight Class" value={form.flightClass} />
             <ReviewField label="Flight Type" value={form.flightType} />
+            {form.flightType === 'Arrival' && (
+              <ReviewField label="Origin" value={form.origin || flightDetails?.origin || '—'} />
+            )}
+            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
+              <ReviewField
+                label="Destination"
+                value={form.destination || flightDetails?.destination || '—'}
+              />
+            )}
             {flightDetails && (
-              <>
-                <ReviewField label="Origin" value={flightDetails.origin} />
-                <ReviewField label="Destination" value={flightDetails.destination} />
-                <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
-              </>
+              <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
             )}
           </ReviewGrid>
         </ReviewSection>
@@ -3659,6 +3680,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
                 <SummaryRow label="Flight Class" value={form.flightClass} />
                 <SummaryRow label="Flight Type" value={form.flightType} />
+                {form.flightType === 'Arrival' && form.origin && (
+                  <SummaryRow label="Origin" value={form.origin} />
+                )}
+                {(form.flightType === 'Departure' || form.flightType === 'Transit') && form.destination && (
+                  <SummaryRow label="Destination" value={form.destination} />
+                )}
                 {flightDetails && (
                   <SummaryRow
                     label="Route"
@@ -3879,9 +3906,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="mb-4">
               <label className={labelClass}>Flight Type *</label>
               <div className="grid grid-cols-3 gap-3">
-                {(['Arrival', 'Departure', 'Transition'] as const).map((type) => {
+                {(['Arrival', 'Departure', 'Transit'] as const).map((type) => {
                   const active = form.flightType === type;
-                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transition' ? 'rotate(90deg)' : 'none';
+                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transit' ? 'rotate(90deg)' : 'none';
                   const ftActiveBg = 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)';
                   const ftInactiveBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)';
                   const ftInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
@@ -3890,7 +3917,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     : { background: ftInactiveBg, border: ftInactiveBorder };
                   const ftPlaneColor = active ? '#ffffff' : colors.text;
                   const ftLabelColor = active ? '#ffffff' : colors.text;
-                  const handleFTClick = () => setForm((p) => ({ ...p, flightType: type }));
+                  const handleFTClick = () =>
+                    setForm((p) => {
+                      const next = { ...p, flightType: type };
+                      if (flightDetails) {
+                        if (type === 'Arrival') next.origin = flightDetails.origin;
+                        if (type === 'Departure' || type === 'Transit') {
+                          next.destination = flightDetails.destination;
+                        }
+                      }
+                      return next;
+                    });
                   return (
                     <button key={type} type="button" onClick={handleFTClick} className="py-5 rounded-xl flex flex-col items-center gap-2 transition-all" style={ftBtnStyle}>
                       <Plane className="w-8 h-8" style={{ color: ftPlaneColor, transform: planeRotation }} />
@@ -3952,8 +3989,27 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
 
-            {/* Destination (Departure / Transition only) */}
-            {(form.flightType === 'Departure' || form.flightType === 'Transition') && (
+            {/* Origin (Arrival only) */}
+            {form.flightType === 'Arrival' && (
+              <div className="mb-4">
+                <label className={labelClass}>Origin *</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.origin}
+                    onChange={(e) => setForm((p) => ({ ...p, origin: e.target.value }))}
+                    required
+                    placeholder="e.g. Tokyo Narita (NRT)"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Destination (Departure / Transit only) */}
+            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
               <div className="mb-4">
                 <label className={labelClass}>Destination *</label>
                 <div className="relative">
