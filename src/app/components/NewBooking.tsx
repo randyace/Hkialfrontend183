@@ -89,10 +89,13 @@ interface NewBookingProps {
     nonFlyingGuestData: Array<Record<string, unknown>>;
     memberData: { name: string; memberType: string };
     flightDetails?: { origin?: string; destination?: string } | null;
-  }) => void;
+  }) => void | Promise<void>;
   isSubmitting?: boolean;
   error?: string;
   successRef?: string;
+  /** Container-tracked security escort (Step 3 toggle); kept in sync with step2Form.securityService */
+  securityEscortQuantity?: number;
+  onSecurityEscortChange?: (quantity: number) => void;
 }
 
 interface VipPassenger {
@@ -477,7 +480,7 @@ function ReviewSection({
 }: {
   icon: React.ReactNode;
   iconBg: string;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { isDark, textPrimary, reviewSectionBg, reviewHeaderBg } = useThemedStyles();
@@ -495,7 +498,9 @@ function ReviewSection({
         >
           {icon}
         </div>
-        <span className="text-sm" style={textPrimary}>{title}</span>
+        <div className="text-sm flex items-center gap-2 flex-wrap min-w-0" style={textPrimary}>
+          {title}
+        </div>
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>
@@ -854,7 +859,15 @@ const HISTORY_BOOKINGS = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting }: NewBookingProps) {
+export function NewBooking({
+  setActiveTab,
+  memberData,
+  prefillMember: prefillMemberProp,
+  onSubmit,
+  isSubmitting,
+  securityEscortQuantity = 0,
+  onSecurityEscortChange,
+}: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -868,6 +881,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     flightType: 'Arrival',
     flightClass: 'Economy Class',
     companyCode: '',
+    origin: '',
     destination: '',
     premiereSuites: 0,
     premiereVipPassengers: 0,
@@ -914,6 +928,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [bookingVouchersToUse, setBookingVouchersToUse] = useState(0);
   const [suiteVouchersToUse, setSuiteVouchersToUse] = useState(0);
   const [stepLoading, setStepLoading] = useState(false);
+  const [confirmPending, setConfirmPending] = useState(false);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setConfirmPending(false);
+    }
+  }, [isSubmitting]);
 
   // ── Derived member flags (computed before any state that references them) ──
   const isCompany      = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
@@ -987,6 +1008,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     paymentMethod: memberData.memberType === 'Travel Agency' ? 'direct-billing' : 'credit-card',
     billingReference: memberData.memberType === 'Travel Agency' ? TA_AGENCY_CODE : '',
   });
+
+  const securitySelected =
+    step2Form.securityService || securityEscortQuantity > 0;
+
+  const updateSecurityService = (enabled: boolean) => {
+    setStep2Form((p) => ({ ...p, securityService: enabled }));
+    onSecurityEscortChange?.(enabled ? 1 : 0);
+  };
+
+  useEffect(() => {
+    if (securityEscortQuantity > 0 && !step2Form.securityService) {
+      setStep2Form((p) => ({ ...p, securityService: true }));
+    }
+  }, [securityEscortQuantity, step2Form.securityService]);
 
   // totalVip is the count of VIP passenger info boxes to render. Each box
   // represents one VIP passenger — the suites themselves don't get a box.
@@ -1104,8 +1139,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // ── Step 1 Handlers ───────────────────────────────────────────────────────
   const handleFlightNumber = (v: string) => {
     const upper = v.toUpperCase();
-    setForm((p) => ({ ...p, flightNumber: upper }));
-    setFlightDetails(flightDatabase[upper] ?? null);
+    const fd = flightDatabase[upper] ?? null;
+    setForm((p) => {
+      const next = { ...p, flightNumber: upper };
+      if (fd) {
+        if (p.flightType === 'Arrival') next.origin = fd.origin;
+        if (p.flightType === 'Departure' || p.flightType === 'Transit') {
+          next.destination = fd.destination;
+        }
+      }
+      return next;
+    });
+    setFlightDetails(fd);
   };
 
   const handleCompanyCode = (v: string) => {
@@ -1227,6 +1272,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       flightType: 'Arrival',
       flightClass: 'Business Class',
       companyCode: isCompany ? 'CATHAY01' : '',
+      origin: flightDatabase[randomFlight]?.origin ?? '',
       destination: '',
       // Quick Fill needs to populate these because the backend validates
       // lounge/terminal as required. Look up the lounge/terminal from the
@@ -1321,20 +1367,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
   const handleSelectHistory = (booking: typeof HISTORY_BOOKINGS[0]) => {
+    const fd = flightDatabase[booking.flightNumber] ?? null;
     setForm({
       date: '',
       flightNumber: booking.flightNumber,
       flightType: booking.flightType,
       flightClass: booking.flightClass,
       companyCode: '',
-      destination: '',
+      origin: fd && booking.flightType === 'Arrival' ? fd.origin : '',
+      destination:
+        fd && (booking.flightType === 'Departure' || booking.flightType === 'Transit')
+          ? fd.destination
+          : '',
       premiereSuites: booking.premiereSuites,
       premiereVipPassengers: booking.premiereVipPassengers,
       premiereNonFlyingGuests: booking.premiereNonFlyingGuests,
       vipPassengers: booking.vipPassengers,
       nonFlyingGuests: booking.nonFlyingGuests,
     });
-    const fd = flightDatabase[booking.flightNumber];
     if (fd) setFlightDetails(fd);
     const clonedVip: VipPassenger[] = booking.passengers.map((p) => ({
       vipTitle: p.title,
@@ -1346,7 +1396,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       vipBirthday: '',
       foodAllergies: '',
     }));
-    const totalVipNeeded = booking.premiereSuites + booking.premiereVipPassengers + booking.vipPassengers;
+    const totalVipNeeded = booking.premiereVipPassengers + booking.vipPassengers;
     const paddedVip = clonedVip.slice(0, totalVipNeeded);
     while (paddedVip.length < totalVipNeeded) {
       paddedVip.push({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '' });
@@ -1398,6 +1448,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       paymentMethod: isTravelAgency ? 'direct-billing' : 'credit-card',
       billingReference: isTravelAgency ? TA_AGENCY_CODE : '',
     });
+    onSecurityEscortChange?.(1);
   };
 
   const updateStep2Count = (
@@ -1483,16 +1534,26 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     advanceStep(5);
   };
 
-  const handleFinalConfirm = () => {
+  const handleFinalConfirm = async () => {
+    if (confirmPending || isSubmitting) return;
     // Delegate to container — container handles API call, navigation, and error/success state
     if (onSubmit) {
-      // Include flightDetails (origin/destination) so the API service can save
-      // them to the backend. The form only holds flightNumber, not the looked-up
-      // airport codes from the flight database.
-      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
-    } else {
+      setConfirmPending(true);
+      try {
+        // Include flightDetails (origin/destination) so the API service can save
+        // them to the backend. The form only holds flightNumber, not the looked-up
+        // airport codes from the flight database.
+        await Promise.resolve(
+          onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails }),
+        );
+      } catch {
+        setConfirmPending(false);
+      }
+      return;
+    }
+    {
       // Fallback: generate mock booking number (Figma demo site only, no container)
-      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
+      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
       const flightPrefix = flightPrefixMap[form.flightType] || 'D';
       const now = new Date();
       const year = now.getFullYear();
@@ -1774,7 +1835,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       form.premiereSuites > 0 ||
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
+      step2Form.wheelchairService > 0 ||
+      securitySelected;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -1862,6 +1924,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</span>
                   </div>
+                </div>
+              )}
+              {securitySelected && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Security Escort Service</span>
+                  <span className="text-xs font-medium" style={textPrimary}>To be confirmed</span>
                 </div>
               )}
               <div
@@ -1977,6 +2045,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step 5: Final Review ──────────────────────────────────────────────────
   if (currentStep === 5) {
+    const confirmBusy = Boolean(isSubmitting || confirmPending);
 
     const addonOriginal =
       step2Form.loungeExtension * 500 +
@@ -1990,7 +2059,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const hasAddons =
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
+      step2Form.wheelchairService > 0 ||
+      securitySelected;
     const hasSuiteVouchers = availableSuiteVouchers > 0;
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
@@ -2104,12 +2174,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
             <ReviewField label="Flight Class" value={form.flightClass} />
             <ReviewField label="Flight Type" value={form.flightType} />
+            {form.flightType === 'Arrival' && (
+              <ReviewField label="Origin" value={form.origin || flightDetails?.origin || '—'} />
+            )}
+            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
+              <ReviewField
+                label="Destination"
+                value={form.destination || flightDetails?.destination || '—'}
+              />
+            )}
             {flightDetails && (
-              <>
-                <ReviewField label="Origin" value={flightDetails.origin} />
-                <ReviewField label="Destination" value={flightDetails.destination} />
-                <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
-              </>
+              <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
             )}
           </ReviewGrid>
         </ReviewSection>
@@ -2170,30 +2245,97 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </ReviewSection>
 
         {/* ── VIP Passengers ─────────────────────────────────────────────── */}
-        {vipData.map((p, i) => (
-          <ReviewSection
-            key={i}
-            icon={<User className="w-4 h-4 text-white" />}
-            iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title={`VIP Passenger #${i + 1}`}
-          >
-            <ReviewGrid>
-              <ReviewField
-                label="Full Name"
-                value={`${p.vipTitle} ${p.vipFirstName} ${p.vipLastName}`.trim() || '—'}
-              />
-              <ReviewField label="Travel Document No." value={p.vipTravelDocNo || '—'} />
+        {vipData.slice(0, totalVip).map((p, i) => {
+          const isPremiereSuite = i < form.premiereVipPassengers;
+          const segmentBadge = isPremiereSuite ? 'Suite' : 'Lounge Deluxe';
+          const segmentBadgeStyle: React.CSSProperties = isPremiereSuite
+            ? {
+                background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
+                color: isDark ? '#c084fc' : '#7e22ce',
+                border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
+              }
+            : {
+                background: isDark ? 'rgba(59,130,246,0.18)' : 'rgba(37,99,235,0.12)',
+                color: isDark ? '#60a5fa' : '#1d4ed8',
+                border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : 'rgba(29,78,216,0.4)'}`,
+              };
 
-              <ReviewField label="Age Group" value={p.vipAgeGroup} />
-              {p.vipBirthday && (
-                <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
-              )}
-              {p.foodAllergies && (
-                <ReviewField label="Food Allergies" value={p.foodAllergies} />
-              )}
-            </ReviewGrid>
-          </ReviewSection>
-        ))}
+          return (
+            <ReviewSection
+              key={`vip-${i}`}
+              icon={<User className="w-4 h-4 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title={
+                <>
+                  <span>VIP Passenger #{i + 1}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-normal" style={segmentBadgeStyle}>
+                    {segmentBadge}
+                  </span>
+                </>
+              }
+            >
+              <ReviewGrid>
+                <ReviewField
+                  label="Full Name"
+                  value={`${p.vipTitle} ${p.vipFirstName} ${p.vipLastName}`.trim() || '—'}
+                />
+                <ReviewField label="Travel Document No." value={p.vipTravelDocNo || '—'} />
+
+                <ReviewField label="Age Group" value={p.vipAgeGroup || '—'} />
+                {p.vipBirthday && (
+                  <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
+                )}
+                {p.foodAllergies && (
+                  <ReviewField label="Food Allergies" value={p.foodAllergies} />
+                )}
+              </ReviewGrid>
+            </ReviewSection>
+          );
+        })}
+
+        {/* ── Non-Flying Guests ──────────────────────────────────────────── */}
+        {nonFlyingGuestData.slice(0, totalNonFlying).map((guest, i) => {
+          const isPremiereSuite = i < form.premiereNonFlyingGuests;
+          const segmentBadge = isPremiereSuite ? 'Suite' : 'Lounge Deluxe';
+          const segmentBadgeStyle: React.CSSProperties = isPremiereSuite
+            ? {
+                background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
+                color: isDark ? '#c084fc' : '#7e22ce',
+                border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
+              }
+            : {
+                background: isDark ? 'rgba(59,130,246,0.18)' : 'rgba(37,99,235,0.12)',
+                color: isDark ? '#60a5fa' : '#1d4ed8',
+                border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : 'rgba(29,78,216,0.4)'}`,
+              };
+
+          return (
+            <ReviewSection
+              key={`nfg-${i}`}
+              icon={<Users className="w-4 h-4 text-white" />}
+              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+              title={
+                <>
+                  <span>Non-Flying Guest #{i + 1}</span>
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-normal" style={segmentBadgeStyle}>
+                    {segmentBadge}
+                  </span>
+                </>
+              }
+            >
+              <ReviewGrid>
+                <ReviewField
+                  label="Full Name"
+                  value={`${guest.guestTitle} ${guest.guestFirstName} ${guest.guestLastName}`.trim() || '—'}
+                />
+                <ReviewField label="Age Group" value={guest.guestAgeGroup || '—'} />
+                {guest.foodAllergies && (
+                  <ReviewField label="Food Allergies" value={guest.foodAllergies} />
+                )}
+              </ReviewGrid>
+            </ReviewSection>
+          );
+        })}
 
         {/* ── Add-on Services ────────────────────────────────────────────── */}
         {hasAddons && (
@@ -2341,6 +2483,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>
                         </>
                       )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {securitySelected && (
+                <div className="rounded-lg px-4 py-3" style={addonItemBg}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs" style={textMuted}>Security Escort Service</div>
+                        <div className="text-xs mt-1" style={textMuted}>
+                          Separate charges apply — our team will contact you for pricing.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <span className="text-sm" style={textPrimary}>Yes</span>
                     </div>
                   </div>
                 </div>
@@ -2655,11 +2816,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <button
               type="button"
               onClick={handleFinalConfirm}
-              disabled={!acceptedTC || isSubmitting}
+              disabled={!acceptedTC || confirmBusy}
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              {isSubmitting ? (
+              {confirmBusy ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Processing...
@@ -2955,10 +3116,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               title="Security Escort Service"
               subtitle="Personal security personnel"
               checked={step2Form.securityService}
-              onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
+              onChange={updateSecurityService}
             />
 
-            {step2Form.securityService && (
+            {securitySelected && (
               <div
                 className="mt-3 p-3 rounded-lg text-sm"
                 style={{
@@ -3669,6 +3830,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
                 <SummaryRow label="Flight Class" value={form.flightClass} />
                 <SummaryRow label="Flight Type" value={form.flightType} />
+                {form.flightType === 'Arrival' && form.origin && (
+                  <SummaryRow label="Origin" value={form.origin} />
+                )}
+                {(form.flightType === 'Departure' || form.flightType === 'Transit') && form.destination && (
+                  <SummaryRow label="Destination" value={form.destination} />
+                )}
                 {flightDetails && (
                   <SummaryRow
                     label="Route"
@@ -3703,10 +3870,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     value={String(step2Form.wheelchairService)}
                   />
                 )}
-                {step2Form.securityService && (
+                {securitySelected && (
                   <SummaryRow
                     label="Security Escort Service"
-                    value="Yes"
+                    value="To be confirmed"
                   />
                 )}
                 {step2Form.luggageCount > 0 && (
@@ -3889,9 +4056,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="mb-4">
               <label className={labelClass}>Flight Type *</label>
               <div className="grid grid-cols-3 gap-3">
-                {(['Arrival', 'Departure', 'Transition'] as const).map((type) => {
+                {(['Arrival', 'Departure', 'Transit'] as const).map((type) => {
                   const active = form.flightType === type;
-                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transition' ? 'rotate(90deg)' : 'none';
+                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transit' ? 'rotate(90deg)' : 'none';
                   const ftActiveBg = 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)';
                   const ftInactiveBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)';
                   const ftInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
@@ -3900,7 +4067,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     : { background: ftInactiveBg, border: ftInactiveBorder };
                   const ftPlaneColor = active ? '#ffffff' : colors.text;
                   const ftLabelColor = active ? '#ffffff' : colors.text;
-                  const handleFTClick = () => setForm((p) => ({ ...p, flightType: type }));
+                  const handleFTClick = () =>
+                    setForm((p) => {
+                      const next = { ...p, flightType: type };
+                      if (flightDetails) {
+                        if (type === 'Arrival') next.origin = flightDetails.origin;
+                        if (type === 'Departure' || type === 'Transit') {
+                          next.destination = flightDetails.destination;
+                        }
+                      }
+                      return next;
+                    });
                   return (
                     <button key={type} type="button" onClick={handleFTClick} className="py-5 rounded-xl flex flex-col items-center gap-2 transition-all" style={ftBtnStyle}>
                       <Plane className="w-8 h-8" style={{ color: ftPlaneColor, transform: planeRotation }} />
@@ -3962,8 +4139,27 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
 
-            {/* Destination (Departure / Transition only) */}
-            {(form.flightType === 'Departure' || form.flightType === 'Transition') && (
+            {/* Origin (Arrival only) */}
+            {form.flightType === 'Arrival' && (
+              <div className="mb-4">
+                <label className={labelClass}>Origin *</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.origin}
+                    onChange={(e) => setForm((p) => ({ ...p, origin: e.target.value }))}
+                    required
+                    placeholder="e.g. Tokyo Narita (NRT)"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10'}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Destination (Departure / Transit only) */}
+            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
               <div className="mb-4">
                 <label className={labelClass}>Destination *</label>
                 <div className="relative">
@@ -4401,20 +4597,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             Fill's hardcoded 5 entries when totalVip is now 4), they are
             hidden from the UI but kept in state for user data preservation. */}
         {vipData.slice(0, totalVip).map((passenger, index) => {
-          const premiereSuiteEnd = form.premiereSuites;
-          const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
+          const premiereVipEnd = form.premiereVipPassengers;
 
           let guestType: string;
           let badgeStyle: React.CSSProperties;
 
-          if (index < premiereSuiteEnd) {
-            guestType = 'Premiere Suite';
-            badgeStyle = {
-              background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
-              color: isDark ? '#c084fc' : '#7e22ce',
-              border: `1px solid ${isDark ? 'rgba(168,85,247,0.3)' : 'rgba(126,34,206,0.45)'}`,
-            };
-          } else if (index < premiereVipEnd) {
+          if (index < premiereVipEnd) {
             guestType = 'Premiere Suite - VIP Passenger';
             badgeStyle = {
               background: isDark ? 'rgba(168,85,247,0.18)' : 'rgba(147,51,234,0.15)',
@@ -4787,17 +4975,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </p>
 
             <div className="space-y-3 mb-6">
-              {vipData.map((vip, index) => {
-                const premiereSuiteEnd = form.premiereSuites;
-                const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
-                let guestType = '';
-                if (index < premiereSuiteEnd) {
-                  guestType = 'Premiere Suite';
-                } else if (index < premiereVipEnd) {
-                  guestType = 'Premiere Suite - VIP Passenger';
-                } else {
-                  guestType = 'Lounge Deluxe - VIP Passenger';
-                }
+              {vipData.slice(0, totalVip).map((vip, index) => {
+                const premiereVipEnd = form.premiereVipPassengers;
+                const guestType =
+                  index < premiereVipEnd
+                    ? 'Premiere Suite - VIP Passenger'
+                    : 'Lounge Deluxe - VIP Passenger';
 
                 const displayName = vip.vipFirstName || vip.vipLastName
                   ? `${vip.vipTitle} ${vip.vipFirstName} ${vip.vipLastName}`.trim()
