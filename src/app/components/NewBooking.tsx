@@ -846,6 +846,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     flightType: 'Arrival',
     flightClass: 'Economy Class',
     companyCode: '',
+    origin: '',
     destination: '',
     premiereSuites: 0,
     premiereVipPassengers: 0,
@@ -1082,8 +1083,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // ── Step 1 Handlers ───────────────────────────────────────────────────────
   const handleFlightNumber = (v: string) => {
     const upper = v.toUpperCase();
-    setForm((p) => ({ ...p, flightNumber: upper }));
-    setFlightDetails(flightDatabase[upper] ?? null);
+    const fd = flightDatabase[upper] ?? null;
+    setFlightDetails(fd);
+    setForm((p) => ({ ...p, flightNumber: upper, origin: fd?.origin ?? p.origin }));
   };
 
   const handleCompanyCode = (v: string) => {
@@ -1328,7 +1330,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
-      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transition: 'T' };
+      const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
       const flightPrefix = flightPrefixMap[form.flightType] || 'D';
       const now = new Date();
       const year = now.getFullYear();
@@ -1938,11 +1940,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewGrid>
             <ReviewField label="Arrival Date" value={formatDate(form.date)} />
             <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
+            {form.flightType === 'Arrival' && <ReviewField label="Origin" value={form.origin || '—'} />}
             <ReviewField label="Flight Class" value={form.flightClass} />
             <ReviewField label="Flight Type" value={form.flightType} />
             {flightDetails && (
               <>
-                <ReviewField label="Origin" value={flightDetails.origin} />
                 <ReviewField label="Destination" value={flightDetails.destination} />
                 <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
               </>
@@ -3499,14 +3501,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="p-5">
               <div className={`divide-y ${dividerClass}`}>
                 <SummaryRow label="Flight Number" value={form.flightNumber || '—'} />
+                {form.flightType === 'Arrival' && <SummaryRow label="Origin" value={form.origin || '—'} />}
                 <SummaryRow label="Arrival Date" value={formatDate(form.date)} />
                 {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
                 <SummaryRow label="Flight Class" value={form.flightClass} />
                 <SummaryRow label="Flight Type" value={form.flightType} />
                 {flightDetails && (
                   <SummaryRow
-                    label="Route"
-                    value={`${flightDetails.origin} → ${flightDetails.destination}`}
+                    label="Destination"
+                    value={flightDetails.destination}
                   />
                 )}
                 <SummaryRow label="Total Guests" value={String(totalGuests)} />
@@ -3723,9 +3726,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="mb-4">
               <label className={labelClass}>Flight Type *</label>
               <div className="grid grid-cols-3 gap-3">
-                {(['Arrival', 'Departure', 'Transition'] as const).map((type) => {
+                {(['Arrival', 'Departure', 'Transit'] as const).map((type) => {
                   const active = form.flightType === type;
-                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transition' ? 'rotate(90deg)' : 'none';
+                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transit' ? 'rotate(90deg)' : 'none';
                   const ftActiveBg = 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)';
                   const ftInactiveBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)';
                   const ftInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
@@ -3778,6 +3781,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             </div>
 
+            {/* Origin (Arrival only) */}
+            {form.flightType === 'Arrival' && (
+              <div className="mb-4">
+                <label className={labelClass}>Origin</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={form.origin}
+                    onChange={(e) => setForm((p) => ({ ...p, origin: e.target.value }))}
+                    placeholder="e.g. Hong Kong (HKG)"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10'}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Flight Info Found */}
             {flightDetails && (
               <div
@@ -3796,8 +3817,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
 
-            {/* Destination (Departure / Transition only) */}
-            {(form.flightType === 'Departure' || form.flightType === 'Transition') && (
+            {/* Destination (Departure / Transit only) */}
+            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
               <div className="mb-4">
                 <label className={labelClass}>Destination *</label>
                 <div className="relative">
