@@ -593,45 +593,10 @@ export function AuthPage() {
 
                 {/* Quick Fill Buttons */}
                 {isLogin ? (
-                  <div className="mb-4 space-y-2">
-                    <p className={`text-xs mb-2 text-center ${mutedColor}`}>Demo Login as:</p>
-                    <button
-                      type="button"
-                      onClick={handleQuickFillLoginIndividual}
-                      className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-[rgb(220,181,21)]/20 to-[rgb(180,141,11)]/20 border border-[rgb(220,181,21)]/30 text-[rgb(220,181,21)] hover:from-[rgb(220,181,21)]/30 hover:to-[rgb(180,141,11)]/30 transition-all flex items-center justify-center gap-2 text-sm"
-                    >
-                      <User className="w-4 h-4" />
-                      Demo: Individual Member
-                    </button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={handleQuickFillLoginCorporate}
-                        className="py-2 px-3 rounded-lg bg-gradient-to-r from-[rgb(220,181,21)]/20 to-[rgb(180,141,11)]/20 border border-[rgb(220,181,21)]/30 text-[rgb(220,181,21)] hover:from-[rgb(220,181,21)]/30 hover:to-[rgb(180,141,11)]/30 transition-all flex items-center justify-center gap-1 text-xs"
-                      >
-                        <Building2 className="w-3 h-3" />
-                        Demo: Corporate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleQuickFillLoginTravelAgency}
-                        className="py-2 px-3 rounded-lg bg-gradient-to-r from-[rgb(220,181,21)]/20 to-[rgb(180,141,11)]/20 border border-[rgb(220,181,21)]/30 text-[rgb(220,181,21)] hover:from-[rgb(220,181,21)]/30 hover:to-[rgb(180,141,11)]/30 transition-all flex items-center justify-center gap-1 text-xs"
-                      >
-                        <Plane className="w-3 h-3" />
-                        Demo: Travel Agency
-                      </button>
-                    </div>
-                  </div>
+                  null
                 ) : (
                   <div className="mb-4 space-y-2">
-                    <button
-                      type="button"
-                      onClick={handleQuickFillRegister}
-                      className="w-full py-2 px-4 rounded-lg bg-gradient-to-r from-[rgb(220,181,21)]/20 to-[rgb(180,141,11)]/20 border border-[rgb(220,181,21)]/30 text-[rgb(220,181,21)] hover:from-[rgb(220,181,21)]/30 hover:to-[rgb(180,141,11)]/30 transition-all flex items-center justify-center gap-2 text-sm"
-                    >
-                      <Zap className="w-4 h-4" />
-                      Quick Fill (Demo)
-                    </button>
+                    
                   </div>
                 )}
 

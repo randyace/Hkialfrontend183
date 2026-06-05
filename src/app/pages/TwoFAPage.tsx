@@ -146,17 +146,7 @@ export function TwoFAPage() {
             )}
 
             {/* Quick Fill Demo */}
-            <div className="flex justify-center mb-4">
-              <button
-                type="button"
-                onClick={handleQuickFill}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-80"
-                style={{ background: 'rgba(220,181,21,0.12)', border: '1px solid rgba(220,181,21,0.3)', color: 'rgb(220,181,21)' }}
-              >
-                <Zap className="w-3 h-3" />
-                Quick Fill (Demo)
-              </button>
-            </div>
+            
 
             {/* Resend */}
             <p className="text-xs text-center mb-6" style={{ color: subText }}>
