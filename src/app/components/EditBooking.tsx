@@ -76,12 +76,63 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
   const [removeDialog, setRemoveDialog] = useState<RemoveDialogState | null>(null);
   const [selectedForRemoval, setSelectedForRemoval] = useState<Set<number>>(new Set());
 
+  // 2026-06-08 (round 6.2.7): hydrate leg 2 from
+  // booking.advanced_details.flight.legs[1] when present (Transit
+  // bookings). For non-Transit, legs[1] is undefined and the legs
+  // editor block is hidden in the UI. The state model mirrors
+  // NewBooking: leg2ArrivalDate holds a combined `YYYY-MM-DDTHH:MM`
+  // string so the date + time inputs can split/join the same value
+  // without changing the wire shape.
+  // Backend stores legs[1].departureDate (round 6.2.8) OR legacy
+  // legs[1].arrivalDate as "YYYY-MM-DD HH:MM:SS" (space) — convert
+  // to "YYYY-MM-DDTHH:MM" (T) so the date input can consume the
+  // date part and the time input the time part. Prefer
+  // `departureDate` (the new canonical name); fall back to
+  // `arrivalDate` for pre-6.2.8 bookings.
+  const initialLeg2 = booking?.advanced_details?.flight?.legs?.[1];
+  const initialLeg2DateStr =
+    typeof initialLeg2?.departureDate === 'string'
+      ? initialLeg2.departureDate
+      : (typeof initialLeg2?.arrivalDate === 'string' ? initialLeg2.arrivalDate : '');
+  const initialLeg2Arrival = initialLeg2DateStr
+    ? initialLeg2DateStr.replace(' ', 'T').slice(0, 16)
+    : '';
+
+  const [leg2ArrivalDate, setLeg2ArrivalDate] = useState<string>(initialLeg2Arrival);
+  const [leg2FlightNo, setLeg2FlightNo] = useState<string>(
+    typeof initialLeg2?.flightNo === 'string' ? initialLeg2.flightNo : ''
+  );
+  // 2026-06-08 (round 6.2.7): leg 2 flight time is derived from
+  // leg2ArrivalDate (the time half of the combined string) to keep
+  // state and UI in sync — but we still expose `leg2FlightTime` for
+  // any pre-existing readers. New code should read
+  // `leg2ArrivalDate?.split('T')[1]?.slice(0, 5)` instead.
+  const [leg2FlightTime, setLeg2FlightTime] = useState<string>(
+    initialLeg2Arrival?.split('T')[1]?.slice(0, 5) || ''
+  );
+  const [leg2FlightClass, setLeg2FlightClass] = useState<string>(
+    typeof initialLeg2?.flightClass === 'string' ? initialLeg2.flightClass : ''
+  );
+  // 2026-06-08 (round 6.2.8): leg 2 destination (outbound
+  // destination, e.g. "London (LHR)"). New field per Sky's spec,
+  // hydrated from booking.advanced_details.flight.legs[1].destination
+  // when present.
+  const [leg2Destination, setLeg2Destination] = useState<string>(
+    typeof initialLeg2?.destination === 'string' ? initialLeg2.destination : ''
+  );
+
   const [form, setForm] = useState({
     flightNumber: booking?.flightNumber || '',
     flightClass: booking?.flightClass || '',
     flightType: booking?.flightType || 'Departure',
     date: booking?.date || '',
     time: booking?.time || '',
+    // 2026-06-08 (round 6.2.7): added origin / destination hydration
+    // (the edit form previously had no origin / destination fields
+    // at all, which is why Transit couldn't round-trip). The api.ts
+    // flatten exposes these as `flightOrigin` / `flightDestination`.
+    origin: booking?.flightOrigin || '',
+    destination: booking?.flightDestination || '',
     lounge: booking?.lounge || '',
     terminal: booking?.terminal || '',
     duration: booking?.duration || '',
@@ -232,6 +283,19 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
     { label: 'VIP Passengers', value: String(passengers.length) },
     { label: 'Contact', value: form.contactName || '—' },
   ];
+  // 2026-06-08 (round 6.2.8+): Transit 2-leg sub-section. The form
+  // carries `legs[1]` data in `leg2ArrivalDate` (datetime-local string),
+  // `leg2FlightNo`, `leg2Destination`, `leg2FlightClass`. Format the
+  // summary block the same way the NewBooking Final Review does (date
+  // + time, flight no, destination, class). Only render when flightType
+  // is Transit AND at least one leg-2 field is populated (defensive
+  // against pre-6.2.7 bookings that may not have full leg 2 data).
+  const isTransitView = form.flightType === 'Transit';
+  const hasLeg2Data = !!(leg2ArrivalDate || leg2FlightNo || leg2Destination || leg2FlightClass);
+  const leg2DateStr = leg2ArrivalDate?.split('T')[0]
+    ? new Date(leg2ArrivalDate.split('T')[0]).toLocaleDateString('en-GB')
+    : '—';
+  const leg2TimeStr = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—';
 
   if (!booking) {
     return (
@@ -315,25 +379,55 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <Plane className="w-5 h-5 text-purple-400" />
             <h3 className="font-medium" style={{ color: colors.text }}>Flight Information</h3>
           </div>
+          {/* 2026-06-08 (round 6.2.7): the previous edit form had no
+              Origin / Destination fields, which made Transit mode
+              incoherent. Both fields are now added as full-width
+              controls below the basic 1-leg fields; the date/time
+              labels are mode-aware (Departure Date / Departure Time
+              when flightType === 'Departure', Arrival Date / Arrival
+              Time otherwise). The labels match NewBooking's step 1
+              form so the user sees consistent wording. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { label: 'Flight Number', name: 'flightNumber', type: 'text', placeholder: 'e.g. CX888' },
-              { label: 'Date', name: 'date', type: 'date' },
-              { label: 'Time', name: 'time', type: 'time' },
-            ].map(({ label, name, type, placeholder }) => (
-              <div key={name}>
-                <label className={labelClass} style={labelStyle}>{label}</label>
-                <input
-                  type={type}
-                  name={name}
-                  value={(form as any)[name]}
-                  onChange={handleChange}
-                  className={inputClass}
-                  style={inputStyle}
-                  placeholder={placeholder}
-                />
-              </div>
-            ))}
+            {/* Flight Number — moved to the top of the section so it
+                matches the NewBooking ordering (round 6.2.7). */}
+            <div>
+              <label className={labelClass} style={labelStyle}>Flight Number</label>
+              <input
+                type="text"
+                name="flightNumber"
+                value={form.flightNumber}
+                onChange={handleChange}
+                className={inputClass}
+                style={inputStyle}
+                placeholder="e.g. CX888"
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                {form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                onChange={handleChange}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label className={labelClass} style={labelStyle}>
+                {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'}
+              </label>
+              <input
+                type="time"
+                name="time"
+                value={form.time}
+                onChange={handleChange}
+                className={inputClass}
+                style={inputStyle}
+              />
+            </div>
             <div>
               <label className={labelClass} style={labelStyle}>Flight Class</label>
               <select
@@ -357,11 +451,170 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
                 className={inputClass + ' appearance-none cursor-pointer'}
                 style={inputStyle}
               >
+                {/* 2026-06-08 (round 6.2.7): Transit was missing. */}
                 <option value="Departure">Departure</option>
                 <option value="Arrival">Arrival</option>
+                <option value="Transit">Transit</option>
               </select>
             </div>
           </div>
+
+          {/* Origin / Destination — full width controls, conditional
+              per flight type, same as NewBooking. The "Origin (Arrival
+              only)" / "Destination (Departure / Transit only)" rule
+              is mirrored exactly. */}
+          {/* 2026-06-08 (round 6.2.8): Origin / Destination conditional
+              matches NewBooking. Transit now shows Origin (the form
+              represents leg 1 = inbound to HKG). Destination in
+              step-1 form is Departure-only; the Transit leg 2 block
+              carries its own Destination field. */}
+          {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
+            <div>
+              <label className={labelClass} style={labelStyle}>Origin</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <input
+                  type="text"
+                  name="origin"
+                  value={form.origin}
+                  onChange={handleChange}
+                  className={inputClass + ' pl-10'}
+                  style={inputStyle}
+                  placeholder="e.g. Tokyo Narita (NRT)"
+                />
+              </div>
+            </div>
+          )}
+          {form.flightType === 'Departure' && (
+            <div>
+              <label className={labelClass} style={labelStyle}>Destination</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <input
+                  type="text"
+                  name="destination"
+                  value={form.destination}
+                  onChange={handleChange}
+                  className={inputClass + ' pl-10'}
+                  style={inputStyle}
+                  placeholder="e.g. London Heathrow (LHR)"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 2026-06-08 (round 6.2.7): Transit 2nd leg block, mirrors
+              NewBooking. Each field is full-width (matches the 1-leg
+              section style). Combined "Arrival Date & Time" is split
+              into separate date + time inputs that read/write the same
+              `leg2ArrivalDate` state (datetime-local string). State is
+              hydrated from booking.advanced_details.flight.legs[1].
+
+              2026-06-08 (round 6.2.8): per Sky's spec, field labels
+              changed "Arrival Date" / "Arrival Time" → "Departure
+              Date" / "Departure Time" (leg 2 is the outbound flight,
+              so the timestamp is the departure time). Field order
+              changed: Flight Number now sits at the top, then
+              Departure Date, then Departure Time, then the new Leg 2
+              Destination field, then Flight Class. */}
+          {form.flightType === 'Transit' && (
+            <div
+              className="mt-3 pt-4 space-y-4"
+              style={{ borderTop: `1px solid ${colors.glassBorder}` }}
+              data-testid="transit-leg2-block"
+            >
+              <h4 className="text-sm font-medium" style={{ color: colors.text }}>
+                2nd Flight (Outbound)
+              </h4>
+
+              <div>
+                <label className={labelClass} style={labelStyle}>Leg 2 Flight Number</label>
+                <div className="relative">
+                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <input
+                    type="text"
+                    value={leg2FlightNo}
+                    onChange={(e) => setLeg2FlightNo(e.target.value.toUpperCase())}
+                    className={inputClass + ' pl-10 uppercase'}
+                    style={inputStyle}
+                    placeholder="e.g. CX889"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass} style={labelStyle}>Leg 2 Departure Date</label>
+                <div className="relative">
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <input
+                    type="date"
+                    value={leg2ArrivalDate?.split('T')[0] || ''}
+                    min={form.date || undefined}
+                    onChange={(e) => {
+                      const datePart = e.target.value;
+                      const timePart = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
+                      setLeg2ArrivalDate(timePart ? `${datePart}T${timePart}` : datePart);
+                    }}
+                    className={inputClass + ' pr-10'}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass} style={labelStyle}>Leg 2 Departure Time</label>
+                <div className="relative">
+                  <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <input
+                    type="time"
+                    value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
+                    onChange={(e) => {
+                      const timePart = e.target.value;
+                      const datePart = leg2ArrivalDate?.split('T')[0] || '';
+                      setLeg2ArrivalDate(datePart ? `${datePart}T${timePart}` : '');
+                    }}
+                    className={inputClass + ' pr-10'}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              {/* 2026-06-08 (round 6.2.8): new field per Sky's spec.
+                  The outbound destination (e.g. "London (LHR)"). */}
+              <div>
+                <label className={labelClass} style={labelStyle}>Leg 2 Destination</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <input
+                    type="text"
+                    value={leg2Destination}
+                    onChange={(e) => setLeg2Destination(e.target.value)}
+                    className={inputClass + ' pl-10'}
+                    style={inputStyle}
+                    placeholder="e.g. London Heathrow (LHR)"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass} style={labelStyle}>Leg 2 Flight Class</label>
+                <div className="relative">
+                  <select
+                    value={leg2FlightClass}
+                    onChange={(e) => setLeg2FlightClass(e.target.value)}
+                    className={inputClass + ' appearance-none cursor-pointer pr-10'}
+                    style={inputStyle}
+                  >
+                    <option value="">Select class</option>
+                    {['First Class', 'Business Class', 'Premium Economy', 'Economy Class'].map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Lounge Information */}
@@ -830,6 +1083,86 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             ))}
           </div>
         </div>
+
+        {/* 2026-06-08 (round 6.2.8+): Transit 2-leg sub-section in the
+            mybooking/details summary. Rendered when the booking's
+            flightType is Transit AND at least one leg-2 field is
+            populated. The fields mirror what the NewBooking Final
+            Review shows: Leg 1 (Inbound) + Leg 2 (Outbound) — same
+            leg-1 (top-level form fields) + leg-2 (form state) data. */}
+        {isTransitView && hasLeg2Data && (
+          <div
+            className="rounded-2xl p-6"
+            style={{
+              background: 'rgba(124,58,237,0.04)',
+              border: '1px solid rgba(124,58,237,0.18)',
+            }}
+          >
+            <h3 className="font-medium mb-4 flex items-center gap-2" style={{ color: colors.text }}>
+              <Plane className="w-5 h-5" style={{ color: '#a78bfa' }} />
+              Flight Information — Transit (2 legs)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Leg 1 — inbound */}
+              <div>
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>
+                  Leg 1 (Inbound)
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Arrival Date</p>
+                    <p style={{ color: colors.text }}>{summaryDateStr}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Arrival Time</p>
+                    <p style={{ color: colors.text }}>{form.time || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Flight Number</p>
+                    <p style={{ color: colors.text }}>{form.flightNumber || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Origin</p>
+                    <p style={{ color: colors.text }}>{form.origin || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Flight Class</p>
+                    <p style={{ color: colors.text }}>{form.flightClass || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Leg 2 — outbound */}
+              <div>
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>
+                  Leg 2 (Outbound)
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Departure Date</p>
+                    <p style={{ color: colors.text }}>{leg2DateStr}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Departure Time</p>
+                    <p style={{ color: colors.text }}>{leg2TimeStr}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Flight Number</p>
+                    <p style={{ color: colors.text }}>{leg2FlightNo || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Destination</p>
+                    <p style={{ color: colors.text }}>{leg2Destination || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>Flight Class</p>
+                    <p style={{ color: colors.text }}>{leg2FlightClass || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 pt-2">

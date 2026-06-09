@@ -662,9 +662,21 @@ export function Bookings({
     return matchesSearch && matchesFilter && matchesDateFilter;
   });
 
-  const sortedBookings = [...filteredBookings].sort((a, b) =>
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  // 2026-06-08: pure id desc sort per Sky ("mybooking only need to
+  // sort by booking id desc"). Pre 2026-06-08 this was just
+  // `b.date - a.date` which was unstable for same-day / date-only
+  // bookings. Mid-2026-06-08 it briefly became date-desc +
+  // id-desc tiebreaker, but Sky confirmed the user mental model is
+  // "newest created = top" (so a new booking jumps to the top
+  // regardless of when the flight is), not "next flight = top".
+  const sortedBookings = [...filteredBookings].sort((a, b) => {
+    const aId = typeof a.id === 'number' ? a.id : a.id ? Number(a.id) : NaN;
+    const bId = typeof b.id === 'number' ? b.id : b.id ? Number(b.id) : NaN;
+    if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) {
+      return bId - aId;
+    }
+    return 0;
+  });
 
   // ── Booking Status Progress Bar ─────────────────────────────────────────
   const BookingStatusProgress = ({ status }: { status: string }) => {

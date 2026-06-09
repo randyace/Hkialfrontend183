@@ -854,6 +854,38 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     vipPassengers: prefillMember ? 1 : 0,
     nonFlyingGuests: 0,
   });
+  // 2026-06-08 (reactive fix) — leg 1 flight time. The step 1 form
+  // previously had no time field (only a date field), so backend's
+  // TransitLegsRule rejected legs[0] as missing flightTime when
+  // flightType === 'Transit'. Required format: HH:MM in 00:00–23:59.
+  // Used for both Transit (legs[0].flightTime) and non-Transit
+  // (top-level flight_time field, via the existing data.time path in
+  // api.ts). Kept as separate useState (not packed into `form`) for
+  // the same reason as the leg2* cluster below.
+  const [leg1FlightTime, setLeg1FlightTime] = useState('');
+  // 2026-06-08 — Transit 2nd leg fields (I-T2, Q4A reuse). The 1st leg
+  // uses date/flightNumber/flightClass above; the 2nd leg is collected
+  // here. Only meaningful when flightType === 'Transit' — the backend's
+  // TransitLegsRule is the source of truth; this is for UX.
+  // Kept as separate useState (not packed into `form`) to avoid
+  // disturbing the existing 7 `setForm((p) => ({...p, X: Y}))` call
+  // sites which infer a partial-update shape; adding fields to `form`
+  // breaks that inference under React 18 + TS strict.
+  const [leg2ArrivalDate, setLeg2ArrivalDate] = useState('');
+  const [leg2FlightNo, setLeg2FlightNo] = useState('');
+  const [leg2FlightTime, setLeg2FlightTime] = useState('');
+  const [leg2FlightClass, setLeg2FlightClass] = useState('');
+  // 2026-06-08 (round 6.2.8): leg 2 destination. Per Sky's spec, leg 2
+  // (outbound from HKG) carries its own destination field — separate
+  // from the step-1 form's `form.destination` (which is used by
+  // Departure mode only and was removed from Transit mode in this
+  // round). backend's TransitLegsRule does not validate this field
+  // today; it is captured for future display / pricing use.
+  const [leg2Destination, setLeg2Destination] = useState('');
+  // 2026-06-08 — live 6h gap pre-check error (I-T5). Backend is the source
+  // of truth; this is the UX layer that blocks submit before the user
+  // even tries a < 6h gap.
+  const [transitGapError, setTransitGapError] = useState<string | null>(null);
 
   const prefillVipEntry: VipPassenger | null = prefillMember
     ? {
@@ -980,10 +1012,50 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     form.nonFlyingGuests;
 
   // ── Step 1 validation (flight info) ──────────────────────────────────────
-  const step1FlightValid = form.date !== '' && form.flightNumber.trim() !== '';
+  // 2026-06-08 — Transit 2nd leg validation. For Transit bookings,
+  // all 4 leg 2 fields are required AND the 6h gap rule must hold.
+  // The backend's TransitLegsRule is the source of truth; this is the
+  // UX gate that disables the submit button before the user can try.
+  // 2026-06-08 (reactive fix) — Transit also requires leg 1 flightTime
+  // (HH:MM). For non-Transit, the backend's top-level flight_time is
+  // nullable, so we don't enforce it at the form level.
+  // 2026-06-08 (round 6.2.7): leg 2 flight time is now stored as the
+  // time half of the combined `leg2ArrivalDate` (date+time were split
+  // visually but kept as a single `YYYY-MM-DDTHH:MM` string so the
+  // wire shape, submit handler, and 6h-gap validation all keep working).
+  // The legacy `leg2FlightTime` useState is no longer bound to an input;
+  // we derive the time from the combined state.
+  const step1Leg1TimeValid =
+    form.flightType !== 'Transit' || leg1FlightTime !== '';
+  const leg2TimeFromArrival = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
+  const step1Leg2Valid =
+    form.flightType !== 'Transit' ||
+    (leg2ArrivalDate !== '' &&
+      leg2FlightNo.trim() !== '' &&
+      leg2TimeFromArrival !== '' &&
+      leg2FlightClass !== '' &&
+      leg2Destination.trim() !== '' &&
+      transitGapError === null);
+  const step1FlightValid =
+    form.date !== '' &&
+    form.flightNumber.trim() !== '' &&
+    step1Leg1TimeValid &&
+    step1Leg2Valid;
   const step1FlightHintMsg = !form.date
     ? 'Please select an arrival date to proceed'
-    : 'Please enter a flight number to proceed';
+    : form.flightNumber.trim() === ''
+      ? 'Please enter a flight number to proceed'
+      : form.flightType === 'Transit' && leg1FlightTime === ''
+        ? 'Please enter the leg 1 arrival time (HH:MM)'
+        : form.flightType === 'Transit' && leg2ArrivalDate === ''
+          ? 'Please enter the 2nd leg arrival date and time'
+          : form.flightType === 'Transit' && leg2FlightNo.trim() === ''
+            ? 'Please enter the 2nd leg flight number'
+            : form.flightType === 'Transit' && leg2TimeFromArrival === ''
+              ? 'Please enter the 2nd leg flight time'
+              : form.flightType === 'Transit' && leg2FlightClass === ''
+                ? 'Please select the 2nd leg flight class'
+                : transitGapError ?? 'Please complete all required fields to proceed';
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
@@ -1327,7 +1399,42 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       // Include flightDetails (origin/destination) so the API service can save
       // them to the backend. The form only holds flightNumber, not the looked-up
       // airport codes from the flight database.
-      onSubmit({ form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails });
+      // 2026-06-08 — Transit 2nd leg fields. The backend's
+      // advanced_details.flight.legs[2] requires 4 fields per leg + 6h gap.
+      // Leg 1 reuses form.date/form.flightNumber/form.flightClass; leg 2
+      // comes from the leg2* useStates. The api.ts createBooking
+      // (services/api.ts:663) reads leg2* from this object and builds
+      // the legs[] array when flightType === 'Transit'.
+      // 2026-06-08 (reactive fix) — also emit leg1FlightTime for the
+      // leg 1 flightTime field. api.ts reads this for both legs[0].flightTime
+      // (Transit) and the top-level flight_time (non-Transit). Without
+      // it, Transit legs[0] is missing flightTime → 422.
+      onSubmit({
+        form,
+        step2Form,
+        vipData,
+        nonFlyingGuestData,
+        memberData,
+        flightDetails,
+        leg1FlightTime,
+        leg2ArrivalDate,
+        leg2FlightNo,
+        // 2026-06-08 (round 6.2.7): Leg 2 Arrival Time input was merged
+        // into the combined leg2ArrivalDate state (split visually into
+        // date + time, but stored as a single `YYYY-MM-DDTHH:MM` string).
+        // Derive the wire-shape flightTime from the time half of that
+        // string. The legacy `leg2FlightTime` useState is kept as a
+        // back-compat field for the submit payload signature but is
+        // no longer bound to any input — it will always be ''.
+        leg2FlightTime: leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '',
+        leg2FlightClass,
+        // 2026-06-08 (round 6.2.8): leg 2 destination (outbound
+        // destination, separate from step-1 form's `form.destination`
+        // which is now Departure-only). api.ts reads this and emits
+        // `legs[1].destination` for future use.
+        leg2Destination,
+        transitGapError,
+      });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
       const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
@@ -1786,6 +1893,27 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               Promotion / Redemption code <strong>{step2Form.promotionCode}</strong> applied.
             </p>
           )}
+          {/* 2026-06-08 (Q6C + Q7A-light) — Booking summary with guest counts.
+              Brief one-liner showing VIP and NFG totals; detail lives on the
+              Final Review (step 5). Kept short so the success screen stays
+              focused on the booking reference + voucher info. */}
+          {(vipData.length > 0 || nonFlyingGuestData.length > 0) && (
+            <p className="text-sm mb-4" style={textSecondary}>
+              Booking for{' '}
+              <strong style={textPrimary}>
+                {vipData.length} VIP Passenger{vipData.length !== 1 ? 's' : ''}
+              </strong>
+              {nonFlyingGuestData.length > 0 && (
+                <>
+                  {' + '}
+                  <strong style={textPrimary}>
+                    {nonFlyingGuestData.length} Non-Flying Guest{nonFlyingGuestData.length !== 1 ? 's' : ''}
+                  </strong>
+                </>
+              )}
+              .
+            </p>
+          )}
           {isTravelAgency && (
             <div
               className="rounded-xl px-4 py-3 mb-4 text-left"
@@ -1937,19 +2065,62 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
           title="Flight Information"
         >
+          {/* 2026-06-08 (round 6.2.7): labels are mode-aware. In
+              Departure mode the relevant date/time is the outbound
+              flight, so we render "Departure Date" / "Departure Time"
+              instead of the default "Arrival Date" / "Arrival Time".
+              In Arrival and Transit modes the inbound flight is the
+              reference, so we keep "Arrival Date" / "Arrival Time".
+
+              2026-06-08 (round 6.2.8): Origin is shown for both Arrival
+              and Transit (the form's leg 1 = inbound to HKG; Origin
+              = where the passenger is coming FROM). The "Destination"
+              in the Flight Information Found banner applies to Arrival
+              and Transit modes only; Departure omits it.
+
+              2026-06-08 (round 6.2.8+): for Transit, render a second
+              "Leg 2 (Outbound)" sub-section below the leg-1 fields so
+              the user sees the full 2-leg structure on the review
+              page. Each leg is its own ReviewGrid. */}
+          <div className="mb-2 text-xs uppercase tracking-wider" style={{ color: sectionLabelColor }}>
+            Leg 1{form.flightType === 'Transit' ? ' (Inbound)' : ''}
+          </div>
           <ReviewGrid>
-            <ReviewField label="Arrival Date" value={formatDate(form.date)} />
+            <ReviewField
+              label={form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
+              value={formatDate(form.date)}
+            />
             <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
-            {form.flightType === 'Arrival' && <ReviewField label="Origin" value={form.origin || '—'} />}
+            {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
+              <ReviewField label="Origin" value={form.origin || '—'} />
+            )}
             <ReviewField label="Flight Class" value={form.flightClass} />
             <ReviewField label="Flight Type" value={form.flightType} />
-            {flightDetails && (
-              <>
-                <ReviewField label="Destination" value={flightDetails.destination} />
-                <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
-              </>
+            {flightDetails && form.flightType !== 'Departure' && (
+              <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
             )}
           </ReviewGrid>
+
+          {form.flightType === 'Transit' && (
+            <div className="mt-4">
+              <div className="mb-2 text-xs uppercase tracking-wider" style={{ color: sectionLabelColor }}>
+                Leg 2 (Outbound)
+              </div>
+              <ReviewGrid>
+                <ReviewField
+                  label="Departure Date"
+                  value={leg2ArrivalDate?.split('T')[0] ? formatDate(leg2ArrivalDate.split('T')[0]) : '—'}
+                />
+                <ReviewField
+                  label="Departure Time"
+                  value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
+                />
+                <ReviewField label="Flight Number" value={leg2FlightNo || '—'} />
+                <ReviewField label="Destination" value={leg2Destination || '—'} />
+                <ReviewField label="Flight Class" value={leg2FlightClass || '—'} />
+              </ReviewGrid>
+            </div>
+          )}
         </ReviewSection>
 
         {/* ── Accommodation ─────────────────────────────────────────────── */}
@@ -2032,6 +2203,53 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </ReviewGrid>
           </ReviewSection>
         ))}
+
+        {/* ── Non-Flying Guests ──────────────────────────────────────────── */}
+        {/* 2026-06-08 (Q7A: mirror VIP pattern) — Final Review was missing
+            the NFG detail section. Only render when at least one NFG row
+            exists, mirroring the VIP conditional. The `guestType` label
+            uses the same Premiere Suite / Lounge Deluxe split the step 2
+            input form applies (computed from form.premiereNonFlyingGuests
+            count). */}
+        {nonFlyingGuestData.length > 0 && (
+          <div className="space-y-3">
+            <div
+              className="text-xs font-semibold tracking-wide uppercase"
+              style={textMuted}
+            >
+              Non-Flying Guests ({nonFlyingGuestData.length})
+            </div>
+            {nonFlyingGuestData.map((g, i) => {
+              const premiereNonFlyingEnd = form.premiereNonFlyingGuests;
+              const isPremiere = i < premiereNonFlyingEnd;
+              const guestType = isPremiere
+                ? 'Premiere Suite - Non-Flying Guest'
+                : 'Lounge Deluxe - Non-Flying Guest';
+              return (
+                <ReviewSection
+                  key={i}
+                  icon={<User className="w-4 h-4 text-white" />}
+                  iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                  title={`Non-Flying Guest #${i + 1}`}
+                >
+                  <ReviewGrid>
+                    <ReviewField
+                      label="Full Name"
+                      value={`${g.guestTitle} ${g.guestFirstName} ${g.guestLastName}`.trim() || '—'}
+                    />
+                    {g.guestAgeGroup && (
+                      <ReviewField label="Age Group" value={g.guestAgeGroup} />
+                    )}
+                    {g.foodAllergies && (
+                      <ReviewField label="Food Allergies" value={g.foodAllergies} />
+                    )}
+                    <ReviewField label="Type" value={guestType} />
+                  </ReviewGrid>
+                </ReviewSection>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Add-on Services ────────────────────────────────────────────── */}
         {hasAddons && (
@@ -3501,17 +3719,48 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="p-5">
               <div className={`divide-y ${dividerClass}`}>
                 <SummaryRow label="Flight Number" value={form.flightNumber || '—'} />
-                {form.flightType === 'Arrival' && <SummaryRow label="Origin" value={form.origin || '—'} />}
-                <SummaryRow label="Arrival Date" value={formatDate(form.date)} />
+                {/* 2026-06-08 (round 6.2.8): Origin shown for both
+                    Arrival and Transit (the form's leg 1 = inbound to
+                    HKG). Departure mode omits Origin (no inbound). */}
+                {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
+                  <SummaryRow label="Origin" value={form.origin || '—'} />
+                )}
+                {/* 2026-06-08 (round 6.2.7): mode-aware — "Departure Date"
+                    when flightType === 'Departure', "Arrival Date" otherwise.
+                    Mirrors the change in the Flight Information review
+                    section and the Step 1 form. */}
+                <SummaryRow
+                  label={form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
+                  value={formatDate(form.date)}
+                />
                 {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
                 <SummaryRow label="Flight Class" value={form.flightClass} />
                 <SummaryRow label="Flight Type" value={form.flightType} />
-                {flightDetails && (
-                  <SummaryRow
-                    label="Destination"
-                    value={flightDetails.destination}
-                  />
+                {flightDetails && form.flightType !== 'Departure' && (
+                  <SummaryRow label="Arrival Time" value={flightDetails.arrivalTime} />
                 )}
+
+                {/* 2026-06-08 (round 6.2.8+): Transit 2-leg sub-section
+                    on the Complete Booking Summary. Each Transit
+                    booking needs to show both legs so the user
+                    confirms all 5 outbound fields (date, time, flight
+                    no, destination, class) before final review. */}
+                {form.flightType === 'Transit' && (
+                  <>
+                    <SummaryRow
+                      label="Leg 2 Departure Date"
+                      value={leg2ArrivalDate?.split('T')[0] ? formatDate(leg2ArrivalDate.split('T')[0]) : '—'}
+                    />
+                    <SummaryRow
+                      label="Leg 2 Departure Time"
+                      value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
+                    />
+                    <SummaryRow label="Leg 2 Flight Number" value={leg2FlightNo || '—'} />
+                    <SummaryRow label="Leg 2 Destination" value={leg2Destination || '—'} />
+                    <SummaryRow label="Leg 2 Flight Class" value={leg2FlightClass || '—'} />
+                  </>
+                )}
+
                 <SummaryRow label="Total Guests" value={String(totalGuests)} />
                 <SummaryRow label="Premiere Suites" value={String(form.premiereSuites)} />
                 <SummaryRow
@@ -3748,25 +3997,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             </div>
 
-            {/* Arrival Date */}
+            {/* Flight Number — 2026-06-08 (round 6.2.7): moved to the top
+                of the section, right after the Flight Type toggle. The
+                user wanted Flight Number to be the first field the user
+                sees / fills, so it sits above date/time/origin. */}
             <div className="mb-4">
-              <label className={labelClass}>Arrival Date *</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-                  required
-                  style={fieldStyle}
-                  className={fieldClass + ' pr-10'}
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Flight Number */}
-            <div className="mb-4">
-              <label className={labelClass}>Flight Number</label>
+              <label className={labelClass}>Flight Number *</label>
               <div className="relative">
                 <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -3781,8 +4017,64 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             </div>
 
-            {/* Origin (Arrival only) */}
-            {form.flightType === 'Arrival' && (
+            {/* Arrival Date — 2026-06-08 (round 6.2.7): label is mode-aware.
+                "Arrival Date" when flightType is Arrival or Transit (the
+                flight is inbound to HKG), "Departure Date" when flightType
+                is Departure (the flight is outbound from HKG). */}
+            <div className="mb-4">
+              <label className={labelClass}>
+                {form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'} *
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={form.date}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                  required
+                  style={fieldStyle}
+                  className={fieldClass + ' pr-10'}
+                />
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Arrival Time / Departure Time — 2026-06-08 (reactive fix)
+                leg 1 flight time. Backend's TransitLegsRule rejects
+                legs[0] as missing flightTime when flightType=Transit.
+                Backend's `flight_time` validator (top-level,
+                MemberBookingController L100) is `nullable|string|max:10`
+                so non-Transit bookings can submit without a time, but
+                Transit requires it. Reuses the same field for non-Transit
+                top-level flight_time via the existing data.time path.
+                2026-06-08 (round 6.2.7): label is mode-aware — same logic
+                as the date field above. */}
+            <div className="mb-4">
+              <label className={labelClass}>
+                {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'}
+              </label>
+              <div className="relative">
+                <input
+                  type="time"
+                  value={leg1FlightTime}
+                  onChange={(e) => setLeg1FlightTime(e.target.value)}
+                  style={fieldStyle}
+                  className={fieldClass + ' pr-10'}
+                  data-testid="leg1-flightTime"
+                />
+                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Origin (Arrival + Transit) — 2026-06-08 (round 6.2.8):
+                Transit was showing "Destination" here before, but the
+                step-1 form is the inbound leg (leg 1 = inbound to HKG),
+                so the relevant field is where the passenger is coming
+                FROM, i.e. the origin. The leg-2 block handles the
+                outbound destination separately. Departure mode keeps
+                showing Destination (since the only flight is outbound
+                from HKG to a destination). */}
+            {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
               <div className="mb-4">
                 <label className={labelClass}>Origin</label>
                 <div className="relative">
@@ -3799,7 +4091,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
 
-            {/* Flight Info Found */}
+            {/* Flight Info Found — 2026-06-08 (round 6.2.7): time field is
+                hidden in Departure mode. flightDatabase only stores
+                `arrivalTime` (inbound arrival at HKG); showing that value
+                as "Departure Time" in Departure mode is misleading. The
+                flightDatabase needs to be extended with departureTime
+                entries to bring this field back in Departure mode. */}
             {flightDetails && (
               <div
                 className="rounded-lg p-3 mb-4"
@@ -3809,16 +4106,27 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <CheckCircle className="w-3.5 h-3.5" />
                   <span>Flight Information Found</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-1 text-xs">
+                <div
+                  className={`grid gap-1 text-xs ${form.flightType === 'Departure' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}
+                >
                   <div><span style={textMuted}>Origin: </span><span style={textPrimary}>{flightDetails.origin}</span></div>
                   <div><span style={textMuted}>Destination: </span><span style={textPrimary}>{flightDetails.destination}</span></div>
-                  <div><span style={textMuted}>Arrival Time: </span><span style={{ color: flightFoundTimeColorS1 }}>{flightDetails.arrivalTime}</span></div>
+                  {form.flightType !== 'Departure' && (
+                    <div>
+                      <span style={textMuted}>Arrival Time: </span>
+                      <span style={{ color: flightFoundTimeColorS1 }}>{flightDetails.arrivalTime}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Destination (Departure / Transit only) */}
-            {(form.flightType === 'Departure' || form.flightType === 'Transit') && (
+            {/* Destination (Departure only) — 2026-06-08 (round 6.2.8):
+                Transit no longer shows Destination here (the form
+                represents leg 1 = inbound to HKG, which needs origin
+                not destination). The Transit leg 2 block now carries
+                its own Destination field for the outbound leg. */}
+            {form.flightType === 'Departure' && (
               <div className="mb-4">
                 <label className={labelClass}>Destination *</label>
                 <div className="relative">
@@ -3874,6 +4182,200 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs" style={{ color: flightFoundColorS1 }}>
                     <CheckCircle className="w-3 h-3" />
                     <span>{companyName}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2026-06-08 — Transit 2nd leg block (I-T2, Q5B). Only visible
+                when flightType === 'Transit'. The 1st leg is the existing
+                date/flightNumber/flightClass above. The 2nd leg is the
+                outbound flight; backend's TransitLegsRule requires 4 fields
+                + 6h gap. Mirrors admin figma-ui's transit-leg2-block.
+
+                2026-06-08 (round 6.2.7): layout simplified to match the
+                1-leg section — each field is a full-width single column
+                (no `grid grid-cols-2`). The combined "Arrival Date & Time"
+                datetime-local is split into a separate date input and a
+                separate time input. The state model is unchanged:
+                leg2ArrivalDate stays a `YYYY-MM-DDTHH:MM` string so the
+                submit payload, the 6h-gap validation handler, and
+                api.ts wire shape all keep working.
+
+                2026-06-08 (round 6.2.8): per Sky's spec, the field
+                labels are now "Leg 2 Departure Date" / "Leg 2 Departure
+                Time" (leg 2 is the outbound flight from HKG, so its
+                timestamp is the departure time at HKG, not arrival at
+                the next destination). The 6h-gap rule still reads
+                `legs[1].departureDate - legs[0].arrivalDate`. Field
+                order changed per Sky: Flight Number now sits at the
+                top, then Departure Date, then Departure Time, then
+                the new Leg 2 Destination field, then Flight Class. */}
+            {form.flightType === 'Transit' && (
+              <div className="mt-5 pt-5" style={{ borderTop: borderSubtle }} data-testid="transit-leg2-block">
+                <h3 className="text-sm font-semibold mb-1" style={textPrimary}>
+                  2nd Flight (Outbound) <span style={{ color: '#ef4444' }}>*</span>
+                </h3>
+                <p className="text-xs mb-4" style={textMuted}>
+                  The 2nd leg of your transit. The 1st leg (above) is your inbound to HKG; this is your outbound.
+                  Gap between leg 1 arrival and leg 2 departure must be at least 6 hours.
+                </p>
+
+                {/* 6h-gap pre-check handler. Called by the date/time
+                    inputs whenever the combined value changes. Backend
+                    TransitLegsRule is the source of truth; this is the
+                    UX layer. */}
+                {/* Leg 2 Flight Number — full width, top of section
+                    (round 6.2.8 reorder per Sky). */}
+                <div className="mb-4">
+                  <label className={labelClass}>Leg 2 Flight Number <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div className="relative">
+                    <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={leg2FlightNo}
+                      onChange={(e) => setLeg2FlightNo(e.target.value.toUpperCase())}
+                      placeholder="e.g. CX889"
+                      style={fieldStyle}
+                      className={fieldClass + ' pl-10 uppercase'}
+                      data-testid="leg2-flightNo"
+                    />
+                  </div>
+                </div>
+
+                {/* Leg 2 Departure Date — full width. 2026-06-08 (round
+                    6.2.8): renamed from "Arrival Date" to "Departure
+                    Date" because leg 2 is the outbound flight. */}
+                <div className="mb-4">
+                  <label className={labelClass}>Leg 2 Departure Date <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div className="relative">
+                    <input
+                      type="date"
+                      value={leg2ArrivalDate?.split('T')[0] || ''}
+                      min={form.date ? form.date : new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => {
+                        const datePart = e.target.value;
+                        const timePart = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
+                        const next = timePart ? `${datePart}T${timePart}` : datePart;
+                        setLeg2ArrivalDate(next);
+                        if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
+                        const l0 = form.date ? new Date(form.date) : null;
+                        const l1 = next ? new Date(next) : null;
+                        if (!l0 || !l1 || isNaN(l0.getTime()) || isNaN(l1.getTime())) {
+                          setTransitGapError(null);
+                          return;
+                        }
+                        const diffMs = l1.getTime() - l0.getTime();
+                        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+                        if (diffMs < SIX_HOURS_MS) {
+                          const hours = Math.floor(diffMs / 3600000);
+                          const mins = Math.floor((diffMs % 3600000) / 60000);
+                          setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+                        } else {
+                          setTransitGapError(null);
+                        }
+                      }}
+                      style={fieldStyle}
+                      className={fieldClass + ' pr-10'}
+                      data-testid="leg2-arrivalDate"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Leg 2 Departure Time — full width. 2026-06-08 (round
+                    6.2.8): renamed from "Arrival Time" to "Departure
+                    Time". The time half of the combined leg2ArrivalDate
+                    state (datetime-local string). */}
+                <div className="mb-4">
+                  <label className={labelClass}>Leg 2 Departure Time <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
+                      onChange={(e) => {
+                        const timePart = e.target.value;
+                        const datePart = leg2ArrivalDate?.split('T')[0] || '';
+                        const next = datePart ? `${datePart}T${timePart}` : '';
+                        setLeg2ArrivalDate(next);
+                        if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
+                        const l0 = form.date ? new Date(form.date) : null;
+                        const l1 = next ? new Date(next) : null;
+                        if (!l0 || !l1 || isNaN(l0.getTime()) || isNaN(l1.getTime())) {
+                          setTransitGapError(null);
+                          return;
+                        }
+                        const diffMs = l1.getTime() - l0.getTime();
+                        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+                        if (diffMs < SIX_HOURS_MS) {
+                          const hours = Math.floor(diffMs / 3600000);
+                          const mins = Math.floor((diffMs % 3600000) / 60000);
+                          setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+                        } else {
+                          setTransitGapError(null);
+                        }
+                      }}
+                      style={fieldStyle}
+                      className={fieldClass + ' pr-10'}
+                      data-testid="leg2-flightTime"
+                    />
+                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Leg 2 Destination — full width. 2026-06-08 (round
+                    6.2.8): new field per Sky's spec. Captures the
+                    outbound destination (e.g. "London (LHR)") for
+                    leg 2. State held in `leg2Destination`; submit
+                    payload emits `legs[1].destination` via api.ts.
+                    backend's TransitLegsRule does not validate this
+                    field today — it is captured for display / future
+                    pricing use. */}
+                <div className="mb-4">
+                  <label className={labelClass}>Leg 2 Destination <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={leg2Destination}
+                      onChange={(e) => setLeg2Destination(e.target.value)}
+                      placeholder="e.g. London Heathrow (LHR)"
+                      style={fieldStyle}
+                      className={fieldClass + ' pl-10'}
+                      data-testid="leg2-destination"
+                    />
+                  </div>
+                </div>
+
+                {/* Leg 2 Flight Class — full width. */}
+                <div>
+                  <label className={labelClass}>Leg 2 Flight Class <span style={{ color: '#ef4444' }}>*</span></label>
+                  <div className="relative">
+                    <select
+                      value={leg2FlightClass}
+                      onChange={(e) => setLeg2FlightClass(e.target.value)}
+                      style={fieldStyle}
+                      className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
+                      data-testid="leg2-flightClass"
+                    >
+                      <option value="" className={optionBg}>Select class</option>
+                      <option value="Economy Class" className={optionBg}>Economy Class</option>
+                      <option value="Business Class" className={optionBg}>Business Class</option>
+                      <option value="First Class" className={optionBg}>First Class</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {transitGapError && (
+                  <div
+                    className="mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
+                    style={{ background: hintBgS1, border: hintBorderS1 }}
+                  >
+                    <Info className="w-4 h-4 flex-shrink-0" style={{ color: hintColorS1 }} />
+                    <p className="text-xs" style={{ color: hintColorS1 }}>
+                      {transitGapError}
+                    </p>
                   </div>
                 )}
               </div>
@@ -4450,7 +4952,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {/* Title */}
                 <div>
-                  <label className={labelClass}>Title</label>
+                  <label className={labelClass}>Title *</label>
                   <div className="relative">
                     <select
                       value={guest.guestTitle}
@@ -4472,7 +4974,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* First Name */}
                 <div>
-                  <label className={labelClass}>First Name</label>
+                  <label className={labelClass}>First Name *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -4489,7 +4991,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Last Name */}
                 <div>
-                  <label className={labelClass}>Last Name</label>
+                  <label className={labelClass}>Last Name *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
