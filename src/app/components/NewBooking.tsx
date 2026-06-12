@@ -1112,7 +1112,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       setPromoCodeStatus(null);
       return;
     }
-    
+
     if (USED_PROMO_CODES.includes(code)) {
       setPromoCodeStatus('used');
     } else if (VALID_PROMO_CODES.includes(code)) {
@@ -1121,6 +1121,66 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       setPromoCodeStatus('invalid');
     }
   }, [step2Form.promotionCode]);
+
+  // 2026-06-11 (round 6.2.36 — Sky ask: "ensure the 2nd leg time is at
+  // least 6 hours apart from the 1st leg arrival"): recompute the
+  // transit gap error whenever ANY of the 4 leg-1/leg-2 inputs change.
+  // The pre-6.2.36 inline checks at leg 2's onChange handlers only
+  // recompute the gap when leg 2 changes — if the user picks
+  //   leg 1 = 2026-06-15 10:00, leg 2 = 2026-06-15 18:00 (gap 8h, OK)
+  //   ...then changes leg 1 to 2026-06-15 14:00 (gap drops to 4h)
+  // the inline checks DO NOT re-run, so `transitGapError` stays null
+  // and the submit button stays enabled. The 4h violation slips
+  // through the client-side gate. This useEffect closes the gap by
+  // watching all 4 inputs.
+  //
+  // Also fixes doc note 3 from
+  // `frontend_react/frontend/2026-06-08-customer-newbooking-3-bugs.md`:
+  // the inline check used `new Date(form.date)` (parses as 00:00 UTC),
+  // ignoring `leg1FlightTime`. This useEffect combines
+  // `form.date + 'T' + leg1FlightTime + ':00'` for the leg 1 datetime.
+  // The backend's `TransitLegsRule` uses full arrivalDate strings, so
+  // any UTC-midnight edge case that the inline check missed will now
+  // be caught here too.
+  //
+  // The inline `setTransitGapError` calls at the leg 2 onChange
+  // handlers (lines ~4262-4315) are KEPT as a fast-path for
+  // immediate UX feedback (synchronous setState before the next
+  // render). This useEffect is the safety net that re-asserts the
+  // correct value on the next render — both paths converge to the
+  // same value.
+  useEffect(() => {
+    if (form.flightType !== 'Transit') {
+      setTransitGapError(null);
+      return;
+    }
+    // No leg 1 or leg 2 datetime yet → no error (the user is still
+    // filling in the form; the inline required-field gate in
+    // step1FlightValid handles the "all required fields" case).
+    if (!form.date || !leg1FlightTime || !leg2ArrivalDate) {
+      setTransitGapError(null);
+      return;
+    }
+    // Combine leg 1 date + time into a full datetime. form.date is
+    // 'YYYY-MM-DD', leg1FlightTime is 'HH:MM' (or 'HH:MM:SS'); build
+    // 'YYYY-MM-DDTHH:MM:00' for the Date ctor.
+    const leg1Iso = `${form.date}T${leg1FlightTime}:00`;
+    const l0 = new Date(leg1Iso);
+    const l1 = new Date(leg2ArrivalDate); // already datetime-local format
+    if (isNaN(l0.getTime()) || isNaN(l1.getTime())) {
+      setTransitGapError(null);
+      return;
+    }
+    const diffMs = l1.getTime() - l0.getTime();
+    const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+    if (diffMs < SIX_HOURS_MS) {
+      const hours = Math.floor(diffMs / 3600000);
+      const mins = Math.floor((diffMs % 3600000) / 60000);
+      setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+    } else {
+      setTransitGapError(null);
+    }
+  }, [form.flightType, form.date, leg1FlightTime, leg2ArrivalDate]);
 
   // Sync non-flying guest array length with totalNonFlying
   const totalNonFlying = form.premiereNonFlyingGuests + form.nonFlyingGuests;
