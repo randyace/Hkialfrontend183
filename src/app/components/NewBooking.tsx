@@ -1109,14 +1109,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // The backend's TransitLegsRule is the source of truth; this is the
   // UX gate that disables the submit button before the user can try.
   // 2026-06-08 (reactive fix) — Transit also requires leg 1 flightTime
-  // (HH:MM). For non-Transit, the backend's top-level flight_time is
-  // nullable, so we don't enforce it at the form level.
+  // (HH:MM).
+  // 2026-06-23 — For Arrival and Departure bookings, ALL visible step 1
+  // fields are required (date, flight number, time, origin/destination,
+  // flight class, and company code for corporate/travel agency members).
+  // Transit keeps its existing leg 1 + leg 2 validation.
   // 2026-06-08 (round 6.2.7): leg 2 flight time is now stored as the
   // time half of the combined `leg2ArrivalDate` (date+time were split
   // visually but kept as a single `YYYY-MM-DDTHH:MM` string so the
   // wire shape, submit handler, and 6h-gap validation all keep working).
   // The legacy `leg2FlightTime` useState is no longer bound to an input;
   // we derive the time from the combined state.
+  const isArrivalOrDeparture = form.flightType === 'Arrival' || form.flightType === 'Departure';
   const step1Leg1TimeValid =
     form.flightType !== 'Transit' || leg1FlightTime !== '';
   const leg2TimeFromArrival = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
@@ -1128,26 +1132,47 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       leg2FlightClass !== '' &&
       leg2Destination.trim() !== '' &&
       transitGapError === null);
+  const step1OriginValid =
+    form.flightType !== 'Arrival' || form.origin.trim() !== '';
+  const step1DestinationValid =
+    form.flightType !== 'Departure' || form.destination.trim() !== '';
+  const step1TimeValid =
+    !isArrivalOrDeparture || leg1FlightTime !== '';
+  const step1CompanyValid =
+    !isArrivalOrDeparture || !isCompany || form.companyCode.trim() !== '';
   const step1FlightValid =
     form.date !== '' &&
     form.flightNumber.trim() !== '' &&
+    form.flightClass !== '' &&
     step1Leg1TimeValid &&
-    step1Leg2Valid;
+    step1Leg2Valid &&
+    step1OriginValid &&
+    step1DestinationValid &&
+    step1TimeValid &&
+    step1CompanyValid;
   const step1FlightHintMsg = !form.date
-    ? 'Please select an arrival date to proceed'
+    ? `Please select a ${form.flightType === 'Departure' ? 'departure' : 'arrival'} date to proceed`
     : form.flightNumber.trim() === ''
       ? 'Please enter a flight number to proceed'
-      : form.flightType === 'Transit' && leg1FlightTime === ''
-        ? 'Please enter the leg 1 arrival time (HH:MM)'
-        : form.flightType === 'Transit' && leg2ArrivalDate === ''
-          ? 'Please enter the 2nd leg arrival date and time'
-          : form.flightType === 'Transit' && leg2FlightNo.trim() === ''
-            ? 'Please enter the 2nd leg flight number'
-            : form.flightType === 'Transit' && leg2TimeFromArrival === ''
-              ? 'Please enter the 2nd leg flight time'
-              : form.flightType === 'Transit' && leg2FlightClass === ''
-                ? 'Please select the 2nd leg flight class'
-                : transitGapError ?? 'Please complete all required fields to proceed';
+      : !step1TimeValid
+        ? `Please enter the ${form.flightType === 'Departure' ? 'departure' : 'arrival'} time`
+        : !step1OriginValid
+          ? 'Please enter the origin'
+          : !step1DestinationValid
+            ? 'Please enter the destination'
+            : !step1CompanyValid
+              ? 'Please enter the client company code'
+              : form.flightType === 'Transit' && leg1FlightTime === ''
+                ? 'Please enter the leg 1 arrival time (HH:MM)'
+                : form.flightType === 'Transit' && leg2ArrivalDate === ''
+                  ? 'Please enter the 2nd leg arrival date and time'
+                  : form.flightType === 'Transit' && leg2FlightNo.trim() === ''
+                    ? 'Please enter the 2nd leg flight number'
+                    : form.flightType === 'Transit' && leg2TimeFromArrival === ''
+                      ? 'Please enter the 2nd leg flight time'
+                      : form.flightType === 'Transit' && leg2FlightClass === ''
+                        ? 'Please select the 2nd leg flight class'
+                        : transitGapError ?? 'Please complete all required fields to proceed';
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
@@ -1940,12 +1965,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // lines (base + per-kind addons); the folded addons line has
     // key=`addons`.
     //
-    // Fallback: when `pricePreview` is undefined (figma-ui standalone
-    // preview without the Container) or its `breakdown` hasn't loaded
-    // yet, use the local rate-based math so the card still renders
-    // sensible numbers. The fallback PS/LD base rates must match the
-    // backend `prices` table (PriceListSeeder: PS base 18000, LD base
-    // 5000).
+    // Round 6.2.52 (2026-06-22) — drift fix: when `pricePreview` has
+    // not loaded yet (figma-ui standalone preview without the
+    // Container, or the 300ms before the debounced live preview
+    // returns), do NOT render stale hardcoded rates or HK$0
+    // placeholders. The previous `form.premiereSuites * 18000` /
+    // `hasLounge ? 5000 : 0` fallback could silently disagree with
+    // the backend's `prices` table whenever an admin updates the
+    // rate card via `PUT /api/prices/{key}`. Per Sky's directive
+    // "all places need price calculation are using the same logic
+    // — go through the exact same code", the only canonical source
+    // is `PricingService::compute()` on the backend. The section
+    // subtotal rows are therefore gated on `ppHasLoaded`; the
+    // existing total-row guard also stays in place so no price
+    // figure appears until the backend's authoritative preview
+    // lands.
     const ppBreakdown = pricePreview?.breakdown ?? [];
     const ppHasLoaded = ppBreakdown.length > 0;
     const ppPsSectionSubtotal = ppBreakdown
@@ -1955,22 +1989,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       .filter((l) => /Lounge Deluxe/i.test(l.label))
       .reduce((sum, l) => sum + l.subtotal, 0);
     const ppAddonsLine = ppBreakdown.find((l) => l.key === 'addons');
-    const localPSBase = form.premiereSuites * 18000;
-    const localLDBase = hasLounge ? 5000 : 0;
-    const psSectionPrice = ppHasLoaded ? ppPsSectionSubtotal : localPSBase;
-    const ldSectionPrice = ppHasLoaded ? ppLdSectionSubtotal : localLDBase;
-    const addonsAmtFinal = ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : addonAmt;
+    const psSectionPrice = ppHasLoaded ? ppPsSectionSubtotal : 0;
+    const ldSectionPrice = ppHasLoaded ? ppLdSectionSubtotal : 0;
+    const addonsAmtFinal = ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : 0;
     const finalTotal =
       pricePreview?.total != null
         ? pricePreview.total
-        : psSectionPrice + ldSectionPrice + addonsAmtFinal;
+        : 0;
     // When backend has loaded, gate the Add-on Services section on the
-    // backend's addons line presence. When fallback, use the local
-    // step2Form rates so we still render the section for any non-zero
-    // addon qty.
+    // backend's addons line presence. When the backend hasn't loaded
+    // yet, hide the section entirely (consistent with the
+    // `psSectionPrice / ldSectionPrice` zeroing above).
     const hasAddonSection = ppHasLoaded
       ? ppAddonsLine !== undefined && (ppAddonsLine?.subtotal ?? 0) > 0
-      : hasAddon;
+      : false;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -2002,13 +2034,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 ))}
               </div>
-              <div
-                className="flex items-center justify-between mt-2 pt-2"
-                style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
-              >
-                <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
-                <span className="text-xs font-medium" style={textPrimary}>HK${psSectionPrice.toLocaleString()}</span>
-              </div>
+              {ppHasLoaded && (
+                <div
+                  className="flex items-center justify-between mt-2 pt-2"
+                  style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
+                  <span className="text-xs font-medium" style={textPrimary}>HK${psSectionPrice.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           )}
           {hasLounge && (
@@ -2026,13 +2060,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 </div>
                 <span className="text-xs font-medium" style={{ color: colors.textMuted }}>| Total {loungeTotalPax} guests</span>
               </div>
-              <div
-                className="flex items-center justify-between mt-2 pt-2"
-                style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
-              >
-                <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
-                <span className="text-xs font-medium" style={textPrimary}>HK${ldSectionPrice.toLocaleString()}</span>
-              </div>
+              {ppHasLoaded && (
+                <div
+                  className="flex items-center justify-between mt-2 pt-2"
+                  style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
+                  <span className="text-xs font-medium" style={textPrimary}>HK${ldSectionPrice.toLocaleString()}</span>
+                </div>
+              )}
             </div>
           )}
           {hasAddonSection && (
@@ -4309,13 +4345,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 as the date field above. */}
             <div className="mb-4">
               <label className={labelClass}>
-                {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'}
+                {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'} *
               </label>
               <div className="relative">
                 <input
                   type="time"
                   value={leg1FlightTime}
                   onChange={(e) => setLeg1FlightTime(e.target.value)}
+                  required
                   style={fieldStyle}
                   className={fieldClass + ' pr-10'}
                   data-testid="leg1-flightTime"
@@ -4334,13 +4371,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 from HKG to a destination). */}
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
               <div className="mb-4">
-                <label className={labelClass}>Origin</label>
+                <label className={labelClass}>Origin *</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={form.origin}
                     onChange={(e) => setForm((p) => ({ ...p, origin: e.target.value }))}
+                    required={form.flightType === 'Arrival'}
                     placeholder="e.g. Hong Kong (HKG)"
                     style={fieldStyle}
                     className={fieldClass + ' pl-10'}
@@ -4424,13 +4462,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {/* Company Code (Corporate / Travel Agency) */}
             {isCompany && (
               <div>
-                <label className={labelClass}>Client Company Code</label>
+                <label className={labelClass}>Client Company Code *</label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="text"
                     value={form.companyCode}
                     onChange={(e) => handleCompanyCode(e.target.value)}
+                    required={form.flightType === 'Arrival' || form.flightType === 'Departure'}
                     placeholder="e.g. CATHAY01"
                     style={fieldStyle}
                     className={fieldClass + ' pl-10 uppercase'}
@@ -5080,9 +5119,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
                       <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adult" className={optionBg}>Adult (13+ years)</option>
-                      <option value="Child" className={optionBg}>Child (2–12 years)</option>
-                      <option value="Infant" className={optionBg}>Infant (0–2 years)</option>
+                      <option value="Adult" className={optionBg}>Adults (aged 12 and above)</option>
+                      <option value="Child" className={optionBg}>Children (aged 2 to 11)</option>
+                      <option value="Infant" className={optionBg}>Infants (under 2 years old)</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -5228,9 +5267,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
                       <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adult" className={optionBg}>Adult (13+ years)</option>
-                      <option value="Child" className={optionBg}>Child (2–12 years)</option>
-                      <option value="Infant" className={optionBg}>Infant (0–2 years)</option>
+                      <option value="Adult" className={optionBg}>Adults (aged 12 and above)</option>
+                      <option value="Child" className={optionBg}>Children (aged 2 to 11)</option>
+                      <option value="Infant" className={optionBg}>Infants (under 2 years old)</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -5286,11 +5325,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
-            onClick={() => navigate('/mybooking')}
-            className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80"
-            style={{ ...secondaryBtnStyle, color: colors.text }}
+            onClick={handleBackToStep1}
+            className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80 flex items-center justify-center gap-2"
+            style={{ ...backBtnStyle, color: colors.text }}
           >
-            Cancel
+            <ArrowLeft className="w-4 h-4" />
+            Back to Previous Page
           </button>
           <button
             type="submit"

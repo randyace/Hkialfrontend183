@@ -12,6 +12,8 @@ import {
   CreditCard,
   Globe,
   Loader2,
+  Check,
+  X,
 } from "lucide-react";
 import { useTheme } from "./ThemeContext";
 
@@ -157,6 +159,10 @@ export function Settings({
   ] = useState(false);
   const [internalShowNewPassword, setInternalShowNewPassword] =
     useState(false);
+  const [
+    internalShowConfirmPassword,
+    setInternalShowConfirmPassword,
+  ] = useState(false);
   const showPassword = propShowPassword ?? internalShowPassword;
 
   const handleTogglePassword = () => {
@@ -173,6 +179,10 @@ export function Settings({
 
   const handleToggleNewPassword = () => {
     setInternalShowNewPassword((prev) => !prev);
+  };
+
+  const handleToggleConfirmPassword = () => {
+    setInternalShowConfirmPassword((prev) => !prev);
   };
 
   const updateSetting = (
@@ -230,6 +240,48 @@ export function Settings({
     border: `1px solid ${colors.inputBorder}`,
     color: colors.inputText,
   };
+
+  const newPasswordValue = passwordFields.newPassword ?? "";
+  const confirmPasswordValue = passwordFields.confirmPassword ?? "";
+
+  const calculatePasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength += 25;
+    if (password.length >= 12) strength += 25;
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 20;
+    if (/\d/.test(password)) strength += 15;
+    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 15;
+    return Math.min(strength, 100);
+  };
+
+  const passwordStrength = calculatePasswordStrength(newPasswordValue);
+  const getStrengthColor = (strength: number) => {
+    if (strength < 40) return "rgb(239, 68, 68)";
+    if (strength < 70) return "rgb(234, 179, 8)";
+    return "rgb(34, 197, 94)";
+  };
+  const getStrengthText = (strength: number) => {
+    if (strength < 40) return "Weak";
+    if (strength < 70) return "Medium";
+    return "Strong";
+  };
+
+  const passwordRequirements = [
+    { met: newPasswordValue.length >= 8, text: "At least 8 characters" },
+    { met: /[a-z]/.test(newPasswordValue) && /[A-Z]/.test(newPasswordValue), text: "Upper and lowercase letters" },
+    { met: /\d/.test(newPasswordValue), text: "At least one number" },
+    { met: /[!@#$%^&*(),.?":{}|<>]/.test(newPasswordValue), text: "At least one special character" },
+  ];
+
+  const passwordsMatch =
+    newPasswordValue &&
+    confirmPasswordValue &&
+    newPasswordValue === confirmPasswordValue;
+  const passwordsDontMatch =
+    newPasswordValue &&
+    confirmPasswordValue &&
+    newPasswordValue !== confirmPasswordValue;
+  const mutedColor = isDark ? "text-gray-400" : "text-[rgb(160,159,148)]";
 
   // ── Loading skeleton ────────────────────────────────────────────────────
   if (isLoading) {
@@ -589,6 +641,37 @@ export function Settings({
             {fieldErrors["password"]}
           </p>
         )}
+        {newPasswordValue && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-xs ${mutedColor}`}>
+                Password Strength:
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: getStrengthColor(passwordStrength) }}
+              >
+                {getStrengthText(passwordStrength)}
+              </span>
+            </div>
+            <div
+              className="h-2 rounded-full"
+              style={{
+                background: isDark
+                  ? "rgba(255,255,255,0.1)"
+                  : "rgba(231,230,221,0.6)",
+              }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${passwordStrength}%`,
+                  background: getStrengthColor(passwordStrength),
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirm New Password */}
@@ -601,7 +684,9 @@ export function Settings({
         </label>
         <div className="relative">
           <input
-            type={internalShowNewPassword ? "text" : "password"}
+            type={
+              internalShowConfirmPassword ? "text" : "password"
+            }
             value={passwordFields.confirmPassword}
             onChange={(e) =>
               handlePasswordChange(
@@ -613,7 +698,73 @@ export function Settings({
             className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             style={inputStyle}
           />
+          <button
+            onClick={handleToggleConfirmPassword}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-60 transition-opacity"
+            style={{ color: colors.textMuted }}
+          >
+            {internalShowConfirmPassword ? (
+              <EyeOff className="w-4 h-4" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+          </button>
         </div>
+        {confirmPasswordValue && (
+          <div className="mt-2">
+            {passwordsMatch ? (
+              <div
+                className="flex items-center gap-2 text-xs"
+                style={{ color: "rgb(34, 197, 94)" }}
+              >
+                <Check className="w-4 h-4" />
+                <span>Passwords match</span>
+              </div>
+            ) : passwordsDontMatch ? (
+              <div
+                className="flex items-center gap-2 text-xs"
+                style={{ color: "rgb(239, 68, 68)" }}
+              >
+                <X className="w-4 h-4" />
+                <span>Passwords do not match</span>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p
+          className={`text-xs ${mutedColor}`}
+          style={{ color: colors.textSecondary }}
+        >
+          Password must contain:
+        </p>
+        {passwordRequirements.map((req, index) => {
+          const reqColorClass = req.met
+            ? isDark
+              ? "text-green-400"
+              : "text-green-600"
+            : mutedColor;
+          return (
+            <div key={index} className="flex items-center gap-2">
+              {req.met ? (
+                <Check
+                  className="w-4 h-4"
+                  style={{ color: "rgb(34, 197, 94)" }}
+                />
+              ) : (
+                <X
+                  className="w-4 h-4"
+                  style={{ color: "rgb(160, 159, 148)" }}
+                />
+              )}
+              <span className={`text-xs ${reqColorClass}`}>
+                {req.text}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
