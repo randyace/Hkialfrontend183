@@ -39,6 +39,8 @@ import {
   ChevronRight,
   Crown,
   CalendarPlus,
+  Inbox,
+  Loader2,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
@@ -93,6 +95,91 @@ interface NewBookingProps {
   isSubmitting?: boolean;
   error?: string;
   successRef?: string;
+  // 2026-06-16 (round ?) — "Use History as New Booking" data.
+  // Container (NewBookingContainer.tsx) fetches past bookings via
+  // bookingsApi.getAll({memberId}), runs a shape-validation filter
+  // (silently dropping rows whose data is in an old/incompatible
+  // shape per Sky's instruction), and forwards the survivors here.
+  // When the prop is omitted (e.g. figma standalone preview with
+  // MOCK_HISTORY_BOOKINGS fallback) the dialog renders the in-file
+  // mock list so the figma code stays self-previewable.
+  historyBookings?: HistoryBooking[];
+  isLoadingHistory?: boolean;
+  // Diagnostic counts so the empty state can hint "I received 5
+  // bookings but all 5 failed the shape check". The container
+  // passes the same `totalReceived`/`rejectedCount` it computed
+  // during validation. When omitted (figma preview, MOCK path),
+  // the empty state shows the neutral copy.
+  historyDiagnostics?: {
+    totalReceived: number;
+    rejectedCount: number;
+    sampleReason?: string;
+  };
+  // 2026-06-17 (round 6.2.28 follow-up) — Container's live price
+  // preview. Container mirrors form state via `onFormChange`, calls
+  // `POST /api/member/bookings/price-preview`, and forwards the
+  // backend `PricingService`'s authoritative `total_price` +
+  // `breakdown[]` here. BookingSummaryCard reads this to render the
+  // accommodation base prices + addons + total. When omitted (figma-ui
+  // standalone preview, MOCK path), the card falls back to the local
+  // rate-based calculation (PS base × 18000, LD base 5000, addons
+  // × local rates) so the figma code stays self-previewable per
+  // INV-X1.
+  pricePreview?: {
+    total: number | null;
+    breakdown: Array<{
+      key: string;
+      label: string;
+      qty: number;
+      unit_price: number;
+      subtotal: number;
+      note?: string;
+    }>;
+    loading: boolean;
+    error: string | null;
+  };
+  // 2026-06-17 — Container mirrors form state via this callback to
+  // drive `usePricePreview`. Called on every form / step2Form /
+  // vipData / nonFlyingGuestData change via a useEffect inside
+  // NewBooking. Optional so figma-ui standalone previews keep working.
+  onFormChange?: (data: {
+    form: Record<string, unknown>;
+    step2Form: Record<string, unknown>;
+    vipData: Array<Record<string, unknown>>;
+    nonFlyingGuestData: Array<Record<string, unknown>>;
+  }) => void;
+}
+
+/** Shape required by the history dialog. Mirrors the `Booking` view
+ *  type from src/types/api.ts for the fields the dialog reads. */
+interface HistoryBooking {
+  id: number;
+  bookingRef: string;
+  lounge: string;
+  date: string;
+  time: string;
+  flightNumber: string;
+  flightType: string;
+  flightClass: string;
+  status: string;
+  premiereSuites: number;
+  premiereVipPassengers: number;
+  premiereNonFlyingGuests: number;
+  vipPassengers: number;
+  nonFlyingGuests: number;
+  passengers: Array<{
+    title: string;
+    firstName: string;
+    lastName: string;
+    travelDoc: string;
+    membership?: string;
+    ageGroup?: string;
+  }>;
+  contactPerson: {
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
 interface VipPassenger {
@@ -744,12 +831,16 @@ function QRScannerModal({
 }
 
 // ── Historical bookings (mock data – mirrors Bookings.tsx completed/confirmed) ──
-const HISTORY_BOOKINGS = [
+// 2026-06-16 (round ?) — used as figma-preview fallback when the
+// container does not provide the `historyBookings` prop. Includes the
+// `contactPerson` block (added for the new customer-info loading path)
+// so the figma preview demonstrates the full "load from history"
+// flow. In production the container overrides this with real API data.
+const HISTORY_BOOKINGS: HistoryBooking[] = [
   {
     id: 1,
     bookingRef: 'D-20260112-84721',
     lounge: 'The Wing First Class Lounge',
-    terminal: 'Terminal 1',
     date: '2026-01-12',
     time: '14:30',
     flightNumber: 'CX888',
@@ -767,12 +858,12 @@ const HISTORY_BOOKINGS = [
       { title: 'Ms',  firstName: 'Emma',  lastName: 'Johnson', travelDoc: 'P11223344', membership: 'HKIAL003' },
       { title: 'Mr',  firstName: 'David', lastName: 'Chen',  travelDoc: 'P55667788', membership: 'HKIAL004' },
     ],
+    contactPerson: { name: 'John Smith', email: 'john.smith@example.com', phone: '+852 9876 5432' },
   },
   {
     id: 2,
     bookingRef: 'D-20260120-63195',
     lounge: 'The Pier Business Class Lounge',
-    terminal: 'Terminal 1',
     date: '2026-01-20',
     time: '10:15',
     flightNumber: 'CX250',
@@ -788,12 +879,12 @@ const HISTORY_BOOKINGS = [
       { title: 'Ms', firstName: 'Sarah', lastName: 'Chen',  travelDoc: 'P11223344', membership: 'HKIAL003' },
       { title: 'Mr', firstName: 'David', lastName: 'Wong',  travelDoc: 'P99887766', membership: 'HKIAL004' },
     ],
+    contactPerson: { name: 'Sarah Chen', email: 'sarah.chen@example.com', phone: '+852 9123 4567' },
   },
   {
     id: 3,
     bookingRef: 'D-20251228-29847',
     lounge: 'The Cabin Lounge',
-    terminal: 'Terminal 1',
     date: '2025-12-28',
     time: '16:45',
     flightNumber: 'CX505',
@@ -808,12 +899,12 @@ const HISTORY_BOOKINGS = [
     passengers: [
       { title: 'Mr', firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' },
     ],
+    contactPerson: { name: 'Michael Lee', email: 'michael.lee@example.com', phone: '+852 9222 3344' },
   },
   {
     id: 4,
     bookingRef: 'A-20251215-51639',
     lounge: 'The Arrival Lounge',
-    terminal: 'Terminal 1',
     date: '2025-12-15',
     time: '08:30',
     flightNumber: 'CX270',
@@ -828,11 +919,12 @@ const HISTORY_BOOKINGS = [
     passengers: [
       { title: 'Mrs', firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' },
     ],
+    contactPerson: { name: 'Emily Chan', email: 'emily.chan@example.com', phone: '+852 9555 6677' },
   },
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1182,6 +1274,28 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     }
   }, [form.flightType, form.date, leg1FlightTime, leg2ArrivalDate]);
 
+  // 2026-06-17 (round 6.2.28 follow-up) — Push live form state up to
+  // the Container so it can drive `usePricePreview` (the
+  // `/api/member/bookings/price-preview` POST). The Container mirrors
+  // these values via `handleFormChange` and forwards the
+  // `pricePreview` prop back, which BookingSummaryCard then renders.
+  //
+  // Ref-wrapped so the parent can re-render the callback identity
+  // (e.g. Container's `useCallback` deps change) without re-running
+  // this effect. The effect itself only depends on the form state.
+  const onFormChangeRef = useRef(onFormChange);
+  useEffect(() => {
+    onFormChangeRef.current = onFormChange;
+  }, [onFormChange]);
+  useEffect(() => {
+    onFormChangeRef.current?.({
+      form: form as unknown as Record<string, unknown>,
+      step2Form: step2Form as unknown as Record<string, unknown>,
+      vipData: vipData as unknown as Array<Record<string, unknown>>,
+      nonFlyingGuestData: nonFlyingGuestData as unknown as Array<Record<string, unknown>>,
+    });
+  }, [form, step2Form, vipData, nonFlyingGuestData]);
+
   // Sync non-flying guest array length with totalNonFlying
   const totalNonFlying = form.premiereNonFlyingGuests + form.nonFlyingGuests;
   useEffect(() => {
@@ -1321,23 +1435,43 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
 
-  const handleSelectHistory = (booking: typeof HISTORY_BOOKINGS[0]) => {
-    setForm({
-      date: '',
-      flightNumber: booking.flightNumber,
-      flightType: booking.flightType,
-      flightClass: booking.flightClass,
-      companyCode: '',
-      destination: '',
+  // 2026-06-16 (round ?): "Use History as New Booking" — load the
+  // step 2 data (PS / LD / VIP / NFG / customer info) from the
+  // selected past booking. Per Sky: "we just need to fill step 2
+  // data only" — do NOT touch the user's step 1 entries (flight
+  // number / type / class / company / destination). The user has
+  // already filled step 1 before opening this dialog (in step 2),
+  // and we shouldn't blow it away.
+  //
+  // What this handler does:
+  //   ✓ Updates form's PS / LD / VIP / NFG counts from the past
+  //     booking (premiereSuites, premiereVipPassengers,
+  //     premiereNonFlyingGuests, vipPassengers, nonFlyingGuests)
+  //   ✓ Replaces vipData with cloned passengers (padded to match
+  //     the new VIP count)
+  //   ✓ Resets nonFlyingGuestData to a blank-slot array sized to
+  //     the new NFG count
+  //   ✓ Loads the contact person into step2Form (name / email /
+  //     phone)
+  //   ✗ Does NOT touch form.date (user's step 1 date is kept)
+  //   ✗ Does NOT touch form.flightNumber / flightType /
+  //     flightClass (user's step 1 flight is kept)
+  //   ✗ Does NOT touch form.companyCode / destination
+  //   ✗ Does NOT touch flightDetails (the user's step 1 origin →
+  //     destination lookup is kept)
+  const handleSelectHistory = (booking: HistoryBooking) => {
+    setForm((prev) => ({
+      ...prev,
+      // Step 2 fields — per Sky's "fill step 2 data only" spec.
       premiereSuites: booking.premiereSuites,
       premiereVipPassengers: booking.premiereVipPassengers,
       premiereNonFlyingGuests: booking.premiereNonFlyingGuests,
       vipPassengers: booking.vipPassengers,
       nonFlyingGuests: booking.nonFlyingGuests,
-    });
-    const fd = flightDatabase[booking.flightNumber];
-    if (fd) setFlightDetails(fd);
-    const clonedVip: VipPassenger[] = booking.passengers.map((p) => ({
+      // Step 1 fields are intentionally NOT overwritten — the user
+      // already filled them in step 1 before opening this dialog.
+    }));
+    const clonedVip: VipPassenger[] = (booking.passengers ?? []).map((p) => ({
       vipTitle: p.title,
       vipFirstName: p.firstName,
       vipLastName: p.lastName,
@@ -1362,8 +1496,29 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       foodAllergies: '',
     }));
     setNonFlyingGuestData(blankGuests);
+    // 2026-06-16 (round ?) — also load the customer info (contact
+    // person) into step 2's step2Form so the user doesn't have to
+    // re-type the contact details when cloning a past booking.
+    // Skip if the source booking has no contactPerson (defensive —
+    // matches the "old booking shape mismatch" handling done in the
+    // container's isValidHistoryBooking gate; this branch is just
+    // belt-and-braces for the MOCK_BOOKINGS path).
+    if (booking.contactPerson) {
+      setStep2Form((prev) => ({
+        ...prev,
+        contactName: booking.contactPerson.name || prev.contactName,
+        contactEmail: booking.contactPerson.email || prev.contactEmail,
+        contactNo: booking.contactPerson.phone || prev.contactNo,
+      }));
+    }
     setShowHistoryDialog(false);
   };
+
+  // 2026-06-16 (round ?) — the dialog's data source. Container-supplied
+  // real bookings take precedence; when absent (figma preview path)
+  // fall back to the in-file MOCK so the figma code base stays
+  // self-previewable without requiring the parent app.
+  const historyBookings: HistoryBooking[] = historyBookingsProp ?? HISTORY_BOOKINGS;
 
   const handleOpenHistoryDialog = () => setShowHistoryDialog(true);
   const handleCloseHistoryDialog = () => setShowHistoryDialog(false);
@@ -1763,23 +1918,59 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const lvStr = form.vipPassengers > 0 ? form.vipPassengers + ' VIP' : '';
     const lnStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
     const loungeLabel = lvStr + (lvStr && lnStr ? ' · ' : '') + lnStr;
-    const suiteUpgradeFee = form.premiereSuites * 6000;
     const addonOrig =
-      suiteUpgradeFee +
       step2Form.loungeExtension * 500 +
       step2Form.limousineService * 1200 +
       step2Form.wheelchairService * 300;
     const addonAmt =
-      suiteUpgradeFee +
       step2Form.loungeExtension * loungeRate +
       step2Form.limousineService * limoRate +
       step2Form.wheelchairService * wheelchairRate;
     const addonSave = addonOrig - addonAmt;
     const hasAddon =
-      form.premiereSuites > 0 ||
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
       step2Form.wheelchairService > 0;
+
+    // 2026-06-17 (round 6.2.28 follow-up) — Single-source-of-truth
+    // pricing. Pull section prices from the Container's `pricePreview`
+    // (backend `PricingService` via
+    // `POST /api/member/bookings/price-preview`). The breakdown labels
+    // contain "Premiere Suite" / "Lounge Deluxe" for product-specific
+    // lines (base + per-kind addons); the folded addons line has
+    // key=`addons`.
+    //
+    // Fallback: when `pricePreview` is undefined (figma-ui standalone
+    // preview without the Container) or its `breakdown` hasn't loaded
+    // yet, use the local rate-based math so the card still renders
+    // sensible numbers. The fallback PS/LD base rates must match the
+    // backend `prices` table (PriceListSeeder: PS base 18000, LD base
+    // 5000).
+    const ppBreakdown = pricePreview?.breakdown ?? [];
+    const ppHasLoaded = ppBreakdown.length > 0;
+    const ppPsSectionSubtotal = ppBreakdown
+      .filter((l) => /Premiere Suite/i.test(l.label))
+      .reduce((sum, l) => sum + l.subtotal, 0);
+    const ppLdSectionSubtotal = ppBreakdown
+      .filter((l) => /Lounge Deluxe/i.test(l.label))
+      .reduce((sum, l) => sum + l.subtotal, 0);
+    const ppAddonsLine = ppBreakdown.find((l) => l.key === 'addons');
+    const localPSBase = form.premiereSuites * 18000;
+    const localLDBase = hasLounge ? 5000 : 0;
+    const psSectionPrice = ppHasLoaded ? ppPsSectionSubtotal : localPSBase;
+    const ldSectionPrice = ppHasLoaded ? ppLdSectionSubtotal : localLDBase;
+    const addonsAmtFinal = ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : addonAmt;
+    const finalTotal =
+      pricePreview?.total != null
+        ? pricePreview.total
+        : psSectionPrice + ldSectionPrice + addonsAmtFinal;
+    // When backend has loaded, gate the Add-on Services section on the
+    // backend's addons line presence. When fallback, use the local
+    // step2Form rates so we still render the section for any non-zero
+    // addon qty.
+    const hasAddonSection = ppHasLoaded
+      ? ppAddonsLine !== undefined && (ppAddonsLine?.subtotal ?? 0) > 0
+      : hasAddon;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -1811,6 +2002,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 ))}
               </div>
+              <div
+                className="flex items-center justify-between mt-2 pt-2"
+                style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
+              >
+                <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
+                <span className="text-xs font-medium" style={textPrimary}>HK${psSectionPrice.toLocaleString()}</span>
+              </div>
             </div>
           )}
           {hasLounge && (
@@ -1828,20 +2026,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 </div>
                 <span className="text-xs font-medium" style={{ color: colors.textMuted }}>| Total {loungeTotalPax} guests</span>
               </div>
+              <div
+                className="flex items-center justify-between mt-2 pt-2"
+                style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
+              >
+                <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
+                <span className="text-xs font-medium" style={textPrimary}>HK${ldSectionPrice.toLocaleString()}</span>
+              </div>
             </div>
           )}
-          {hasAddon && (
+          {hasAddonSection && (
             <div
               className="rounded-lg px-3 py-2.5 space-y-1.5"
               style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
             >
               <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>Add-on Services</div>
-              {form.premiereSuites > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Upgrade Fee × {form.premiereSuites}</span>
-                  <span className="text-xs font-medium" style={textPrimary}>HK${suiteUpgradeFee.toLocaleString()}</span>
-                </div>
-              )}
               {step2Form.loungeExtension > 0 && (
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Extension × {step2Form.loungeExtension}</span>
@@ -1873,12 +2072,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 className="flex items-center justify-between pt-1.5 mt-1"
                 style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
               >
-                <span className="text-xs font-medium" style={textPrimary}>Total</span>
-                <span className="text-sm font-semibold" style={textPrimary}>HK${addonAmt.toLocaleString()}</span>
+                <span className="text-xs font-medium" style={textPrimary}>Add-on Services Subtotal</span>
+                <span className="text-sm font-semibold" style={textPrimary}>HK${addonsAmtFinal.toLocaleString()}</span>
               </div>
               {isTravelAgency && addonSave > 0 && (
                 <div className="text-xs text-green-400">Agency saving: HK${addonSave.toLocaleString()}</div>
               )}
+            </div>
+          )}
+          {(psSectionPrice > 0 || ldSectionPrice > 0 || addonsAmtFinal > 0) && (
+            <div
+              className="flex items-center justify-between pt-2.5 mt-2"
+              style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(0,0,0,0.12)' }}
+            >
+              <span className="text-sm font-semibold" style={textPrimary}>Total</span>
+              <span className="text-base font-semibold" style={textPrimary}>HK${finalTotal.toLocaleString()}</span>
             </div>
           )}
           {isTravelAgency && (
@@ -3987,16 +4195,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>TA Rates Active</span>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={handleOpenHistoryDialog}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
-                style={{ background: histBtnBgS1, border: histBtnBorderS1, color: histBtnColorS1 }}
-              >
-                <History className="w-3.5 h-3.5 flex-shrink-0" />
-                <span className="hidden sm:inline">Use History as New Booking</span>
-                <span className="sm:hidden">Use History</span>
-              </button>
             </div>
           </div>
 
@@ -4274,7 +4472,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {form.flightType === 'Transit' && (
               <div className="mt-5 pt-5" style={{ borderTop: borderSubtle }} data-testid="transit-leg2-block">
                 <h3 className="text-sm font-semibold mb-1" style={textPrimary}>
-                  2nd Flight (Outbound) <span style={{ color: '#ef4444' }}>*</span>
+                  2nd Flight (Outbound) <span>*</span>
                 </h3>
                 <p className="text-xs mb-4" style={textMuted}>
                   The 2nd leg of your transit. The 1st leg (above) is your inbound to HKG; this is your outbound.
@@ -4288,7 +4486,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {/* Leg 2 Flight Number — full width, top of section
                     (round 6.2.8 reorder per Sky). */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Flight Number <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className={labelClass}>Leg 2 Flight Number <span>*</span></label>
                   <div className="relative">
                     <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -4307,7 +4505,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     6.2.8): renamed from "Arrival Date" to "Departure
                     Date" because leg 2 is the outbound flight. */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Departure Date <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className={labelClass}>Leg 2 Departure Date <span>*</span></label>
                   <div className="relative">
                     <input
                       type="date"
@@ -4348,7 +4546,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     Time". The time half of the combined leg2ArrivalDate
                     state (datetime-local string). */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Departure Time <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className={labelClass}>Leg 2 Departure Time <span>*</span></label>
                   <div className="relative">
                     <input
                       type="time"
@@ -4392,7 +4590,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     field today — it is captured for display / future
                     pricing use. */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Destination <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className={labelClass}>Leg 2 Destination <span>*</span></label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
@@ -4409,7 +4607,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Leg 2 Flight Class — full width. */}
                 <div>
-                  <label className={labelClass}>Leg 2 Flight Class <span style={{ color: '#ef4444' }}>*</span></label>
+                  <label className={labelClass}>Leg 2 Flight Class <span>*</span></label>
                   <div className="relative">
                     <select
                       value={leg2FlightClass}
@@ -4475,86 +4673,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           )}
         </div>
-
-        {/* History Dialog */}
-        {showHistoryDialog && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-          >
-            <div
-              className="w-full max-w-lg rounded-2xl overflow-hidden"
-              style={{
-                background: isDark ? '#0a1929' : '#FFFFFF',
-                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)',
-                boxShadow: '0 30px 70px rgba(0,0,0,0.5)',
-              }}
-            >
-              <div
-                className="flex items-center justify-between px-5 py-4"
-                style={{
-                  background: isDark
-                    ? 'linear-gradient(90deg,rgba(220,181,21,0.2) 0%,rgba(180,140,10,0.1) 100%)'
-                    : 'linear-gradient(90deg,rgba(220,181,21,0.18) 0%,rgba(180,140,10,0.08) 100%)',
-                  borderBottom: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.3)',
-                }}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{ background: 'rgba(220,181,21,0.2)', border: '1px solid rgba(220,181,21,0.35)' }}
-                  >
-                    <History className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
-                  </div>
-                  <div>
-                    <div className="text-sm" style={textPrimary}>Use History as New Booking</div>
-                    <div className="text-xs" style={textMuted}>Select a past booking to pre-fill this form</div>
-                  </div>
-                </div>
-                <button type="button" onClick={handleCloseHistoryDialog} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-white/10">
-                  <X className="w-4 h-4" style={textMuted} />
-                </button>
-              </div>
-              <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
-                {HISTORY_BOOKINGS.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => handleSelectHistory(b)}
-                    className="w-full text-left rounded-xl px-4 py-3.5 transition-all hover:opacity-80"
-                    style={{
-                      background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)',
-                      border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)',
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm" style={textPrimary}>{b.bookingRef}</span>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full"
-                            style={{
-                              background: b.status === 'confirmed' ? 'rgba(220,181,21,0.15)' : 'rgba(16,185,129,0.15)',
-                              color: b.status === 'confirmed' ? 'rgb(220,181,21)' : 'rgb(16,185,129)',
-                              border: b.status === 'confirmed' ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(16,185,129,0.3)',
-                            }}
-                          >
-                            {b.status}
-                          </span>
-                        </div>
-                        <div className="text-xs" style={textMuted}>{b.flightNumber} · {b.flightType} · {b.flightClass}</div>
-                        <div className="text-xs mt-1" style={textMuted}>
-                          Suite: {b.premiereSuites} · VIP: {b.premiereVipPassengers + b.vipPassengers} · Guests: {b.premiereNonFlyingGuests + b.nonFlyingGuests}
-                        </div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1" style={textMuted} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </form>
       {stepLoadingOverlay}
       </>
@@ -4605,6 +4723,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
   };
+  // 2026-06-16 (round ?) — the "Use History as New Booking" pill
+  // button styles. Originally declared inside step 1's render block
+  // (histBtnBgS1 etc.) where the button used to live; we moved the
+  // button to step 2's header, so redeclare here. Keeping the visual
+  // identical to the original pill so the move is a pure relocation.
+  const histBtnBgS2 = isDark
+    ? 'linear-gradient(135deg,rgba(220,181,21,0.2) 0%,rgba(180,140,10,0.12) 100%)'
+    : 'linear-gradient(135deg,rgba(220,181,21,0.25) 0%,rgba(180,140,10,0.15) 100%)';
+  const histBtnBorderS2 = isDark ? '1px solid rgba(220,181,21,0.4)' : '1px solid rgba(220,181,21,0.5)';
+  const histBtnColorS2 = isDark ? 'rgb(220,181,21)' : 'rgb(160,128,8)';
 
   return (
     <>
@@ -4614,11 +4742,32 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <BookingStepProgress skipAddons={noAddonRequired} />
 
         {/* Step 2 header */}
-        <div>
-          <h1 className="text-xl" style={gradientTextS2}>Step 2: Suite &amp; Guest Selection</h1>
-          <p className="text-xs mt-1" style={textMuted}>
-            Select lounge areas, add VIP passengers and non-flying guests
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-xl" style={gradientTextS2}>Step 2: Suite &amp; Guest Selection</h1>
+            <p className="text-xs mt-1" style={textMuted}>
+              Select lounge areas, add VIP passengers and non-flying guests
+            </p>
+          </div>
+          {/* 2026-06-16 (round ?) — moved from step 1 to step 2 (per
+              Sky's request). Picking a past booking to clone is more
+              useful AFTER the user has the lounge/suite/VIP/NFG counts
+              in mind. The dialog itself was already in step 2's
+              branch as a "more detailed" duplicate; that copy is the
+              one the button now opens, and the step-1 duplicate has
+              been removed. */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={handleOpenHistoryDialog}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
+              style={{ background: histBtnBgS2, border: histBtnBorderS2, color: histBtnColorS2 }}
+            >
+              <History className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Use History as New Booking</span>
+              <span className="sm:hidden">Use History</span>
+            </button>
+          </div>
         </div>
 
         {/* ── Book for Member Banner ──────────────────────────────────────── */}
@@ -4920,7 +5069,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Age Group */}
                 <div>
-                  <label className={labelClass}>Age Group <span style={{ color: 'rgb(220,181,21)' }}>*</span></label>
+                  <label className={labelClass}>Age Group <span>*</span></label>
                   <div className="relative">
                     <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <select
@@ -5068,7 +5217,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Age Group */}
                 <div>
-                  <label className={labelClass}>Age Group <span style={{ color: 'rgb(220,181,21)' }}>*</span></label>
+                  <label className={labelClass}>Age Group <span>*</span></label>
                   <div className="relative">
                     <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <select
@@ -5374,101 +5523,176 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </button>
             </div>
 
-            {/* Scrollable booking list */}
+            {/* Scrollable booking list — 2026-06-16 (round ?): source
+                switched from in-file MOCK to the derived
+                `historyBookings` (container-provided real data, or
+                MOCK fallback for figma preview). Empty / loading
+                states added so the user always sees something
+                meaningful when opening the dialog. */}
             <div className="overflow-y-auto flex-1 p-5 space-y-3">
-              {HISTORY_BOOKINGS.map((booking) => {
-                const statusColors: { [key: string]: { bg: string; text: string; border: string } } = {
-                  confirmed: { bg: 'rgba(34,197,94,0.12)', text: 'rgb(22,163,74)', border: 'rgba(34,197,94,0.3)' },
-                  completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
-                };
-                const sc = statusColors[booking.status] || statusColors.completed;
-                const statusLabel = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
-                const totalPassengers = booking.premiereVipPassengers + booking.vipPassengers + booking.passengers.length;
-                const guestSummary = booking.nonFlyingGuests > 0
-                  ? booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites + ' VIP  +  ' + booking.nonFlyingGuests + ' guest(s)'
-                  : (booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites) + ' VIP passenger(s)';
-                const cardBg: React.CSSProperties = {
-                  background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(248,247,242,0.9)',
-                  border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(200,199,190,0.5)',
-                };
-                const divLine = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.35)';
-
-                return (
-                  <div key={booking.id} className="rounded-xl overflow-hidden" style={cardBg}>
-                    {/* Card top row */}
-                    <div className="px-4 pt-4 pb-3">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm truncate" style={textPrimary}>{booking.lounge}</div>
-                          <div className="text-xs mt-0.5" style={textMuted}>{booking.terminal}</div>
-                        </div>
-                        <span
-                          className="text-xs px-2.5 py-1 rounded-full flex-shrink-0"
-                          style={{ background: sc.bg, color: sc.text, border: '1px solid ' + sc.border }}
-                        >
-                          {statusLabel}
-                        </span>
+              {isLoadingHistory ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 py-12"
+                  data-testid="history-dialog-loading"
+                >
+                  <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'rgb(220,181,21)' }} />
+                  <div className="text-xs" style={textMuted}>Loading your past bookings…</div>
+                </div>
+              ) : historyBookings.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 py-12"
+                  data-testid="history-dialog-empty"
+                >
+                  <Inbox className="w-7 h-7" style={{ color: colors.textMuted }} />
+                  <div className="text-sm" style={textPrimary}>No past bookings yet</div>
+                  <div className="text-xs text-center max-w-xs" style={textMuted}>
+                    Completed and confirmed bookings will appear here so you can quickly clone their setup.
+                  </div>
+                  {/* 2026-06-16 (round ?): if the container received
+                      bookings but all were rejected by the shape
+                      gate, show a diagnostic hint so the user can
+                      tell "I have no bookings" from "I have
+                      bookings but they don't match the expected
+                      shape". Helps the "I added a booking 792 but
+                      it's not showing" debugging loop. The hint
+                      is muted-styled so it doesn't break the
+                      empty-state visual. */}
+                  {historyDiagnostics && historyDiagnostics.totalReceived > 0 && (
+                    <div
+                      className="mt-3 px-3 py-2 rounded-lg text-xs text-center max-w-sm"
+                      style={{
+                        background: isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.12)',
+                        border: isDark ? '1px solid rgba(220,181,21,0.2)' : '1px solid rgba(220,181,21,0.3)',
+                        color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)',
+                      }}
+                      data-testid="history-dialog-diagnostics"
+                    >
+                      <div>
+                        Loaded {historyDiagnostics.totalReceived} booking
+                        {historyDiagnostics.totalReceived === 1 ? '' : 's'}
+                        , but {historyDiagnostics.rejectedCount} didn&apos;t
+                        match the expected shape{historyDiagnostics.sampleReason ? ` (first: ${historyDiagnostics.sampleReason})` : ''}.
                       </div>
+                      <div className="mt-1" style={{ opacity: 0.75 }}>
+                        Open the browser console for full per-row details.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                historyBookings.map((booking) => {
+                  const statusColors: { [key: string]: { bg: string; text: string; border: string } } = {
+                    confirmed: { bg: 'rgba(34,197,94,0.12)', text: 'rgb(22,163,74)', border: 'rgba(34,197,94,0.3)' },
+                    completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
+                  };
+                  const sc = statusColors[booking.status] || statusColors.completed;
+                  const statusLabel = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
+                  const guestSummary = booking.nonFlyingGuests > 0
+                    ? booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites + ' VIP  +  ' + booking.nonFlyingGuests + ' guest(s)'
+                    : (booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites) + ' VIP passenger(s)';
+                  const cardBg: React.CSSProperties = {
+                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(248,247,242,0.9)',
+                    border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(200,199,190,0.5)',
+                  };
+                  const divLine = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.35)';
 
-                      {/* Info grid */}
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                          <span className="text-xs" style={textSecondary}>
-                            {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  return (
+                    <div key={booking.id} className="rounded-xl overflow-hidden" style={cardBg}>
+                      {/* Card top row — date promoted to its own prominent
+                          line per Sky's "show the date of the old booking"
+                          request. `terminal` row dropped (per Sky: "we
+                          don't use terminal now"). */}
+                      <div className="px-4 pt-4 pb-3">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            {/* 2026-06-16: lounge is optional post-relax.
+                                Show "—" muted fallback when missing so
+                                the card header doesn't render an
+                                empty div. */}
+                            <div className="text-sm truncate" style={textPrimary}>
+                              {booking.lounge || <span style={textMuted}>—</span>}
+                            </div>
+                            <div className="text-xs mt-1 flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
+                              <span className="font-medium" style={textSecondary}>
+                                {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className="text-xs px-2.5 py-1 rounded-full flex-shrink-0"
+                            style={{ background: sc.bg, color: sc.text, border: '1px solid ' + sc.border }}
+                          >
+                            {statusLabel}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                          <span className="text-xs" style={textSecondary}>{booking.time}</span>
+
+                        {/* Info grid — 2026-06-16: each cell now hides
+                            itself when its data is missing (per Sky:
+                            "we just need to fill step 2 data only" →
+                            step 1 fields are optional on a past
+                            booking). Previously an undefined
+                            `booking.flightNumber` would render the
+                            literal "undefined · undefined". */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                          {booking.time && (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
+                              <span className="text-xs" style={textSecondary}>{booking.time}</span>
+                            </div>
+                          )}
+                          {(booking.flightNumber || booking.flightType) && (
+                            <div className="flex items-center gap-1.5">
+                              <Plane className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+                              <span className="text-xs" style={textSecondary}>
+                                {[booking.flightNumber, booking.flightType].filter(Boolean).join('  ·  ')}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 col-span-2">
+                            <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                            <span className="text-xs" style={textSecondary}>{guestSummary}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Plane className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
-                          <span className="text-xs" style={textSecondary}>{booking.flightNumber}  ·  {booking.flightType}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
-                          <span className="text-xs" style={textSecondary}>{guestSummary}</span>
+
+                        {/* Passenger chips */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {booking.passengers.map((p, pi) => {
+                            const chipBg: React.CSSProperties = {
+                              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(220,181,21,0.1)',
+                              border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(220,181,21,0.25)',
+                            };
+                            return (
+                              <span key={pi} className="text-xs px-2 py-0.5 rounded-full" style={{ ...chipBg, color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)' }}>
+                                {p.title} {p.firstName} {p.lastName}
+                              </span>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      {/* Passenger chips */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {booking.passengers.map((p, pi) => {
-                          const chipBg: React.CSSProperties = {
-                            background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(220,181,21,0.1)',
-                            border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(220,181,21,0.25)',
-                          };
-                          return (
-                            <span key={pi} className="text-xs px-2 py-0.5 rounded-full" style={{ ...chipBg, color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)' }}>
-                              {p.title} {p.firstName} {p.lastName}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Card footer */}
-                    <div
-                      className="flex items-center justify-between px-4 py-2.5"
-                      style={{ borderTop: divLine, background: isDark ? 'rgba(0,0,0,0.18)' : 'rgba(231,230,221,0.4)' }}
-                    >
-                      <span className="text-xs font-mono" style={{ color: isDark ? 'rgba(220,181,21,0.8)' : 'rgb(160,128,8)' }}>
-                        {booking.bookingRef}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectHistory(booking)}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs text-white transition-all hover:opacity-90"
-                        style={{ background: 'linear-gradient(90deg,rgb(220,181,21) 0%,rgb(180,140,10) 100%)' }}
+                      {/* Card footer */}
+                      <div
+                        className="flex items-center justify-between px-4 py-2.5"
+                        style={{ borderTop: divLine, background: isDark ? 'rgba(0,0,0,0.18)' : 'rgba(231,230,221,0.4)' }}
                       >
-                        Select
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                        <span className="text-xs font-mono" style={{ color: isDark ? 'rgba(220,181,21,0.8)' : 'rgb(160,128,8)' }}>
+                          {booking.bookingRef}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectHistory(booking)}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs text-white transition-all hover:opacity-90"
+                          style={{ background: 'linear-gradient(90deg,rgb(220,181,21) 0%,rgb(180,140,10) 100%)' }}
+                        >
+                          Select
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             {/* Dialog footer */}

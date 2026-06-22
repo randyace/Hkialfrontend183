@@ -496,7 +496,7 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
       <div>
         <label className="block text-sm font-semibold mb-1.5" style={{ color: colors.text }}>
           {label}
-          {required && <span className="ml-1" style={{ color: 'rgb(220,181,21)' }}>*</span>}
+          {required && <span className="ml-1">*</span>}
         </label>
         {children}
         <FieldError msg={error} />

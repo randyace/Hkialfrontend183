@@ -42,6 +42,14 @@ export interface BookingDetailPanelProps {
   onCancel?: () => void;
   /** Download PDF/receipt callback */
   onDownload?: () => void;
+  // 2026-06-17 (round 6.2.47) — fetch the booking's
+  // invoice (DTO + PDF) and open it in a new tab. Wired
+  // by the parent container to call
+  // `GET /api/member/bookings/{id}/invoice.pdf`. The
+  // handler should handle the auth header + the
+  // blob-to-URL conversion (the figma-ui panel doesn't
+  // know the member token).
+  onViewInvoice?: () => void;
   /** Dark-mode flag */
   isDark?: boolean;
   /** Render as a slide-over panel (fixed right) vs. inline page content */
@@ -98,6 +106,7 @@ function InfoRow({
 
 export function BookingDetailPanel({
   booking,
+  onViewInvoice,
   onClose,
   onEdit,
   onCancel,
@@ -467,6 +476,17 @@ export function BookingDetailPanel({
             iconLeft={<Download />}
             onClick={handleDownload}
             isDark={isDark}
+          />
+        )}
+        {onViewInvoice && (
+          <GlassButton
+            label="View Invoice"
+            variant="secondary"
+            size="sm"
+            iconLeft={<FileText />}
+            onClick={onViewInvoice}
+            isDark={isDark}
+            data-testid="customer-view-invoice-button"
           />
         )}
         {isEditable && onEdit && (

@@ -29,6 +29,7 @@ import {
   FileDown,
 } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { QRCodeSVG } from 'qrcode.react';
 
 import { useTheme } from './ThemeContext';
 
@@ -552,23 +553,45 @@ export function Bookings({
   <div class="body">
     <div class="qr-section">
       <div class="qr-box">
-        <div class="qr-grid">
-          ${[
-            [1,1,1,1,1,1,1,0,1,0],
-            [1,0,0,0,0,0,1,0,0,1],
-            [1,0,1,1,1,0,1,0,1,0],
-            [1,0,1,1,1,0,1,1,0,1],
-            [1,0,1,1,1,0,1,0,1,1],
-            [1,0,0,0,0,0,1,1,0,0],
-            [1,1,1,1,1,1,1,0,1,0],
-            [0,0,0,0,0,0,0,1,1,0],
-            [1,0,1,1,0,1,0,0,1,1],
-            [0,1,0,1,1,0,1,0,0,1],
-          ].map(row => row.map(v => v
-            ? '<div class="qr-cell"></div>'
-            : '<div class="qr-cell" style="background:transparent"></div>'
-          ).join('')).join('')}
-        </div>
+        ${(() => {
+          // 2026-06-18 (entry QR code feature, figma-ui sync #2):
+          // Pre-this-fix the printed PDF embedded a hardcoded
+          // 10x10 mock grid pattern. The same `entry_qr_hash` /
+          // `entryQrHash` field that the modal renders is now
+          // emitted here as a real QR via api.qrserver.com
+          // (same third-party QR service used by
+          // VoucherBatches.tsx:121 — no new npm dep, no new
+          // import needed for the print HTML which is a separate
+          // document). The data URL `HKIAL-${hash}` matches the
+          // payload the in-modal <QRCodeSVG> encodes, so the
+          // printed QR scans to the same hash. Falls back to the
+          // mock grid when the hash is missing (legacy rows
+          // that escaped the migration backfill).
+          const hash = (b as { entryQrHash?: string }).entryQrHash
+            ?? (b as { entry_qr_hash?: string }).entry_qr_hash;
+          if (hash) {
+            const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&data='
+              + encodeURIComponent(`HKIAL-${hash}`);
+            return `<img src="${qrUrl}" alt="QR ${hash}" style="width:160px;height:160px;display:block" />`;
+          }
+          return `<div class="qr-grid">${
+            [
+              [1,1,1,1,1,1,1,0,1,0],
+              [1,0,0,0,0,0,1,0,0,1],
+              [1,0,1,1,1,0,1,0,1,0],
+              [1,0,1,1,1,0,1,1,0,1],
+              [1,0,1,1,1,0,1,0,1,1],
+              [1,0,0,0,0,0,1,1,0,0],
+              [1,1,1,1,1,1,1,0,1,0],
+              [0,0,0,0,0,0,0,1,1,0],
+              [1,0,1,1,0,1,0,0,1,1],
+              [0,1,0,1,1,0,1,0,0,1],
+            ].map(row => row.map(v => v
+              ? '<div class="qr-cell"></div>'
+              : '<div class="qr-cell" style="background:transparent"></div>'
+            ).join('')).join('')
+          }</div>`;
+        })()}
       </div>
       <div class="qr-label">Scan to verify at lounge entrance</div>
     </div>
@@ -1321,7 +1344,35 @@ export function Bookings({
 
             <div className="bg-white rounded-xl p-8 mb-6">
               <div className="w-full aspect-square bg-gradient-to-br from-[rgb(220,181,21)]/40 to-[rgb(180,140,10)]/40 rounded-lg flex items-center justify-center">
-                <QrCode className="w-48 h-48 text-gray-800 mx-auto" />
+                {(() => {
+                  // 2026-06-18 (entry QR code feature, figma-ui sync):
+                  // Pre-this-fix the QR modal rendered a hardcoded
+                  // <QrCode /> lucide icon as a "mock QR" placeholder.
+                  // The list-page normalize (BookingsContainer.normalizeBooking)
+                  // and getById (api.ts:flattenBookingForView) both populate
+                  // `entry_qr_hash` / `entryQrHash` on the booking payload,
+                  // so render a real <QRCodeSVG> with `HKIAL-${hash}` as the
+                  // payload. Fall back to the mock icon when the hash is
+                  // missing (legacy rows that escaped the migration
+                  // backfill).
+                  const hash = (selectedBooking as { entryQrHash?: string }).entryQrHash
+                    ?? (selectedBooking as { entry_qr_hash?: string }).entry_qr_hash;
+                  if (hash) {
+                    return (
+                      <QRCodeSVG
+                        value={`HKIAL-${hash}`}
+                        size={224}
+                        level="M"
+                        includeMargin={false}
+                        bgColor="#ffffff"
+                        fgColor="#0a1929"
+                      />
+                    );
+                  }
+                  return (
+                    <QrCode className="w-48 h-48 text-gray-800 mx-auto" />
+                  );
+                })()}
               </div>
             </div>
 
