@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
   Calendar,
@@ -41,8 +41,40 @@ import {
   CalendarPlus,
   Inbox,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+// 2026-06-27 (round 6.2.79 — customer bug fix): segment-aware VIP
+// / NFG count controller. See utils/passengerCountReducer.ts (or
+// the in-tree mirror at ../../../../../../utils/passengerCountReducer
+// for the wrapper build) for the bug history + invariants. Used by
+// `updateCount` to defer the form decrement when the user-pick
+// dialog is required, so clicking Cancel in the dialog now does
+// what the user expects (no silent qty deduction).
+import {
+  applyGuestRemovalToForm,
+  applyVipRemovalToForm,
+  decideGuestDecrement,
+  decideVipDecrement,
+  getGuestSegmentEntries,
+  getSegmentLabel,
+  getVipSegmentEntries,
+  resolveGuestAbsoluteIndex,
+  resolveVipAbsoluteIndex,
+  type PendingGuestDeletion,
+  type PendingVipDeletion,
+  type Segment,
+} from '../../../../../utils/passengerCountReducer';
+// 2026-06-27 (round 6.2.97 — Sky): short-notice (<48h) warning
+// helpers. Imported from the wrapper-side utils path because
+// the figma-ui subtree must remain self-previewable (INV-X1
+// rule — no figma Make–incompatible cross-tree aliases). The
+// wrapper build mirrors this file at the same relative path
+// so the figma Make copy-paste flow keeps working.
+import {
+  deriveBookingStartIso,
+  isBookingStartWithin48Hours,
+} from '../../../../../utils/bookingShortNotice';
 
 // ── Travel Agency pre-negotiated rates ───────────────────────────────────────
 const TA_DISCOUNT_LOUNGE     = 0.15; // 15% off lounge extension
@@ -55,12 +87,287 @@ const TA_AGENCY_CODE         = 'GTA-HK-001';
 const VALID_PROMO_CODES = ['HKIAL2024', 'SUMMER2024', 'VIP10OFF', 'WELCOME2024'];
 const USED_PROMO_CODES = ['EXPIRED2023', 'USED123'];
 
+// ── Region codes (2026-06-24, Sky) ────────────────────────────────────────────
+// Used by the Contact Person "Contact No." field, which is split into a
+// type-ahead region code combobox + a digits/dash number input. The
+// list mirrors the canonical ../../../../utils/regionCodes list
+// (synced to the backend LookupController::regionCodes list). This
+// figma-ui copy is intentionally duplicated for self-preview
+// (the figma-ui submodule is a separate import boundary, per INV-X1).
+const REGION_CODES: { code: string; name: string }[] = [
+  { code: '+1', name: 'United States/Canada' },
+  { code: '+1-345', name: 'Cayman Islands' },
+  { code: '+1-264', name: 'Anguilla' },
+  { code: '+1-268', name: 'Antigua and Barbuda' },
+  { code: '+1-284', name: 'British Virgin Islands' },
+  { code: '+1-340', name: 'US Virgin Islands' },
+  { code: '+1-671', name: 'Guam' },
+  { code: '+1-758', name: 'St. Lucia' },
+  { code: '+1-784', name: 'St. Vincent and the Grenadines' },
+  { code: '+1-809', name: 'Dominican Republic' },
+  { code: '+20', name: 'Egypt' },
+  { code: '+27', name: 'South Africa' },
+  { code: '+30', name: 'Greece' },
+  { code: '+31', name: 'Netherlands' },
+  { code: '+32', name: 'Belgium' },
+  { code: '+33', name: 'France' },
+  { code: '+34', name: 'Spain' },
+  { code: '+36', name: 'Hungary' },
+  { code: '+39', name: 'Italy' },
+  { code: '+40', name: 'Romania' },
+  { code: '+41', name: 'Switzerland' },
+  { code: '+44', name: 'United Kingdom' },
+  { code: '+45', name: 'Denmark' },
+  { code: '+46', name: 'Sweden' },
+  { code: '+47', name: 'Norway' },
+  { code: '+48', name: 'Poland' },
+  { code: '+49', name: 'Germany' },
+  { code: '+51', name: 'Peru' },
+  { code: '+52', name: 'Mexico' },
+  { code: '+53', name: 'Cuba' },
+  { code: '+54', name: 'Argentina' },
+  { code: '+55', name: 'Brazil' },
+  { code: '+56', name: 'Chile' },
+  { code: '+57', name: 'Colombia' },
+  { code: '+58', name: 'Venezuela' },
+  { code: '+60', name: 'Malaysia' },
+  { code: '+61', name: 'Australia' },
+  { code: '+62', name: 'Indonesia' },
+  { code: '+63', name: 'Philippines' },
+  { code: '+64', name: 'New Zealand' },
+  { code: '+65', name: 'Singapore' },
+  { code: '+66', name: 'Thailand' },
+  { code: '+7', name: 'Russia/Kazakhstan' },
+  { code: '+81', name: 'Japan' },
+  { code: '+82', name: 'South Korea' },
+  { code: '+84', name: 'Vietnam' },
+  { code: '+90', name: 'Turkey' },
+  { code: '+91', name: 'India' },
+  { code: '+92', name: 'Pakistan' },
+  { code: '+93', name: 'Afghanistan' },
+  { code: '+94', name: 'Sri Lanka' },
+  { code: '+95', name: 'Myanmar' },
+  { code: '+98', name: 'Iran' },
+  { code: '+212', name: 'Morocco' },
+  { code: '+213', name: 'Algeria' },
+  { code: '+216', name: 'Tunisia' },
+  { code: '+218', name: 'Libya' },
+  { code: '+220', name: 'Gambia' },
+  { code: '+221', name: 'Senegal' },
+  { code: '+222', name: 'Mauritania' },
+  { code: '+223', name: 'Mali' },
+  { code: '+224', name: 'Guinea' },
+  { code: '+225', name: 'Ivory Coast' },
+  { code: '+226', name: 'Burkina Faso' },
+  { code: '+227', name: 'Niger' },
+  { code: '+228', name: 'Togo' },
+  { code: '+229', name: 'Benin' },
+  { code: '+230', name: 'Mauritius' },
+  { code: '+231', name: 'Liberia' },
+  { code: '+232', name: 'Sierra Leone' },
+  { code: '+233', name: 'Ghana' },
+  { code: '+234', name: 'Nigeria' },
+  { code: '+235', name: 'Chad' },
+  { code: '+236', name: 'Central African Republic' },
+  { code: '+237', name: 'Cameroon' },
+  { code: '+238', name: 'Cape Verde' },
+  { code: '+239', name: 'São Tomé and Príncipe' },
+  { code: '+240', name: 'Equatorial Guinea' },
+  { code: '+241', name: 'Gabon' },
+  { code: '+242', name: 'Republic of the Congo' },
+  { code: '+243', name: 'Democratic Republic of the Congo' },
+  { code: '+244', name: 'Angola' },
+  { code: '+245', name: 'Guinea-Bissau' },
+  { code: '+246', name: 'Diego Garcia' },
+  { code: '+247', name: 'Saint Helena' },
+  { code: '+248', name: 'Seychelles' },
+  { code: '+249', name: 'Sudan' },
+  { code: '+250', name: 'Rwanda' },
+  { code: '+251', name: 'Ethiopia' },
+  { code: '+252', name: 'Somalia' },
+  { code: '+253', name: 'Djibouti' },
+  { code: '+254', name: 'Kenya' },
+  { code: '+255', name: 'Tanzania' },
+  { code: '+256', name: 'Uganda' },
+  { code: '+257', name: 'Burundi' },
+  { code: '+258', name: 'Mozambique' },
+  { code: '+260', name: 'Zambia' },
+  { code: '+261', name: 'Madagascar' },
+  { code: '+262', name: 'Réunion/Mayotte' },
+  { code: '+263', name: 'Zimbabwe' },
+  { code: '+264', name: 'Namibia' },
+  { code: '+265', name: 'Malawi' },
+  { code: '+266', name: 'Lesotho' },
+  { code: '+267', name: 'Botswana' },
+  { code: '+268', name: 'Eswatini' },
+  { code: '+269', name: 'Comoros' },
+  { code: '+290', name: 'St. Helena' },
+  { code: '+291', name: 'Eritrea' },
+  { code: '+297', name: 'Aruba' },
+  { code: '+298', name: 'Faroe Islands' },
+  { code: '+299', name: 'Greenland' },
+  { code: '+350', name: 'Gibraltar' },
+  { code: '+351', name: 'Portugal' },
+  { code: '+352', name: 'Luxembourg' },
+  { code: '+353', name: 'Ireland' },
+  { code: '+354', name: 'Iceland' },
+  { code: '+355', name: 'Albania' },
+  { code: '+356', name: 'Malta' },
+  { code: '+357', name: 'Cyprus' },
+  { code: '+358', name: 'Finland' },
+  { code: '+359', name: 'Bulgaria' },
+  { code: '+370', name: 'Lithuania' },
+  { code: '+371', name: 'Latvia' },
+  { code: '+372', name: 'Estonia' },
+  { code: '+373', name: 'Moldova' },
+  { code: '+374', name: 'Armenia' },
+  { code: '+375', name: 'Belarus' },
+  { code: '+376', name: 'Andorra' },
+  { code: '+377', name: 'Monaco' },
+  { code: '+378', name: 'San Marino' },
+  { code: '+380', name: 'Ukraine' },
+  { code: '+381', name: 'Serbia' },
+  { code: '+382', name: 'Montenegro' },
+  { code: '+383', name: 'Kosovo' },
+  { code: '+385', name: 'Croatia' },
+  { code: '+386', name: 'Slovenia' },
+  { code: '+387', name: 'Bosnia and Herzegovina' },
+  { code: '+389', name: 'North Macedonia' },
+  { code: '+420', name: 'Czech Republic' },
+  { code: '+421', name: 'Slovakia' },
+  { code: '+423', name: 'Liechtenstein' },
+  { code: '+424', name: 'Wallis and Futuna' },
+  { code: '+500', name: 'Falkland Islands' },
+  { code: '+501', name: 'Belize' },
+  { code: '+502', name: 'Guatemala' },
+  { code: '+503', name: 'El Salvador' },
+  { code: '+504', name: 'Honduras' },
+  { code: '+505', name: 'Nicaragua' },
+  { code: '+506', name: 'Costa Rica' },
+  { code: '+507', name: 'Panama' },
+  { code: '+508', name: 'St. Pierre and Miquelon' },
+  { code: '+509', name: 'Haiti' },
+  { code: '+590', name: 'Guadeloupe' },
+  { code: '+591', name: 'Bolivia' },
+  { code: '+592', name: 'Guyana' },
+  { code: '+593', name: 'Ecuador' },
+  { code: '+594', name: 'French Guiana' },
+  { code: '+595', name: 'Paraguay' },
+  { code: '+596', name: 'Martinique' },
+  { code: '+597', name: 'Suriname' },
+  { code: '+598', name: 'Uruguay' },
+  { code: '+599', name: 'Netherlands Antilles' },
+  { code: '+670', name: 'Timor-Leste' },
+  { code: '+672', name: 'Norfolk Island' },
+  { code: '+673', name: 'Brunei' },
+  { code: '+674', name: 'Nauru' },
+  { code: '+675', name: 'Papua New Guinea' },
+  { code: '+676', name: 'Tonga' },
+  { code: '+677', name: 'Solomon Islands' },
+  { code: '+678', name: 'Vanuatu' },
+  { code: '+679', name: 'Fiji' },
+  { code: '+680', name: 'Palau' },
+  { code: '+681', name: 'Wallis and Futuna' },
+  { code: '+682', name: 'Cook Islands' },
+  { code: '+683', name: 'Niue' },
+  { code: '+685', name: 'Kiribati' },
+  { code: '+686', name: 'Tuvalu' },
+  { code: '+687', name: 'New Caledonia' },
+  { code: '+688', name: 'Tokelau' },
+  { code: '+689', name: 'French Polynesia' },
+  { code: '+690', name: 'Tokelau' },
+  { code: '+691', name: 'Micronesia' },
+  { code: '+692', name: 'Marshall Islands' },
+  { code: '+850', name: 'North Korea' },
+  { code: '+852', name: 'Hong Kong' },
+  { code: '+853', name: 'Macau' },
+  { code: '+855', name: 'Cambodia' },
+  { code: '+856', name: 'Laos' },
+  { code: '+86', name: 'China' },
+  { code: '+880', name: 'Bangladesh' },
+  { code: '+886', name: 'Taiwan' },
+  { code: '+960', name: 'Maldives' },
+  { code: '+961', name: 'Lebanon' },
+  { code: '+962', name: 'Jordan' },
+  { code: '+963', name: 'Syria' },
+  { code: '+964', name: 'Iraq' },
+  { code: '+965', name: 'Kuwait' },
+  { code: '+966', name: 'Saudi Arabia' },
+  { code: '+967', name: 'Yemen' },
+  { code: '+968', name: 'Oman' },
+  { code: '+970', name: 'Palestine' },
+  { code: '+971', name: 'United Arab Emirates' },
+  { code: '+972', name: 'Israel' },
+  { code: '+973', name: 'Bahrain' },
+  { code: '+974', name: 'Qatar' },
+  { code: '+975', name: 'Bhutan' },
+  { code: '+976', name: 'Mongolia' },
+  { code: '+977', name: 'Nepal' },
+  { code: '+992', name: 'Tajikistan' },
+  { code: '+993', name: 'Turkmenistan' },
+  { code: '+994', name: 'Azerbaijan' },
+  { code: '+995', name: 'Georgia' },
+  { code: '+996', name: 'Kyrgyzstan' },
+  { code: '+998', name: 'Uzbekistan' },
+];
+
+// Splits a stored contact phone ("+852 9876-5432") into the region
+// code + number pair that the split input uses. Falls back to the
+// default region (+852) when the stored value doesn't start with a
+// known region code — keeps the booking form forgiving for legacy
+// data.
+function splitContactPhone(raw: string | undefined | null): { regionCode: string; contactNumber: string } {
+  if (!raw) return { regionCode: '+852', contactNumber: '' };
+  const trimmed = String(raw).trim();
+  const match = trimmed.match(/^(\+\d{1,4})\s*(.*)$/);
+  if (match) {
+    const code = match[1];
+    const num = match[2].replace(/[^0-9-]/g, '');
+    const known = REGION_CODES.find((r) => r.code === code);
+    return { regionCode: known ? code : '+852', contactNumber: num };
+  }
+  // No leading +XX region code → put the whole digits+dash part in
+  // contactNumber, default the region to +852.
+  return { regionCode: '+852', contactNumber: trimmed.replace(/[^0-9-]/g, '') };
+}
+
+// Filters user-typed input to digits and dashes only. Used by the
+// contact number input's onChange so paste-in / IME input can't sneak
+// letters or spaces into the wire shape.
+function filterContactNumberDigits(raw: string): string {
+  return raw.replace(/[^0-9-]/g, '');
+}
+
+// Combines regionCode + contactNumber into the wire-shape contactNo
+// string. Trims the trailing space if either side is empty (e.g.
+// when only the region code is filled in).
+function combineContactNo(regionCode: string, contactNumber: string): string {
+  const rc = regionCode.trim();
+  const cn = contactNumber.trim();
+  if (!rc && !cn) return '';
+  if (!rc) return cn;
+  if (!cn) return rc;
+  return `${rc} ${cn}`;
+}
+
 interface MemberData {
   name: string;
   memberType: string;
   companyName?: string;
   creditBalance?: number;
   voucherCount?: number;
+  // 2026-06-25 (round 6.2.61): added `email` so the Contact Person
+  // "Contact Email" field can pre-fill from the account (matches the
+  // name pre-fill at step2Form init). Optional — older call sites that
+  // construct MemberData without email still type-check.
+  email?: string;
+  // 2026-06-28 (round 6.2.99 — Sky, item 5): forward `contactNumber`
+  // (renamed from `user.phone` by MemberContext.buildMemberData) so
+  // step 2 Contact Person "Contact No." can pre-fill from the
+  // account. Mirrors the round 6.2.98 EditBooking account-phone
+  // init (commit c22dde0e). Optional — splitContactPhone() falls
+  // back to region='+852' + empty number when undefined.
+  contactNumber?: string;
 }
 
 interface BookForMemberData {
@@ -410,6 +717,7 @@ function StepperCard({
   onIncrement,
   incrementDisabled,
   helperText,
+  testId,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -420,12 +728,19 @@ function StepperCard({
   onIncrement: () => void;
   incrementDisabled?: boolean;
   helperText?: string;
+  // 2026-06-27 (round 6.2.79) — added so the integration test
+  // (__tests__/newBooking-qty-dialog.test.tsx) can locate the
+  // exact stepper card driving each per-kind count, without
+  // relying on label text or DOM ordering (which can shift as
+  // the form layout evolves).
+  testId?: string;
 }) {
   const { isDark, textPrimary, textMuted, stepperCardBg, stepperBtnStyle, stepperIconColor } = useThemedStyles();
   return (
     <div
       className="rounded-xl overflow-hidden"
       style={stepperCardBg}
+      data-hkial-stepper={testId}
     >
       {/* Card label row */}
       <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.3)' }}>
@@ -444,16 +759,20 @@ function StepperCard({
         <button
           type="button"
           onClick={onDecrement}
+          aria-label={`Decrease ${title}`}
+          data-hkial-stepper-decrement={testId}
           className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
           style={stepperBtnStyle}
         >
           <Minus className="w-3 h-3" style={stepperIconColor} />
         </button>
-        <span className="text-xl tabular-nums" style={textPrimary}>{value}</span>
+        <span className="text-xl tabular-nums" style={textPrimary} data-hkial-stepper-value={testId}>{value}</span>
         <button
           type="button"
           onClick={onIncrement}
           disabled={incrementDisabled}
+          aria-label={`Increase ${title}`}
+          data-hkial-stepper-increment={testId}
           className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           style={stepperBtnStyle}
         >
@@ -547,7 +866,7 @@ function ReviewSection({
 }) {
   const { isDark, textPrimary, reviewSectionBg, reviewHeaderBg } = useThemedStyles();
   return (
-    <div
+<div
       className="rounded-xl overflow-hidden"
       style={reviewSectionBg}
     >
@@ -585,6 +904,171 @@ function ReviewField({ label, value }: { label: string; value: React.ReactNode }
     <div>
       <div className="text-xs mb-0.5" style={textMuted}>{label}</div>
       <div className="text-sm" style={textPrimary}>{value || '—'}</div>
+    </div>
+  );
+}
+
+// ── ContactNoSplit (2026-06-24, Sky) ──────────────────────────────────────────
+// Replaces the single `contactNo` text input with two side-by-side
+// inputs:
+//   - regionCode: type-ahead combobox (input + filtered dropdown of
+//     known region codes). Users can either pick from the dropdown
+//     or type a free-form code (e.g. "+33" for France — not in the
+//     default list but the field accepts any "+NNN" string).
+//   - contactNumber: text input that strips everything but digits
+//     and dashes (matching the AuthPage pattern at
+//     src/components/AuthPage.tsx:241-251).
+// The parent owns the source of truth (`step2Form.regionCode` /
+// `step2Form.contactNumber`) and is responsible for keeping
+// `step2Form.contactNo` (the legacy wire-shape string) in sync via
+// `combineContactNo`.
+function ContactNoSplit({
+  regionCode,
+  contactNumber,
+  onRegionCodeChange,
+  onContactNumberChange,
+  fieldStyle,
+  fieldClass,
+  isDark,
+}: {
+  regionCode: string;
+  contactNumber: string;
+  onRegionCodeChange: (code: string) => void;
+  onContactNumberChange: (num: string) => void;
+  fieldStyle: React.CSSProperties;
+  fieldClass: string;
+  isDark: boolean;
+}) {
+  const { glassStyle } = useTheme();
+  const [regionOpen, setRegionOpen] = useState(false);
+  const [regionHighlight, setRegionHighlight] = useState(0);
+  const regionWrapperRef = useRef<HTMLDivElement>(null);
+
+  const filteredRegions = useMemo(() => {
+    const q = regionCode.trim().toLowerCase();
+    if (!q) return REGION_CODES;
+    return REGION_CODES.filter(
+      (r) => r.code.toLowerCase().includes(q) || r.name.toLowerCase().includes(q),
+    );
+  }, [regionCode]);
+
+  const pickRegion = (code: string) => {
+    onRegionCodeChange(code);
+    setRegionOpen(false);
+    setRegionHighlight(0);
+  };
+
+  const handleRegionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!regionOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      setRegionOpen(true);
+      return;
+    }
+    if (!regionOpen) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setRegionHighlight((h) => Math.min(h + 1, filteredRegions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setRegionHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = filteredRegions[regionHighlight];
+      if (pick) pickRegion(pick.code);
+    } else if (e.key === 'Escape') {
+      setRegionOpen(false);
+    }
+  };
+
+  // Close region dropdown on outside click
+  useEffect(() => {
+    if (!regionOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (regionWrapperRef.current && !regionWrapperRef.current.contains(e.target as Node)) {
+        setRegionOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [regionOpen]);
+
+  const mutedColor = isDark ? 'text-gray-400' : 'text-[rgb(160,159,148)]';
+
+  return (
+    <div className="flex gap-2">
+      <div className="relative w-32" ref={regionWrapperRef}>
+        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
+        <input
+          type="text"
+          name="regionCode"
+          value={regionCode}
+          onChange={(e) => onRegionCodeChange(e.target.value)}
+          onFocus={() => { setRegionOpen(true); setRegionHighlight(0); }}
+          onKeyDown={handleRegionKeyDown}
+          role="combobox"
+          aria-expanded={regionOpen}
+          aria-haspopup="listbox"
+          aria-autocomplete="list"
+          autoComplete="off"
+          style={fieldStyle}
+          className={fieldClass + ' pl-10 pr-8'}
+          placeholder="+852"
+          required
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setRegionOpen((o) => !o)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+          aria-label="Toggle region code list"
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform ${regionOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {regionOpen && (
+          <ul
+            role="listbox"
+            className="absolute z-50 mt-1 w-56 max-h-60 overflow-auto rounded-xl border border-white/20 shadow-lg"
+            style={glassStyle}
+          >
+            {filteredRegions.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-gray-400">No matches</li>
+            ) : (
+              filteredRegions.map((r: { code: string; name: string }, idx: number) => {
+                const selected = regionCode === r.code;
+                const highlighted = idx === regionHighlight;
+                return (
+                  <li
+                    key={r.code}
+                    role="option"
+                    aria-selected={selected}
+                    onMouseEnter={() => setRegionHighlight(idx)}
+                    onMouseDown={(e) => { e.preventDefault(); pickRegion(r.code); }}
+                    className={`px-3 py-2 cursor-pointer flex justify-between items-center text-sm ${
+                      highlighted ? (isDark ? 'bg-white/15' : 'bg-[rgb(231,230,221)]') : ''
+                    } ${selected ? 'font-semibold' : ''}`}
+                  >
+                    <span>{r.name}</span>
+                    <span className={mutedColor}>{r.code}</span>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        )}
+      </div>
+      <div className="relative flex-1">
+        <input
+          type="tel"
+          name="contactNumber"
+          value={contactNumber}
+          onChange={(e) => onContactNumberChange(filterContactNumberDigits(e.target.value))}
+          inputMode="tel"
+          pattern="[0-9\-]*"
+          style={fieldStyle}
+          className={fieldClass + ' pl-4'}
+          placeholder="9876-5432"
+          required
+        />
+      </div>
     </div>
   );
 }
@@ -986,7 +1470,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         vipLastName: prefillMember.lastName,
         vipTravelDocNo: prefillMember.passportPrefix || '',
         vipMembershipNo: '',
-        vipAgeGroup: 'Adult',
+        vipAgeGroup: 'Adults (aged 12 and above)',
         vipBirthday: '',
         foodAllergies: '',
       }
@@ -996,10 +1480,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     prefillVipEntry ? [prefillVipEntry] : []
   );
   const [nonFlyingGuestData, setNonFlyingGuestData] = useState<NonFlyingGuest[]>([]);
-  const [showDeleteVipDialog, setShowDeleteVipDialog] = useState(false);
-  const [showDeleteGuestDialog, setShowDeleteGuestDialog] = useState(false);
-  const [pendingVipCount, setPendingVipCount] = useState<number | null>(null);
-  const [pendingGuestCount, setPendingGuestCount] = useState<number | null>(null);
+  // 2026-06-27 (round 6.2.79 — customer bug fix). The pre-fix code
+  // tracked `pendingVipCount` / `pendingGuestCount` as bare numbers
+  // (the new total after decrement) and decremented the form
+  // immediately. That had three user-visible defects:
+  //   (a) clicking Cancel in the dialog still left the qty at the
+  //       lower value,
+  //   (b) the dialog listed ALL VIPs (PS + LD) when the user had
+  //       only decreased PS VIPs, so LD VIPs were "wrongly
+  //       included" as removal candidates,
+  //   (c) the Premiere Suite label used `premiereSuiteEnd =
+  //       form.premiereSuites`, which confused the suite count with
+  //       the VIP array offset (vipData never holds suites).
+  // The fix: pendingVipDeletion / pendingGuestDeletion are
+  // segment-aware objects, set BEFORE the form is decremented.
+  // `updateCount` only calls `setForm` when the decrement is safe
+  // (no data loss), so Cancel is a true no-op. See
+  // utils/passengerCountReducer.ts and __tests__/passengerCountReducer.test.ts.
+  const [pendingVipDeletion, setPendingVipDeletion] = useState<PendingVipDeletion | null>(null);
+  const [pendingGuestDeletion, setPendingGuestDeletion] = useState<PendingGuestDeletion | null>(null);
   const [flightDetails, setFlightDetails] = useState<{
     origin: string;
     destination: string;
@@ -1013,6 +1512,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [bookingNumber, setBookingNumber] = useState('');
   const [noAddonRequired, setNoAddonRequired] = useState(false);
   const [showHistoryDialog, setShowHistoryDialog] = useState(false);
+  // 2026-06-27 (round 6.2.97 — Sky): short-notice (<48h) warning.
+  // When the customer's selected start time is within 48 hours
+  // of now, intercept the Confirm click and show a warning
+  // dialog. Per Sky: "The booking may not be able to fullfill,
+  // further confiration will be made by HKIAL staffs." The user
+  // can still confirm (booking submits as usual); Cancel returns
+  // to the review step.
+  const [showShortNoticeWarning, setShowShortNoticeWarning] = useState(false);
   const [useMembership, setUseMembership] = useState(false);
   const [bookingVouchersToUse, setBookingVouchersToUse] = useState(0);
   const [suiteVouchersToUse, setSuiteVouchersToUse] = useState(0);
@@ -1065,7 +1572,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Travel Agency discounted unit rates ───────────────────────────────────
   const loungeRate      = isTravelAgency ? Math.round(500  * (1 - TA_DISCOUNT_LOUNGE))    : 500;   // 425
-  const limoRate        = isTravelAgency ? Math.round(1200 * (1 - TA_DISCOUNT_LIMO))       : 1200;  // 960
+  // 2026-06-26 (round 6.2.74, Sky): limo base rate bumped from HK$1,200 → HK$1,500
+  // to match the backend `prices.add_on_limousine` and the new
+  // `bookable_items.Limousine Transfer` price. Keep the 20% TA discount
+  // variant for the strikethrough display.
+  const limoRate        = isTravelAgency ? Math.round(1500 * (1 - TA_DISCOUNT_LIMO))       : 1500;  // 1200
   const wheelchairRate  = isTravelAgency ? Math.round(300  * (1 - TA_DISCOUNT_WHEELCHAIR)) : 300;   // 270
 
   // ── Step 2 state ──────────────────────────────────────────────────────────
@@ -1080,11 +1591,35 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     securityService: false,
     luggageCount: 0,
     privateTransport: 0,
-    vehicles: [] as Array<{ driverName: string; driverContact: string; carPlateNo: string; address: string }>,
+    vehicles: [] as Array<{ driverName: string; driverContact: string; carPlateNo: string }>,
     promotionCode: '',
     contactName: memberData.name || '',
-    contactEmail: '',
-    contactNo: '',
+    contactEmail: memberData.email || '',
+    // 2026-06-24 (Sky) — split the contact number into a region
+    // code combobox + a digits/dash number input. `contactNo` is
+    // kept as a derived wire-shape field maintained in sync via
+    // `setContactFields` below; the api.ts createBooking reads
+    // `data.services?.contactNo` (api.ts:961-963), so we still
+    // emit the combined string on submit for back-compat.
+    //
+    // 2026-06-28 (round 6.2.99 — Sky, item 5): pre-fill the Contact
+    // Person phone from the account's current phone (via
+    // MemberContext.buildMemberData → memberData.contactNumber).
+    // Splits the stored phone ("+852 9876-5432") into the
+    // region-code combobox + digits/dash number input via
+    // splitContactPhone; derive the wire-shape contactNo via
+    // combineContactNo. When memberData.contactNumber is undefined
+    // (older accounts or local previews), splitContactPhone falls
+    // back to region='+852' + empty number — same as the previous
+    // hardcoded default.
+    ...(() => {
+      const split = splitContactPhone(memberData.contactNumber);
+      return {
+        regionCode: split.regionCode,
+        contactNumber: split.contactNumber,
+        contactNo: combineContactNo(split.regionCode, split.contactNumber),
+      };
+    })(),
     bookingMemo: '',
     // Travel Agency billing fields (auto-populated for TA, editable for others)
     paymentMethod: memberData.memberType === 'Travel Agency' ? 'direct-billing' : 'credit-card',
@@ -1120,6 +1655,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // wire shape, submit handler, and 6h-gap validation all keep working).
   // The legacy `leg2FlightTime` useState is no longer bound to an input;
   // we derive the time from the combined state.
+  // 2026-06-28 (round 6.2.98 — Sky): the 6h gap rule was FLIPPED from
+  // MIN 6h to MAX 6h. Sky's directive: "for the transit type booking,
+  // the arrival time and departure time is only allow to be 6 hours
+  // apart." The error message + the useEffect below + the inline
+  // onChange handlers at the leg 2 date/time inputs all enforce the
+  // new rule. The backend's TransitLegsRule is the source of truth
+  // (see app/Rules/TransitLegsRule.php, rev. 6.2.98).
+  // 2026-06-28 (round 6.2.98 — Sky) — collect ALL step 1 validation
+  // failures into a `step1FlightHints: string[]` array so the user
+  // can see every missing field at once instead of fixing one
+  // error at a time. The previous nested ternary only showed the
+  // FIRST failure ("Please select a date" → "Please enter a flight
+  // number" → ...) which forced the user to submit-fix-submit-fix
+  // for 5+ fields. Now the hint is a bulleted list of every failure.
   const isArrivalOrDeparture = form.flightType === 'Arrival' || form.flightType === 'Departure';
   const step1Leg1TimeValid =
     form.flightType !== 'Transit' || leg1FlightTime !== '';
@@ -1150,29 +1699,62 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1DestinationValid &&
     step1TimeValid &&
     step1CompanyValid;
-  const step1FlightHintMsg = !form.date
-    ? `Please select a ${form.flightType === 'Departure' ? 'departure' : 'arrival'} date to proceed`
-    : form.flightNumber.trim() === ''
-      ? 'Please enter a flight number to proceed'
-      : !step1TimeValid
-        ? `Please enter the ${form.flightType === 'Departure' ? 'departure' : 'arrival'} time`
-        : !step1OriginValid
-          ? 'Please enter the origin'
-          : !step1DestinationValid
-            ? 'Please enter the destination'
-            : !step1CompanyValid
-              ? 'Please enter the client company code'
-              : form.flightType === 'Transit' && leg1FlightTime === ''
-                ? 'Please enter the leg 1 arrival time (HH:MM)'
-                : form.flightType === 'Transit' && leg2ArrivalDate === ''
-                  ? 'Please enter the 2nd leg arrival date and time'
-                  : form.flightType === 'Transit' && leg2FlightNo.trim() === ''
-                    ? 'Please enter the 2nd leg flight number'
-                    : form.flightType === 'Transit' && leg2TimeFromArrival === ''
-                      ? 'Please enter the 2nd leg flight time'
-                      : form.flightType === 'Transit' && leg2FlightClass === ''
-                        ? 'Please select the 2nd leg flight class'
-                        : transitGapError ?? 'Please complete all required fields to proceed';
+  // 2026-06-28 (round 6.2.98): collect ALL step 1 validation failures
+  // so the user sees every missing field at once. Order is stable
+  // (leg 2 first for Transit, then leg 1, then common fields, then
+  // origin/destination/time/company). The empty array means "all
+  // required fields are present" — caller can render the list OR a
+  // success state based on `step1FlightHints.length`.
+  const step1FlightHints: string[] = [];
+  if (form.flightType === 'Transit') {
+    if (leg1FlightTime === '') {
+      step1FlightHints.push('Please enter the leg 1 arrival time (HH:MM)');
+    }
+    if (leg2ArrivalDate === '') {
+      step1FlightHints.push('Please enter the 2nd leg arrival date and time');
+    }
+    if (leg2FlightNo.trim() === '') {
+      step1FlightHints.push('Please enter the 2nd leg flight number');
+    }
+    if (leg2TimeFromArrival === '') {
+      step1FlightHints.push('Please enter the 2nd leg flight time');
+    }
+    if (leg2FlightClass === '') {
+      step1FlightHints.push('Please select the 2nd leg flight class');
+    }
+    if (leg2Destination.trim() === '') {
+      step1FlightHints.push('Please enter the 2nd leg destination');
+    }
+    if (transitGapError !== null) {
+      step1FlightHints.push(transitGapError);
+    }
+  }
+  if (form.date === '') {
+    step1FlightHints.push(`Please select a ${form.flightType === 'Departure' ? 'departure' : 'arrival'} date to proceed`);
+  }
+  if (form.flightNumber.trim() === '') {
+    step1FlightHints.push('Please enter a flight number to proceed');
+  }
+  if (!step1TimeValid) {
+    step1FlightHints.push(`Please enter the ${form.flightType === 'Departure' ? 'departure' : 'arrival'} time`);
+  }
+  if (!step1OriginValid) {
+    step1FlightHints.push('Please enter the origin');
+  }
+  if (!step1DestinationValid) {
+    step1FlightHints.push('Please enter the destination');
+  }
+  if (!step1CompanyValid) {
+    step1FlightHints.push('Please enter the client company code');
+  }
+  // Keep the legacy `step1FlightHintMsg` derived for any callers that
+  // still read the single-string form. The new `step1FlightHints` array
+  // is the source of truth for the JSX hint block (see the step-1
+  // render's bullet list below).
+  const step1FlightHintMsg =
+    step1FlightHints.length > 0
+      ? step1FlightHints[0]
+      : 'Please complete all required fields to proceed';
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
@@ -1181,16 +1763,94 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const allGuestFilled = nonFlyingGuestData.every(
     (g) => g.guestFirstName.trim() !== '' && g.guestLastName.trim() !== '' && g.guestAgeGroup !== ''
   );
-  const step1Valid = totalGuests > 0 && allVipFilled && allGuestFilled;
+  // 2026-06-24 (Sky) — each PS / LD segment must include at least
+  // one Adult (aged 12+) VIP passenger. Children / infants can't
+  // book the VIP lounge unaccompanied. Skip the check on a segment
+  // when its count is 0 (no segment → no rule).
+  const ADULT_AGE_GROUP = 'Adults (aged 12 and above)';
+  const psSegment = vipData.slice(0, form.premiereVipPassengers);
+  const ldSegment = vipData.slice(
+    form.premiereVipPassengers,
+    form.premiereVipPassengers + form.vipPassengers,
+  );
+  const psHasAdult = psSegment.some((v) => v.vipAgeGroup === ADULT_AGE_GROUP);
+  const ldHasAdult = ldSegment.some((v) => v.vipAgeGroup === ADULT_AGE_GROUP);
+  const adultPerPsOk = form.premiereVipPassengers === 0 || psHasAdult;
+  const adultPerLdOk = form.vipPassengers === 0 || ldHasAdult;
+  const adultPerSegmentOk = adultPerPsOk && adultPerLdOk;
+  // 2026-06-27 (round 6.2.96 — Sky): each Premiere Suite must
+  // have at least 1 VIP Passenger. The 1:1 floor prevents the
+  // booking from being created with e.g. 2 PS + 1 PS VIP
+  // (which the backend would reject / mis-price). Mirrors the
+  // existing `psHasAdult` adult-per-segment rule, but enforces
+  // a count floor rather than an age-group floor. Skipped when
+  // no suites are selected (no segment → no rule).
+  const premiereVipFloorOk = form.premiereSuites === 0 || form.premiereVipPassengers >= form.premiereSuites;
+  // 2026-06-28 (round 6.2.98 — Sky) — collect ALL step-1 (guest)
+  // validation failures into `step1Hints: string[]` so the user can
+  // see every missing field at once. The previous nested ternary
+  // only showed the FIRST failure ("Please add at least 1 guest"
+  // → "Please complete all required fields for each VIP
+  // Passenger" → ...) which forced the user to submit-fix-submit-fix
+  // for 5+ fields. Now the hint is a bulleted list of every
+  // failure. Mirrors the change to `step1FlightHints` above.
+  const step1Valid =
+    totalGuests > 0
+    && allVipFilled
+    && allGuestFilled
+    && adultPerSegmentOk
+    && premiereVipFloorOk;
 
+  const step1Hints: string[] = [];
+  if (totalGuests === 0) {
+    step1Hints.push('Please add at least 1 guest (VIP Passenger or Non-Flying Guest) to proceed');
+  }
+  if (!allVipFilled) {
+    step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)');
+  }
+  if (!adultPerPsOk) {
+    step1Hints.push('Each Premiere Suite must have at least one Adult (aged 12+) VIP Passenger');
+  }
+  if (!adultPerLdOk) {
+    step1Hints.push('Each Lounge Deluxe booking must have at least one Adult (aged 12+) VIP Passenger');
+  }
+  if (!premiereVipFloorOk) {
+    step1Hints.push('Each Premiere Suite requires at least 1 VIP Passenger');
+  }
+  if (!allGuestFilled) {
+    step1Hints.push('Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group)');
+  }
+  // Legacy single-string for any caller still reading the old field.
+  // The JSX hint block (line ~6149) now renders the bulleted list.
   const step1HintMsg =
-    totalGuests === 0
-      ? 'Please add at least 1 guest (VIP Passenger or Non-Flying Guest) to proceed'
-      : !allVipFilled
-      ? 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)'
-      : 'Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group)';
+    step1Hints.length > 0
+      ? step1Hints[0]
+      : 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)';
 
   // Sync VIP passenger array length with totalVip
+  //
+  // 2026-06-27 (round 6.2.79 — customer bug fix). Previously this
+  // effect ALSO opened the delete-VIP dialog when the new total
+  // would drop below the number of filled entries. That had two
+  // problems:
+  //   - The form count was already decremented by `updateCount`
+  //     before this effect ran, so clicking Cancel in the dialog
+  //     left the qty at the lower value.
+  //   - It used the (pre-decrement) `totalVip` to decide the
+  //     dialog's "from N to M" message, but the dialog's candidate
+  //     list was drawn from the full `vipData`, so it always
+  //     included the opposite segment (PS+LD bleed).
+  //
+  // The dialog is now opened from `updateCount` itself via the
+  // pure helpers in `utils/passengerCountReducer.ts`, with the
+  // form change deferred until the user picks Remove (or
+  // abandons via Cancel). This effect is left as a one-way sync
+  // that:
+  //   - appends empty entries when the form count grows (e.g.
+  //     user increments the PS/LD stepper),
+  //   - is a no-op when the count shrinks (handled by
+  //     `handleDeleteVip` which already removed the matching
+  //     array entry before the form count went down).
   useEffect(() => {
     const cur = vipData.length;
     if (totalVip > cur) {
@@ -1205,22 +1865,26 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         foodAllergies: '',
       }));
       setVipData((prev) => [...prev, ...extra]);
-    } else if (totalVip < cur) {
-      // Count how many VIP passengers have filled data
-      const filledCount = vipData.filter(
-        (vip) => vip.vipFirstName || vip.vipLastName || vip.vipTravelDocNo || vip.vipMembershipNo
-      ).length;
-      
-      // Only show dialog if the new count is less than filled guests
-      if (totalVip < filledCount) {
-        setPendingVipCount(totalVip);
-        setShowDeleteVipDialog(true);
-      } else {
-        // Safe to remove from end (will only remove empty entries)
+    }
+    // Defensive: if totalVip dropped below cur for any reason
+    // (e.g. external state change, Quick Fill reset) and no
+    // dialog is open, slice trailing empty entries so the array
+    // length matches the form. We only slice when the trailing
+    // slots are empty — filled entries are preserved (the
+    // `updateCount` path handles the dialog case before we get
+    // here).
+    else if (totalVip < cur && !pendingVipDeletion) {
+      const trailingFilled = vipData
+        .slice(totalVip)
+        .some(
+          (v) =>
+            v.vipFirstName || v.vipLastName || v.vipTravelDocNo || v.vipMembershipNo,
+        );
+      if (!trailingFilled) {
         setVipData((prev) => prev.slice(0, totalVip));
       }
     }
-  }, [totalVip]);
+  }, [totalVip, pendingVipDeletion]);
 
   // Validate promotion code
   useEffect(() => {
@@ -1261,11 +1925,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // be caught here too.
   //
   // The inline `setTransitGapError` calls at the leg 2 onChange
-  // handlers (lines ~4262-4315) are KEPT as a fast-path for
-  // immediate UX feedback (synchronous setState before the next
-  // render). This useEffect is the safety net that re-asserts the
-  // correct value on the next render — both paths converge to the
-  // same value.
+  // handlers (the leg 2 date + time inputs below) are KEPT as a
+  // fast-path for immediate UX feedback (synchronous setState before
+  // the next render). This useEffect is the safety net that
+  // re-asserts the correct value on the next render — both paths
+  // converge to the same value.
+  //
+  // 2026-06-28 (round 6.2.98 — Sky): rule flipped from MIN 6h to MAX
+  // 6h. Error fires when gap > 6h. Mirrors the backend's
+  // TransitLegsRule (rev. 6.2.98).
   useEffect(() => {
     if (form.flightType !== 'Transit') {
       setTransitGapError(null);
@@ -1290,10 +1958,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     }
     const diffMs = l1.getTime() - l0.getTime();
     const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-    if (diffMs < SIX_HOURS_MS) {
+    if (diffMs > SIX_HOURS_MS) {
       const hours = Math.floor(diffMs / 3600000);
       const mins = Math.floor((diffMs % 3600000) / 60000);
-      setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+      setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
     } else {
       setTransitGapError(null);
     }
@@ -1322,6 +1990,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }, [form, step2Form, vipData, nonFlyingGuestData]);
 
   // Sync non-flying guest array length with totalNonFlying
+  //
+  // 2026-06-27 (round 6.2.79 — customer bug fix). Mirror of the
+  // VIP useEffect above. The dialog-opening branch was removed
+  // because `updateCount` now defers the form decrement and
+  // opens the dialog via the pure helpers in
+  // utils/passengerCountReducer.ts (which know which segment
+  // was decremented). This effect just keeps the array length
+  // in sync with the form count.
   const totalNonFlying = form.premiereNonFlyingGuests + form.nonFlyingGuests;
   useEffect(() => {
     const cur = nonFlyingGuestData.length;
@@ -1334,22 +2010,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         foodAllergies: '',
       }));
       setNonFlyingGuestData((prev) => [...prev, ...extra]);
-    } else if (totalNonFlying < cur) {
-      // Count how many non-flying guests have filled data
-      const filledCount = nonFlyingGuestData.filter(
-        (guest) => guest.guestFirstName || guest.guestLastName
-      ).length;
-      
-      // Only show dialog if the new count is less than filled guests
-      if (totalNonFlying < filledCount) {
-        setPendingGuestCount(totalNonFlying);
-        setShowDeleteGuestDialog(true);
-      } else {
-        // Safe to remove from end (will only remove empty entries)
+    } else if (totalNonFlying < cur && !pendingGuestDeletion) {
+      // Defensive slice when trailing entries are empty.
+      const trailingFilled = nonFlyingGuestData
+        .slice(totalNonFlying)
+        .some((g) => g.guestFirstName || g.guestLastName);
+      if (!trailingFilled) {
         setNonFlyingGuestData((prev) => prev.slice(0, totalNonFlying));
       }
     }
-  }, [totalNonFlying]);
+  }, [totalNonFlying, pendingGuestDeletion]);
 
   // ── Step 1 Handlers ───────────────────────────────────────────────────────
   const handleFlightNumber = (v: string) => {
@@ -1369,6 +2039,47 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     field: 'premiereSuites' | 'premiereVipPassengers' | 'premiereNonFlyingGuests' | 'vipPassengers' | 'nonFlyingGuests',
     delta: number
   ) => {
+    // 2026-06-27 (round 6.2.79 — customer bug fix). Pre-fix, this
+    // function committed the form change BEFORE asking the user
+    // which filled entry to drop. That left Cancel in the dialog
+    // a lie (the qty was already deducted) and let the dialog list
+    // entries from the OPPOSITE segment (PS VIP decrement showed
+    // LD VIPs as removal candidates). The fix: when decrementing a
+    // per-kind VIP/NFG field and the new count would drop below
+    // the number of filled entries in that segment, defer the
+    // form change and open the dialog with a segment-aware
+    // payload. The dialog's Cancel button is now a true no-op
+    // (form was never touched); the dialog's Remove button
+    // commits the form change + array removal atomically. See
+    // utils/passengerCountReducer.ts for the pure decision logic.
+    if (delta < 0) {
+      if (field === 'premiereVipPassengers' || field === 'vipPassengers') {
+        const pending = decideVipDecrement({
+          field,
+          premiereVipPassengers: form.premiereVipPassengers,
+          vipPassengers: form.vipPassengers,
+          vipData,
+        });
+        if (pending) {
+          setPendingVipDeletion(pending);
+          return;
+        }
+      } else if (
+        field === 'premiereNonFlyingGuests' ||
+        field === 'nonFlyingGuests'
+      ) {
+        const pending = decideGuestDecrement({
+          field,
+          premiereNonFlyingGuests: form.premiereNonFlyingGuests,
+          nonFlyingGuests: form.nonFlyingGuests,
+          nonFlyingGuestData,
+        });
+        if (pending) {
+          setPendingGuestDeletion(pending);
+          return;
+        }
+      }
+    }
     setForm((p) => {
       let newValue = p[field] + delta;
       newValue = Math.max(0, Math.min(20, newValue));
@@ -1396,6 +2107,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         newValue = Math.min(newValue, 3);
       }
 
+      // 2026-06-27 (round 6.2.96 — Sky): each Premiere Suite
+      // requires at least 1 VIP Passenger. Floor the PS VIP
+      // decrement at `premiereSuites` so the form never lands in
+      // the "PS=2, PS VIP=1" invalid state. The user must
+      // remove suites (or remove VIPs via the dialog) before
+      // they can drop VIPs below the suite count.
+      if (field === 'premiereVipPassengers') {
+        newValue = Math.max(newValue, p.premiereSuites);
+      }
+
       if (field === 'premiereVipPassengers' && newValue === 0) {
         return { ...p, premiereVipPassengers: newValue, premiereNonFlyingGuests: 0 };
       }
@@ -1411,13 +2132,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           // Reduce VIP passengers first, then non-flying guests if needed
           const newVipPassengers = Math.min(p.premiereVipPassengers, maxGuestsAllowed);
           const newNonFlyingGuests = Math.max(0, maxGuestsAllowed - newVipPassengers);
-          return { 
-            ...p, 
-            premiereSuites: newValue, 
+          return {
+            ...p,
+            premiereSuites: newValue,
             premiereVipPassengers: newVipPassengers,
             premiereNonFlyingGuests: newNonFlyingGuests
           };
         }
+        // Note: the 1-VIP-per-suite floor (round 6.2.96) is NOT
+        // auto-bumped here. The user must click PS-VIP increment
+        // explicitly to add a VIP when they add a suite. The
+        // helper text under the stepper surfaces the rule
+        // ("Minimum 1 VIP per suite"), and `step1Valid` blocks
+        // advancing to step 3 / submit when the floor is
+        // violated. Auto-bumping the VIP count on suite
+        // increment was considered but rejected because it
+        // hides the user's action (they click suite+1 and VIPs
+        // go up too — confusing), and breaks the existing
+        // VIP-decrement dialog tests that assume the suite and
+        // VIP steppers are independent.
       }
 
       return { ...p, [field]: newValue };
@@ -1440,23 +2173,58 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     });
   };
 
-  const handleDeleteVip = (index: number) => {
-    setVipData((prev) => prev.filter((_, i) => i !== index));
-    setShowDeleteVipDialog(false);
-    setPendingVipCount(null);
+  const handleDeleteVip = (displayIndex: number) => {
+    // 2026-06-27 (round 6.2.79 — customer bug fix). The pre-fix
+    // handler took the raw index in `vipData` and only removed
+    // from the array — it did NOT update the form count. Result:
+    // after a Remove click, `form.premiereVipPassengers` /
+    // `form.vipPassengers` stayed at the pre-decrement value
+    // (already-committed by `updateCount`) and the form's VIP
+    // info-box count desynced from the rendered array length.
+    // The fix: the dialog's `displayIndex` is offset by the
+    // segment's start position (PS = 0, LD = premiereVipPassengers),
+    // and after removing the array entry we apply the segment
+    // decrement to the form via `applyVipRemovalToForm` (which
+    // also preserves the existing PS-VIP=0 → PS-NFG=0 rule).
+    if (!pendingVipDeletion) return;
+    const absoluteIndex = resolveVipAbsoluteIndex(
+      pendingVipDeletion.segment,
+      displayIndex,
+      form.premiereVipPassengers,
+    );
+    setVipData((prev) => prev.filter((_, i) => i !== absoluteIndex));
+    setForm((p) => applyVipRemovalToForm(p, pendingVipDeletion.segment));
+    setPendingVipDeletion(null);
   };
 
-  const handleDeleteGuest = (index: number) => {
-    setNonFlyingGuestData((prev) => prev.filter((_, i) => i !== index));
-    setShowDeleteGuestDialog(false);
-    setPendingGuestCount(null);
+  const handleDeleteGuest = (displayIndex: number) => {
+    // 2026-06-27 (round 6.2.79 — customer bug fix). Mirror of
+    // `handleDeleteVip` for the NFG dialog. The dialog's list is
+    // scoped to the affected segment, so the display index needs
+    // the LD offset when the user is removing an LD NFG.
+    if (!pendingGuestDeletion) return;
+    const absoluteIndex = resolveGuestAbsoluteIndex(
+      pendingGuestDeletion.segment,
+      displayIndex,
+      form.premiereNonFlyingGuests,
+    );
+    setNonFlyingGuestData((prev) =>
+      prev.filter((_, i) => i !== absoluteIndex),
+    );
+    setForm((p) => applyGuestRemovalToForm(p, pendingGuestDeletion.segment));
+    setPendingGuestDeletion(null);
   };
 
+  // 2026-06-27 (round 6.2.79 — customer bug fix). Cancel in the
+  // dialog is now a TRUE no-op: because `updateCount` defers the
+  // form decrement until the user picks Remove (or abandons via
+  // Cancel), there is nothing to revert here. Pre-fix, this
+  // handler only dismissed the dialog while the (already
+  // committed) lower form count stayed — that was the
+  // "click cancel butoon, the qty is still dedeucted" bug.
   const handleCancelDelete = () => {
-    setShowDeleteVipDialog(false);
-    setShowDeleteGuestDialog(false);
-    setPendingVipCount(null);
-    setPendingGuestCount(null);
+    setPendingVipDeletion(null);
+    setPendingGuestDeletion(null);
   };
 
 
@@ -1502,7 +2270,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       vipLastName: p.lastName,
       vipTravelDocNo: p.travelDoc,
       vipMembershipNo: p.membership,
-      vipAgeGroup: 'Adult',
+      vipAgeGroup: 'Adults (aged 12 and above)',
       vipBirthday: '',
       foodAllergies: '',
     }));
@@ -1529,11 +2297,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // container's isValidHistoryBooking gate; this branch is just
     // belt-and-braces for the MOCK_BOOKINGS path).
     if (booking.contactPerson) {
+      // 2026-06-24 — split a stored contact phone (e.g. "+852
+      // 9876-5432") back into the regionCode + contactNumber pair
+      // that the split input uses, so the user can see/edit either
+      // side independently when cloning a past booking.
+      const { regionCode, contactNumber } = splitContactPhone(booking.contactPerson.phone);
       setStep2Form((prev) => ({
         ...prev,
         contactName: booking.contactPerson.name || prev.contactName,
         contactEmail: booking.contactPerson.email || prev.contactEmail,
-        contactNo: booking.contactPerson.phone || prev.contactNo,
+        regionCode,
+        contactNumber,
+        contactNo: combineContactNo(
+          booking.contactPerson.phone ? regionCode : prev.regionCode,
+          booking.contactPerson.phone ? contactNumber : prev.contactNumber,
+        ),
       }));
     }
     setShowHistoryDialog(false);
@@ -1584,7 +2362,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       }
 
       if (field === 'privateTransport') {
-        const empty = { driverName: '', driverContact: '', carPlateNo: '', address: '' };
+        const empty = { driverName: '', driverContact: '', carPlateNo: '' };
         const updatedVehicles = newValue > prev.vehicles.length
           ? [...prev.vehicles, ...Array.from({ length: newValue - prev.vehicles.length }, () => ({ ...empty }))]
           : prev.vehicles.slice(0, newValue);
@@ -1633,7 +2411,36 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     advanceStep(5);
   };
 
+  // 2026-06-27 (round 6.2.97 — Sky): derive the booking start
+  // time for the short-notice (<48h) gate. Logic is in
+  // utils/bookingShortNotice.ts (kept as a pure helper so the
+  // <48h unit tests can verify it without rendering the full
+  // NewBooking component). Transit uses the OUTBOUND leg
+  // (leg2ArrivalDate — when the customer actually needs to be
+  // at the lounge for the next flight); non-Transit uses the
+  // single flight event (leg1FlightTime + form.date).
+  const isWithin48Hours = (): boolean => {
+    const startIso = deriveBookingStartIso({
+      flightType: form.flightType,
+      date: form.date,
+      leg1FlightTime,
+      leg2ArrivalDate,
+    });
+    return isBookingStartWithin48Hours(startIso);
+  };
+
   const handleFinalConfirm = () => {
+    // 2026-06-27 (round 6.2.97 — Sky): intercept <48h bookings
+    // with a warning dialog before delegating to the container's
+    // `onSubmit`. The customer can still confirm (booking
+    // submits as usual) or Cancel (returns to the review step).
+    // If any required piece is missing (startIso is null), skip
+    // the gate — the step-1 required-field gate in step1Valid
+    // already blocks that case at advance-to-step-2 time.
+    if (isWithin48Hours()) {
+      setShowShortNoticeWarning(true);
+      return;
+    }
     // Delegate to container — container handles API call, navigation, and error/success state
     if (onSubmit) {
       // Include flightDetails (origin/destination) so the API service can save
@@ -1945,7 +2752,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const loungeLabel = lvStr + (lvStr && lnStr ? ' · ' : '') + lnStr;
     const addonOrig =
       step2Form.loungeExtension * 500 +
-      step2Form.limousineService * 1200 +
+      step2Form.limousineService * 1500 +
       step2Form.wheelchairService * 300;
     const addonAmt =
       step2Form.loungeExtension * loungeRate +
@@ -2090,7 +2897,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Limousine Service × {step2Form.limousineService}</span>
                   <div className="text-right">
-                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.limousineService * 1200).toLocaleString()}</span>}
+                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.limousineService * 1500).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</span>
                   </div>
                 </div>
@@ -2250,7 +3057,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
     const addonOriginal =
       step2Form.loungeExtension * 500 +
-      step2Form.limousineService * 1200 +
+      step2Form.limousineService * 1500 +
       step2Form.wheelchairService * 300;
     const addonTotal =
       step2Form.loungeExtension * loungeRate +
@@ -2650,14 +3457,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="text-right flex-shrink-0">
                       {isTravelAgency ? (
                         <>
-                          <div className="text-xs line-through" style={textMuted}>HK$1,200 × {step2Form.limousineService}</div>
+                          <div className="text-xs line-through" style={textMuted}>HK$1,500 × {step2Form.limousineService}</div>
                           <div className="text-xs text-green-400">HK${limoRate} × {step2Form.limousineService} ({Math.round(TA_DISCOUNT_LIMO * 100)}% off)</div>
                           <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</div>
                         </>
                       ) : (
                         <>
-                          <div className="text-xs" style={textMuted}>HK$1,200 × {step2Form.limousineService}</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * 1200).toLocaleString()}</div>
+                          <div className="text-xs" style={textMuted}>HK$1,500 × {step2Form.limousineService}</div>
+                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * 1500).toLocaleString()}</div>
                         </>
                       )}
                     </div>
@@ -2816,7 +3623,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <ReviewField label="Driver Name" value={vehicle.driverName || '—'} />
               <ReviewField label="Driver Contact" value={vehicle.driverContact || '—'} />
               <ReviewField label="Car Plate No." value={vehicle.carPlateNo || '—'} />
-              <ReviewField label="Address" value={vehicle.address || '—'} />
             </ReviewGrid>
           </ReviewSection>
         ))}
@@ -3133,7 +3939,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {[
                       { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: 500, disc: loungeRate },
-                      { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1200, disc: limoRate },
+                      { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1500, disc: limoRate },
                       { label: 'Wheelchair Assist.', pct: Math.round(TA_DISCOUNT_WHEELCHAIR * 100), orig: 300, disc: wheelchairRate },
                     ].map((item) => (
                       <div key={item.label} className="rounded-lg p-2 text-center" style={taInfoBoxBg}>
@@ -3178,7 +3984,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Car className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title="Limousine Service"
-              subtitle={isTravelAgency ? 'HK$' + limoRate + '/vehicle (was HK$1,200 · 20% TA off)' : 'HK$1,200 per vehicle'}
+              subtitle={isTravelAgency ? 'HK$' + limoRate + '/vehicle (was HK$1,500 · 20% TA off)' : 'HK$1,500 per vehicle'}
               value={step2Form.limousineService}
               onDecrement={() => updateStep2Count('limousineService', -1)}
               onIncrement={() => updateStep2Count('limousineService', 1)}
@@ -3204,7 +4010,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       {step2Form.limousineService > 1 ? 'Destination / Pick-up Point #' + (index + 1) : 'Destination / Pick-up Point'} *
                     </label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
                         type="text"
                         value={address}
@@ -3221,7 +4027,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div>
                     <label className={labelClass}>Pick-up Time *</label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
                         type="time"
                         value={step2Form.limousinePickupTime}
@@ -3240,7 +4046,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <button type="button" onClick={() => removeStop(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Remove</button>
                     </div>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
                         type="text"
                         value={stop}
@@ -3286,7 +4092,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div key={i}>
                     <label className={labelClass}>Passenger {i + 1} Name *</label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
                         type="text"
                         value={step2Form.wheelchairPassengerNames[i] ?? ''}
@@ -3521,7 +4327,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           <div>
                             <label className={labelClass}>Driver Name *</label>
                             <div className="relative">
-                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
                                 type="text"
                                 value={vehicle.driverName}
@@ -3536,7 +4342,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           <div>
                             <label className={labelClass}>Driver Contact *</label>
                             <div className="relative">
-                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
                                 type="text"
                                 value={vehicle.driverContact}
@@ -3557,7 +4363,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           <div>
                             <label className={labelClass}>Car Plate No. *</label>
                             <div className="relative">
-                              <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
                                 type="text"
                                 value={vehicle.carPlateNo}
@@ -3566,21 +4372,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 placeholder="e.g. HK1234"
                                 style={fieldStyle}
                                 className={fieldClass + ' pl-10 uppercase'}
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <label className={labelClass}>Address *</label>
-                            <div className="relative">
-                              <Hotel className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                              <input
-                                type="text"
-                                value={vehicle.address}
-                                onChange={(e) => updateVehicle('address', e.target.value)}
-                                required
-                                placeholder="Address"
-                                style={fieldStyle}
-                                className={fieldClass + ' pl-10'}
                               />
                             </div>
                           </div>
@@ -3594,6 +4385,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
 
           {/* ── Use My Membership ────────────────────────────────────────── */}
+          {/* TODO(customer): hidden — membership vouchers not fully implemented yet. Flip `false` to `true` when ready (Sky 2026-06-28). */}
+          {false && (
           <div className="p-5 rounded-xl" style={{ background: membershipCardBg, border: membershipCardBorder }}>
 
             {/* Header row — title + toggle */}
@@ -3767,6 +4560,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
           </div>
+          )}
 
           {/* ── Payment & Billing (Travel Agency) / Promotion / Redemption Code (others) ── */}
           {isTravelAgency ? (
@@ -3804,7 +4598,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="mb-4">
                 <label className={labelClass}>Agency Billing Reference</label>
                 <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={step2Form.billingReference}
@@ -3848,7 +4642,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div>
                 <label className={labelClass}>Promotion / Redemption Code (Optional)</label>
                 <div className="relative">
-                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={step2Form.promotionCode}
@@ -3934,7 +4728,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div>
                 <label className={labelClass}>Name *</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={step2Form.contactName}
@@ -3951,7 +4745,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div>
                 <label className={labelClass}>Contact Email *</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="email"
                     value={step2Form.contactEmail}
@@ -3967,27 +4761,40 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div>
                 <label className={labelClass}>Contact No. *</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={step2Form.contactNo}
-                    onChange={(e) =>
-                      setStep2Form((p) => ({ ...p, contactNo: e.target.value }))
-                    }
-                    required
-                    placeholder="+852 XXXX XXXX"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10'}
-                  />
-                </div>
+                {/* 2026-06-24 (Sky) — split the contact number into a
+                    type-ahead region code combobox + a digits/dash
+                    number input. The combined value is kept in sync
+                    on `step2Form.contactNo` so the wire shape (and
+                    the existing api.ts `data.services?.contactNo`
+                    path) doesn't change. */}
+                <ContactNoSplit
+                  regionCode={step2Form.regionCode}
+                  contactNumber={step2Form.contactNumber}
+                  onRegionCodeChange={(code) =>
+                    setStep2Form((p) => ({
+                      ...p,
+                      regionCode: code,
+                      contactNo: combineContactNo(code, p.contactNumber),
+                    }))
+                  }
+                  onContactNumberChange={(num) =>
+                    setStep2Form((p) => ({
+                      ...p,
+                      contactNumber: num,
+                      contactNo: combineContactNo(p.regionCode, num),
+                    }))
+                  }
+                  fieldStyle={fieldStyle}
+                  fieldClass={fieldClass}
+                  isDark={isDark}
+                />
               </div>
             </div>
 
             <div>
               <label className={labelClass}>Booking Memo</label>
               <div className="relative">
-                <FileText className="absolute left-3 top-3.5 w-4 h-4 text-gray-400" />
+                <FileText className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
                 <textarea
                   value={step2Form.bookingMemo}
                   onChange={(e) =>
@@ -4298,7 +5105,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="mb-4">
               <label className={labelClass}>Flight Number *</label>
               <div className="relative">
-                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
                   value={form.flightNumber}
@@ -4373,7 +5180,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="mb-4">
                 <label className={labelClass}>Origin *</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={form.origin}
@@ -4426,7 +5233,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="mb-4">
                 <label className={labelClass}>Destination *</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={form.destination}
@@ -4464,7 +5271,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div>
                 <label className={labelClass}>Client Company Code *</label>
                 <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
                     type="text"
                     value={form.companyCode}
@@ -4527,7 +5334,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="mb-4">
                   <label className={labelClass}>Leg 2 Flight Number <span>*</span></label>
                   <div className="relative">
-                    <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={leg2FlightNo}
@@ -4542,7 +5349,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Leg 2 Departure Date — full width. 2026-06-08 (round
                     6.2.8): renamed from "Arrival Date" to "Departure
-                    Date" because leg 2 is the outbound flight. */}
+                    Date" because leg 2 is the outbound flight.
+                    2026-06-28 (round 6.2.98): inline gap check flipped
+                    from MIN 6h to MAX 6h — error fires when gap > 6h. */}
                 <div className="mb-4">
                   <label className={labelClass}>Leg 2 Departure Date <span>*</span></label>
                   <div className="relative">
@@ -4556,18 +5365,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         const next = timePart ? `${datePart}T${timePart}` : datePart;
                         setLeg2ArrivalDate(next);
                         if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
-                        const l0 = form.date ? new Date(form.date) : null;
-                        const l1 = next ? new Date(next) : null;
-                        if (!l0 || !l1 || isNaN(l0.getTime()) || isNaN(l1.getTime())) {
+                        // MAX 6h (rev. 6.2.98). The useEffect below
+                        // re-asserts the same value on the next render
+                        // so the inline fast-path + the useEffect safety
+                        // net always converge.
+                        const l0Iso = form.date && leg1FlightTime
+                          ? new Date(`${form.date}T${leg1FlightTime}:00`).getTime()
+                          : null;
+                        const l1Ms = next ? new Date(next).getTime() : null;
+                        if (l0Iso === null || l1Ms === null || isNaN(l0Iso) || isNaN(l1Ms)) {
                           setTransitGapError(null);
                           return;
                         }
-                        const diffMs = l1.getTime() - l0.getTime();
+                        const diffMs = l1Ms - l0Iso;
                         const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-                        if (diffMs < SIX_HOURS_MS) {
+                        if (diffMs > SIX_HOURS_MS) {
                           const hours = Math.floor(diffMs / 3600000);
                           const mins = Math.floor((diffMs % 3600000) / 60000);
-                          setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+                          setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
                         } else {
                           setTransitGapError(null);
                         }
@@ -4583,7 +5398,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {/* Leg 2 Departure Time — full width. 2026-06-08 (round
                     6.2.8): renamed from "Arrival Time" to "Departure
                     Time". The time half of the combined leg2ArrivalDate
-                    state (datetime-local string). */}
+                    state (datetime-local string).
+                    2026-06-28 (round 6.2.98): inline gap check flipped
+                    from MIN 6h to MAX 6h — error fires when gap > 6h. */}
                 <div className="mb-4">
                   <label className={labelClass}>Leg 2 Departure Time <span>*</span></label>
                   <div className="relative">
@@ -4596,18 +5413,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         const next = datePart ? `${datePart}T${timePart}` : '';
                         setLeg2ArrivalDate(next);
                         if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
-                        const l0 = form.date ? new Date(form.date) : null;
-                        const l1 = next ? new Date(next) : null;
-                        if (!l0 || !l1 || isNaN(l0.getTime()) || isNaN(l1.getTime())) {
+                        const l0Iso = form.date && leg1FlightTime
+                          ? new Date(`${form.date}T${leg1FlightTime}:00`).getTime()
+                          : null;
+                        const l1Ms = next ? new Date(next).getTime() : null;
+                        if (l0Iso === null || l1Ms === null || isNaN(l0Iso) || isNaN(l1Ms)) {
                           setTransitGapError(null);
                           return;
                         }
-                        const diffMs = l1.getTime() - l0.getTime();
+                        const diffMs = l1Ms - l0Iso;
                         const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-                        if (diffMs < SIX_HOURS_MS) {
+                        if (diffMs > SIX_HOURS_MS) {
                           const hours = Math.floor(diffMs / 3600000);
                           const mins = Math.floor((diffMs % 3600000) / 60000);
-                          setTransitGapError(`Transit gap must be at least 6 hours (got ${hours}h ${mins}m). Please pick a later outbound leg.`);
+                          setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
                         } else {
                           setTransitGapError(null);
                         }
@@ -4631,7 +5450,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="mb-4">
                   <label className={labelClass}>Leg 2 Destination <span>*</span></label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={leg2Destination}
@@ -4700,15 +5519,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </button>
           </div>
 
-          {!step1FlightValid && (
+          {!step1FlightValid && step1FlightHints.length > 0 && (
             <div
-              className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
+              className="flex items-start gap-2 px-4 py-3 rounded-lg"
               style={{ background: hintBgS1, border: hintBorderS1 }}
             >
-              <Info className="w-4 h-4 flex-shrink-0" style={{ color: hintColorS1 }} />
-              <p className="text-xs text-center" style={{ color: hintColorS1 }}>
-                {step1FlightHintMsg}
-              </p>
+              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: hintColorS1 }} />
+              <div className="flex-1">
+                <p className="text-xs font-medium mb-1" style={{ color: hintColorS1 }}>
+                  Please address the following before continuing:
+                </p>
+                <ul className="text-xs space-y-0.5 list-disc list-inside" style={{ color: hintColorS1 }}>
+                  {step1FlightHints.map((hint, idx) => (
+                    <li key={idx}>{hint}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
         </div>
@@ -4735,9 +5561,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   if (form.premiereSuites === 0) {
     premiereVipHelperText = 'Please select at least 1 Premiere Suite first';
   } else {
+    // 2026-06-27 (round 6.2.96 — Sky): show the minimum floor
+    // (1 VIP per suite) alongside the cap. The 1:1 floor is
+    // enforced in `updateCount` so the user can never land
+    // below it via the stepper; the helper text just surfaces
+    // the rule so they understand the auto-bump when they
+    // increment suites.
     const cap = form.premiereSuites * 6;
     const used = form.premiereVipPassengers + form.premiereNonFlyingGuests;
-    premiereVipHelperText = 'Maximum: ' + cap + ' total guests per ' + form.premiereSuites + ' suite(s) (' + used + '/' + cap + ' used)';
+    premiereVipHelperText =
+      'Minimum 1 VIP per suite · Maximum: ' + cap
+      + ' total guests per ' + form.premiereSuites + ' suite(s) ('
+      + used + '/' + cap + ' used)';
   }
 
   let premiereNfgHelperText: string | undefined = undefined;
@@ -4920,6 +5755,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 value={form.premiereSuites}
                 onDecrement={() => updateCount('premiereSuites', -1)}
                 onIncrement={() => updateCount('premiereSuites', 1)}
+                testId="premiere-suites"
               />
             </div>
 
@@ -4937,6 +5773,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
                 }
                 helperText={premiereVipHelperText}
+                testId="ps-vip"
               />
             </div>
 
@@ -4955,6 +5792,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6
                 }
                 helperText={premiereNfgHelperText}
+                testId="ps-nfg"
               />
             </div>
           </div>
@@ -4976,6 +5814,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 value={form.vipPassengers}
                 onDecrement={() => updateCount('vipPassengers', -1)}
                 onIncrement={() => updateCount('vipPassengers', 1)}
+                testId="ld-vip"
               />
             </div>
 
@@ -4991,6 +5830,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 onIncrement={() => updateCount('nonFlyingGuests', 1)}
                 incrementDisabled={form.vipPassengers === 0 || form.nonFlyingGuests >= 3}
                 helperText={loungeNfgHelperText}
+                testId="ld-nfg"
               />
             </div>
           </div>
@@ -5026,7 +5866,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           }
 
           return (
-            <div key={index} className="p-5" style={card}>
+            <div
+              key={index}
+              className="p-5"
+              style={card}
+              data-hkial-vip-info={index}
+            >
               <SectionHeader
                 title={`VIP Passenger Information #${index + 1}`}
                 subtitle={`${guestType} — please fill in details`}
@@ -5045,7 +5890,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>Title *</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
                       value={passenger.vipTitle}
                       onChange={(e) => handleVipChange(index, 'vipTitle', e.target.value)}
@@ -5110,7 +5955,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>Age Group <span>*</span></label>
                   <div className="relative">
-                    <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
                       value={passenger.vipAgeGroup}
                       onChange={(e) => handleVipChange(index, 'vipAgeGroup', e.target.value)}
@@ -5119,9 +5964,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
                       <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adult" className={optionBg}>Adults (aged 12 and above)</option>
-                      <option value="Child" className={optionBg}>Children (aged 2 to 11)</option>
-                      <option value="Infant" className={optionBg}>Infants (under 2 years old)</option>
+                      <option value="Adults (aged 12 and above)" className={optionBg}>Adults (aged 12 and above)</option>
+                      <option value="Children (aged 2-11)" className={optionBg}>Children (aged 2 to 11)</option>
+                      <option value="Infants (under 2 years old)" className={optionBg}>Infants (under 2 years old)</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -5131,7 +5976,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>Birthday (Date / Month / Year)</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="date"
                       value={passenger.vipBirthday}
@@ -5183,7 +6028,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           }
 
           return (
-            <div key={index} className="p-5" style={card}>
+            <div
+              key={index}
+              className="p-5"
+              style={card}
+              data-hkial-nfg-info={index}
+            >
               <SectionHeader
                 title={`Non-Flying Guest Information #${index + 1}`}
                 subtitle={`${guestType} — please fill in details`}
@@ -5224,7 +6074,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>First Name *</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={guest.guestFirstName}
@@ -5241,7 +6091,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>Last Name *</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={guest.guestLastName}
@@ -5258,7 +6108,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div>
                   <label className={labelClass}>Age Group <span>*</span></label>
                   <div className="relative">
-                    <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
                       value={guest.guestAgeGroup}
                       onChange={(e) => handleNonFlyingGuestChange(index, 'guestAgeGroup', e.target.value)}
@@ -5267,9 +6117,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
                       <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adult" className={optionBg}>Adults (aged 12 and above)</option>
-                      <option value="Child" className={optionBg}>Children (aged 2 to 11)</option>
-                      <option value="Infant" className={optionBg}>Infants (under 2 years old)</option>
+                      <option value="Adults (aged 12 and above)" className={optionBg}>Adults (aged 12 and above)</option>
+                      <option value="Children (aged 2-11)" className={optionBg}>Children (aged 2 to 11)</option>
+                      <option value="Infants (under 2 years old)" className={optionBg}>Infants (under 2 years old)</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -5343,27 +6193,36 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </button>
         </div>
 
-        {!step1Valid && (
+        {!step1Valid && step1Hints.length > 0 && (
           <div
-            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg"
+            className="flex items-start gap-2 px-4 py-3 rounded-lg"
             style={{
               background: isDark ? 'rgba(220, 181, 21, 0.1)' : 'rgba(220, 181, 21, 0.15)',
               border: isDark ? '1px solid rgba(220, 181, 21, 0.2)' : '1px solid rgba(220, 181, 21, 0.3)',
             }}
           >
-            <Info className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }} />
-            <p className="text-xs text-center" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
-              {step1HintMsg}
-            </p>
+            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }} />
+            <div className="flex-1">
+              <p className="text-xs font-medium mb-1" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
+                Please address the following before continuing:
+              </p>
+              <ul className="text-xs space-y-0.5 list-disc list-inside" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
+                {step1Hints.map((hint, idx) => (
+                  <li key={idx}>{hint}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         )}
       </div>
 
       {/* Delete VIP Passenger Dialog */}
-      {showDeleteVipDialog && pendingVipCount !== null && (
+      {pendingVipDeletion && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+          data-hkial-dialog="delete-vip"
+          data-hkial-segment={pendingVipDeletion.segment}
         >
           <div
             className="max-w-2xl w-full max-h-[80vh] overflow-y-auto rounded-xl p-6"
@@ -5373,33 +6232,34 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             }}
           >
             <h3 className="text-xl mb-4" style={textPrimary}>
-              Select VIP Passenger(s) to Remove
+              Select {getSegmentLabel(pendingVipDeletion.segment, 'vip')} to Remove
             </h3>
             <p className="text-sm mb-6" style={textSecondary}>
-              You have reduced the number of VIP passengers from {vipData.length} to {pendingVipCount}.
-              Please select {vipData.length - pendingVipCount} passenger(s) to remove:
+              You have reduced the number of {getSegmentLabel(pendingVipDeletion.segment, 'vip')}s from {pendingVipDeletion.prevCount} to {pendingVipDeletion.newCount}.
+              Please select {pendingVipDeletion.prevCount - pendingVipDeletion.newCount} passenger(s) to remove:
             </p>
 
             <div className="space-y-3 mb-6">
-              {vipData.map((vip, index) => {
-                const premiereSuiteEnd = form.premiereSuites;
-                const premiereVipEnd = premiereSuiteEnd + form.premiereVipPassengers;
-                let guestType = '';
-                if (index < premiereSuiteEnd) {
-                  guestType = 'Premiere Suite';
-                } else if (index < premiereVipEnd) {
-                  guestType = 'Premiere Suite - VIP Passenger';
-                } else {
-                  guestType = 'Lounge Deluxe - VIP Passenger';
-                }
-
+              {getVipSegmentEntries(
+                pendingVipDeletion.segment,
+                form.premiereVipPassengers,
+                form.vipPassengers,
+                vipData,
+              ).map((vip, displayIndex) => {
+                const absoluteIndex = resolveVipAbsoluteIndex(
+                  pendingVipDeletion.segment,
+                  displayIndex,
+                  form.premiereVipPassengers,
+                );
+                const guestType = getSegmentLabel(pendingVipDeletion.segment, 'vip');
                 const displayName = vip.vipFirstName || vip.vipLastName
                   ? `${vip.vipTitle} ${vip.vipFirstName} ${vip.vipLastName}`.trim()
-                  : `VIP Passenger #${index + 1} (Empty)`;
+                  : `VIP Passenger #${absoluteIndex + 1} (Empty)`;
 
                 return (
                   <div
-                    key={index}
+                    key={displayIndex}
+                    data-hkial-vip-candidate={absoluteIndex}
                     className="flex items-center justify-between p-4 rounded-lg"
                     style={{
                       background: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(231, 230, 221, 0.5)',
@@ -5418,7 +6278,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteVip(index)}
+                      onClick={() => handleDeleteVip(displayIndex)}
                       className="px-4 py-2 rounded-lg text-sm text-white transition-all hover:opacity-80"
                       style={{ background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' }}
                     >
@@ -5442,10 +6302,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       )}
 
       {/* Delete Non-Flying Guest Dialog */}
-      {showDeleteGuestDialog && pendingGuestCount !== null && (
+      {pendingGuestDeletion && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+          data-hkial-dialog="delete-guest"
+          data-hkial-segment={pendingGuestDeletion.segment}
         >
           <div
             className="max-w-2xl w-full max-h-[80vh] overflow-y-auto rounded-xl p-6"
@@ -5455,27 +6317,34 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             }}
           >
             <h3 className="text-xl mb-4" style={textPrimary}>
-              Select Non-Flying Guest(s) to Remove
+              Select {getSegmentLabel(pendingGuestDeletion.segment, 'guest')} to Remove
             </h3>
             <p className="text-sm mb-6" style={textSecondary}>
-              You have reduced the number of non-flying guests from {nonFlyingGuestData.length} to {pendingGuestCount}.
-              Please select {nonFlyingGuestData.length - pendingGuestCount} guest(s) to remove:
+              You have reduced the number of {getSegmentLabel(pendingGuestDeletion.segment, 'guest')}s from {pendingGuestDeletion.prevCount} to {pendingGuestDeletion.newCount}.
+              Please select {pendingGuestDeletion.prevCount - pendingGuestDeletion.newCount} guest(s) to remove:
             </p>
 
             <div className="space-y-3 mb-6">
-              {nonFlyingGuestData.map((guest, index) => {
-                const premiereNonFlyingEnd = form.premiereNonFlyingGuests;
-                const guestType = index < premiereNonFlyingEnd
-                  ? 'Premiere Suite - Non-Flying Guest'
-                  : 'Lounge Deluxe - Non-Flying Guest';
-
+              {getGuestSegmentEntries(
+                pendingGuestDeletion.segment,
+                form.premiereNonFlyingGuests,
+                form.nonFlyingGuests,
+                nonFlyingGuestData,
+              ).map((guest, displayIndex) => {
+                const absoluteIndex = resolveGuestAbsoluteIndex(
+                  pendingGuestDeletion.segment,
+                  displayIndex,
+                  form.premiereNonFlyingGuests,
+                );
+                const guestType = getSegmentLabel(pendingGuestDeletion.segment, 'guest');
                 const displayName = guest.guestFirstName || guest.guestLastName
                   ? `${guest.guestTitle} ${guest.guestFirstName} ${guest.guestLastName}`.trim()
-                  : `Non-Flying Guest #${index + 1} (Empty)`;
+                  : `Non-Flying Guest #${absoluteIndex + 1} (Empty)`;
 
                 return (
                   <div
-                    key={index}
+                    key={displayIndex}
+                    data-hkial-guest-candidate={absoluteIndex}
                     className="flex items-center justify-between p-4 rounded-lg"
                     style={{
                       background: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(231, 230, 221, 0.5)',
@@ -5492,7 +6361,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteGuest(index)}
+                      onClick={() => handleDeleteGuest(displayIndex)}
                       className="px-4 py-2 rounded-lg text-sm text-white transition-all hover:opacity-80"
                       style={{ background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' }}
                     >
@@ -5514,6 +6383,105 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
         </div>
       )}
+
+      {/* ── Short-Notice (<48h) Warning Dialog ───────────────────────── */}
+      {/* 2026-06-27 (round 6.2.97 — Sky): intercept Confirm when the
+          booking start is within 48 hours of now. The customer can
+          still confirm (booking submits as usual) or Cancel
+          (returns to the review step). The warning copy is the
+          user-facing translation of Sky's directive: "The booking
+          may not be able to fullfill, further confiration will be
+          made by HKIAL staffs." — verbatim wording preserved. */}
+      {showShortNoticeWarning && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+          data-hkial-dialog="short-notice-warning"
+        >
+          <div
+            className="max-w-md w-full rounded-2xl p-6"
+            style={{
+              background: isDark ? '#0a1929' : '#FFFFFF',
+              border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(200,199,190,0.5)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+            }}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: isDark ? 'rgba(251,191,36,0.18)' : 'rgba(251,191,36,0.2)',
+                  border: isDark ? '1px solid rgba(251,191,36,0.4)' : '1px solid rgba(251,191,36,0.5)',
+                }}
+              >
+                <AlertTriangle className="w-5 h-5" style={{ color: 'rgb(220,181,21)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-semibold mb-1" style={textPrimary}>
+                  Short-Notice Booking
+                </h3>
+                <p className="text-sm" style={textSecondary}>
+                  The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowShortNoticeWarning(false)}
+                className="py-2.5 px-4 rounded-xl text-sm transition-all hover:opacity-80"
+                style={{ ...secondaryBtnStyle, color: colors.text }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowShortNoticeWarning(false);
+                  // Re-enter the submit path WITHOUT re-triggering
+                  // the 48h gate (would loop forever). Delegate
+                  // directly to the same body as handleFinalConfirm
+                  // (the `onSubmit` / mock-booking-number branch).
+                  if (onSubmit) {
+                    onSubmit({
+                      form,
+                      step2Form,
+                      vipData,
+                      nonFlyingGuestData,
+                      memberData,
+                      flightDetails,
+                      leg1FlightTime,
+                      leg2ArrivalDate,
+                      leg2FlightNo,
+                      leg2FlightTime: leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '',
+                      leg2FlightClass,
+                      leg2Destination,
+                      transitGapError,
+                    });
+                  } else {
+                    const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
+                    const flightPrefix = flightPrefixMap[form.flightType] || 'D';
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                    const day = now.getDate().toString().padStart(2, '0');
+                    const randomNum = Math.floor(10000 + Math.random() * 90000);
+                    const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
+                    setBookingNumber(generatedBookingNumber);
+                    setSubmitted(true);
+                    setTimeout(() => navigate('/mybooking'), 3000);
+                  }
+                }}
+                className="py-2.5 px-4 rounded-xl text-white text-sm transition-all hover:opacity-90"
+                style={{ background: 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)' }}
+              >
+                Confirm Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Use History as New Booking Dialog ─────────────────────────── */}
       {showHistoryDialog && (
         <div

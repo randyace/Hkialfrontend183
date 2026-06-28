@@ -27,22 +27,18 @@ interface MemberContextType {
 const MemberContext = createContext<MemberContextType | null>(null);
 
 function buildMemberData(formData: any): MemberData {
+  // Round 6.2.61 (post-reset): removed hardcoded mock data — no fake
+  // membership dates, voucher counts, totalBookings, or bookingsRemaining
+  // are seeded from `formData`. Real values come from the backend via
+  // /auth/member/me on the live app; this figma-ui copy is for Figma Make
+  // preview only and should not invent fake data on register.
   const base: MemberData = {
-    name: `${formData.firstName} ${formData.lastName}`,
+    name: `${formData.firstName} ${formData.lastName}`.trim(),
     memberType: formData.memberType || 'Individual',
     email: formData.email,
-    membershipExpiryDate: '2026-12-31',
-    membershipStartDate: '2022-03-15',
   };
   if (formData.memberType === 'Corporate' || formData.memberType === 'Travel Agency') {
     base.companyName = formData.companyName;
-    base.totalBookings = formData.memberType === 'Corporate' ? 10 : 8;
-    base.bookingsRemaining = formData.memberType === 'Corporate' ? 5 : 7000;
-    base.voucherCount = formData.memberType === 'Corporate' ? 8 : 5;
-  } else {
-    base.totalBookings = 10;
-    base.bookingsRemaining = 5;
-    base.voucherCount = 3;
   }
   return base;
 }
@@ -52,15 +48,12 @@ export function MemberProvider({ children }: { children: React.ReactNode }) {
   const [pendingLoginData, setPendingLoginData] = useState<any | null>(null);
   const [registrationData, setRegistrationData] = useState<any | null>(null);
   const [memberData, setMemberData] = useState<MemberData>({
-    name: 'Sarah Chen',
-    memberType: 'Corporate',
-    companyName: 'Tech Corporation Ltd',
-    bookingsRemaining: 5,
-    totalBookings: 10,
-    voucherCount: 8,
-    email: 'sarah.chen@example.com',
-    membershipExpiryDate: '2026-12-31',
-    membershipStartDate: '2022-03-15',
+    // Round 6.2.61: initial state has no fake membership tier / voucher
+    // count / expiry dates. Figma Make preview renders an empty profile
+    // until completeMemberLogin or completeRegistration fills the real
+    // fields from the (mock) formData.
+    name: '',
+    memberType: 'Individual',
   });
 
   const completeMemberLogin = (formData: any) => {
@@ -70,12 +63,11 @@ export function MemberProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeRegistration = (formData: any) => {
-    const expiry = new Date();
-    expiry.setFullYear(expiry.getFullYear() + 1);
-    const newData = buildMemberData(formData);
-    newData.membershipExpiryDate = expiry.toISOString().split('T')[0];
-    newData.membershipStartDate = new Date().toISOString().split('T')[0];
-    setMemberData(newData);
+    // Round 6.2.61: removed fake membershipExpiryDate / membershipStartDate
+    // seeding on registration. The real backend only sets those fields when
+    // the account is linked to a package; this figma-ui copy should mirror
+    // that and not invent dates the backend hasn't earned.
+    setMemberData(buildMemberData(formData));
     setRegistrationData(formData);
     setIsAuthenticated(true);
   };
@@ -98,6 +90,10 @@ export function MemberProvider({ children }: { children: React.ReactNode }) {
       };
     });
   };
+  // Round 6.2.61 note: the `prev.voucherCount || 0` fallback above is
+  // intentional — a freshly-registered member has no voucherCount until
+  // the backend's /auth/member/me returns one. Defaulting to 0 means
+  // handleAdjournPurchase is a safe no-op for an empty profile.
 
   const value: MemberContextType = {
     memberData,

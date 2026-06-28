@@ -430,32 +430,38 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Flight Class</label>
-              <select
-                name="flightClass"
-                value={form.flightClass}
-                onChange={handleChange}
-                className={inputClass + ' appearance-none cursor-pointer'}
-                style={inputStyle}
-              >
-                {['First Class', 'Business Class', 'Premium Economy', 'Economy Class'].map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  name="flightClass"
+                  value={form.flightClass}
+                  onChange={handleChange}
+                  className={inputClass + ' appearance-none pr-10 cursor-pointer'}
+                  style={inputStyle}
+                >
+                  {['First Class', 'Business Class', 'Premium Economy', 'Economy Class'].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Flight Type</label>
-              <select
-                name="flightType"
-                value={form.flightType}
-                onChange={handleChange}
-                className={inputClass + ' appearance-none cursor-pointer'}
-                style={inputStyle}
-              >
-                {/* 2026-06-08 (round 6.2.7): Transit was missing. */}
-                <option value="Departure">Departure</option>
-                <option value="Arrival">Arrival</option>
-                <option value="Transit">Transit</option>
-              </select>
+              <div className="relative">
+                <select
+                  name="flightType"
+                  value={form.flightType}
+                  onChange={handleChange}
+                  className={inputClass + ' appearance-none pr-10 cursor-pointer'}
+                  style={inputStyle}
+                >
+                  {/* 2026-06-08 (round 6.2.7): Transit was missing. */}
+                  <option value="Departure">Departure</option>
+                  <option value="Arrival">Arrival</option>
+                  <option value="Transit">Transit</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
             </div>
           </div>
 
@@ -472,7 +478,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Origin</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="text"
                   name="origin"
@@ -489,7 +495,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Destination</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="text"
                   name="destination"
@@ -530,7 +536,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
               <div>
                 <label className={labelClass} style={labelStyle}>Leg 2 Flight Number</label>
                 <div className="relative">
-                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                   <input
                     type="text"
                     value={leg2FlightNo}
@@ -545,7 +551,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
               <div>
                 <label className={labelClass} style={labelStyle}>Leg 2 Departure Date</label>
                 <div className="relative">
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                   <input
                     type="date"
                     value={leg2ArrivalDate?.split('T')[0] || ''}
@@ -564,7 +570,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
               <div>
                 <label className={labelClass} style={labelStyle}>Leg 2 Departure Time</label>
                 <div className="relative">
-                  <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                   <input
                     type="time"
                     value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
@@ -584,7 +590,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
               <div>
                 <label className={labelClass} style={labelStyle}>Leg 2 Destination</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                   <input
                     type="text"
                     value={leg2Destination}
@@ -610,7 +616,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
                       <option key={v} value={v}>{v}</option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 </div>
               </div>
             </div>
@@ -626,35 +632,41 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={labelClass} style={labelStyle}>Lounge Name</label>
-              <select
-                name="lounge"
-                value={form.lounge}
-                onChange={handleChange}
-                className={inputClass + ' appearance-none cursor-pointer'}
-                style={inputStyle}
-              >
-                {[
-                  'The Wing First Class Lounge',
-                  'The Pier First Class Lounge',
-                  'The Pier Business Class Lounge',
-                  'The Bridge Business Class Lounge',
-                  'The Cabin Lounge',
-                  'The Arrival Lounge',
-                ].map(v => <option key={v} value={v}>{v}</option>)}
-              </select>
+              <div className="relative">
+                <select
+                  name="lounge"
+                  value={form.lounge}
+                  onChange={handleChange}
+                  className={inputClass + ' appearance-none pr-10 cursor-pointer'}
+                  style={inputStyle}
+                >
+                  {[
+                    'The Wing First Class Lounge',
+                    'The Pier First Class Lounge',
+                    'The Pier Business Class Lounge',
+                    'The Bridge Business Class Lounge',
+                    'The Cabin Lounge',
+                    'The Arrival Lounge',
+                  ].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Terminal</label>
-              <select
-                name="terminal"
-                value={form.terminal}
-                onChange={handleChange}
-                className={inputClass + ' appearance-none cursor-pointer'}
-                style={inputStyle}
-              >
+              <div className="relative">
+                <select
+                  name="terminal"
+                  value={form.terminal}
+                  onChange={handleChange}
+                  className={inputClass + ' appearance-none pr-10 cursor-pointer'}
+                  style={inputStyle}
+                >
                 <option value="Terminal 1">Terminal 1</option>
                 <option value="Terminal 2">Terminal 2</option>
               </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+              </div>
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Duration</label>
@@ -834,14 +846,17 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           <div>
                             <label className={labelClass} style={labelStyle}>Title</label>
-                            <select
-                              value={p.title}
-                              onChange={(e) => updatePassenger(p.id, 'title', e.target.value)}
-                              className={inputClass + ' appearance-none cursor-pointer'}
-                              style={inputStyle}
-                            >
-                              {TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
-                            </select>
+                            <div className="relative">
+                              <select
+                                value={p.title}
+                                onChange={(e) => updatePassenger(p.id, 'title', e.target.value)}
+                                className={inputClass + ' appearance-none pr-10 cursor-pointer'}
+                                style={inputStyle}
+                              >
+                                {TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+                            </div>
                           </div>
                           <div>
                             <label className={labelClass} style={labelStyle}>First Name</label>
@@ -907,10 +922,10 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Lounge Extension (hours)</label>
               <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
-                <input
-                  type="number"
-                  name="loungeExtension"
+<Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
+              <input
+                type="number"
+                name="loungeExtension"
                   min="0"
                   max="12"
                   value={form.loungeExtension}
@@ -923,7 +938,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Limousine Service (vehicles)</label>
               <div className="relative">
-                <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="number"
                   name="limousineService"
@@ -940,7 +955,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
               <div className="md:col-span-2">
                 <label className={labelClass} style={labelStyle}>Destination Addresses (one per line)</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-4 h-4" style={{ color: colors.textMuted }} />
+                  <MapPin className="absolute left-3 top-3 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                   <textarea
                     name="destinationAddresses"
                     value={form.destinationAddresses}
@@ -956,7 +971,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Wheelchair Assistance</label>
               <div className="relative">
-                <Accessibility className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <Accessibility className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="number"
                   name="wheelchairService"
@@ -972,7 +987,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Luggage Count (pieces)</label>
               <div className="relative">
-                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="number"
                   name="luggageCount"
@@ -998,7 +1013,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Name</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="text"
                   name="contactName"
@@ -1013,7 +1028,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="email"
                   name="contactEmail"
@@ -1028,7 +1043,7 @@ export function EditBooking({ booking: bookingProp, setActiveTab }: EditBookingP
             <div>
               <label className={labelClass} style={labelStyle}>Phone</label>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: colors.textMuted }} />
                 <input
                   type="tel"
                   name="contactPhone"

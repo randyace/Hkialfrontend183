@@ -433,13 +433,21 @@ export function Settings({
           </div>
         </div>
 
-        {/* Email */}
+        {/* Email — read-only (2026-06-24, Sky). Email is managed by
+            the account / membership system; customer cannot change
+            it from the profile settings page. */}
         <div>
           <label
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Email Address
+            Email Address{" "}
+            <span
+              className="text-xs"
+              style={{ color: colors.textMuted }}
+            >
+              (read-only)
+            </span>
           </label>
           <div className="relative">
             <Mail
@@ -449,14 +457,10 @@ export function Settings({
             <input
               type="email"
               value={profile.email}
-              onChange={(e) =>
-                updateSetting(
-                  "profile",
-                  "email",
-                  e.target.value,
-                )
-              }
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              readOnly
+              disabled
+              aria-readonly="true"
+              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none cursor-not-allowed opacity-70"
               style={inputStyle}
             />
           </div>

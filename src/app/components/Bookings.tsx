@@ -202,7 +202,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       flightClass: 'First Class',
       flightType: 'Departure',
       guests: 0,
-      status: 'pending',
+      status: 'processing',
       bookingRef: 'D-20260205-74103',
       amenities: ['Private Cabanas', 'Fine Dining', 'Spa'],
       premiereSuites: 2,
@@ -361,7 +361,7 @@ export function Bookings({
   // Use container data when provided, fall back to mock for Figma standalone
   const bookings = propBookings ?? MOCK_BOOKINGS_DATA;
   const stats = propStats ?? {
-    upcoming: bookings.filter((b: any) => b.status === 'confirmed' || b.status === 'pending' || b.status === 'reviewing').length,
+    upcoming: bookings.filter((b: any) => b.status === 'confirmed' || b.status === 'processing' || b.status === 'reviewing').length,
     completed: bookings.filter((b: any) => b.status === 'completed').length,
     cancelled: bookings.filter((b: any) => b.status === 'cancelled' || b.status === 'rejected').length,
     total: bookings.length
@@ -490,9 +490,13 @@ export function Bookings({
     const statusLabel = b.status.charAt(0).toUpperCase() + b.status.slice(1);
     const dateLabel = formatDateDDMMYYYY(b.date);
 
+    // 2026-06-27 (round 6.2.95 — Sky): drop the Terminal row when
+    // the booking has no terminal value. Mirrors the booking-card
+    // subtitle + QR-modal fix (this same file). The customer app
+    // no longer surfaces terminal anywhere.
     const detailRows: Array<[string, string]> = [
       ['Lounge',    b.lounge],
-      ['Terminal',  b.terminal],
+      ...(b.terminal ? [['Terminal', b.terminal] as [string, string]] : []),
       ['Date',      dateLabel],
       ['Time',      b.time],
       ['Flight',    b.flight],
@@ -644,10 +648,10 @@ export function Bookings({
             <AlertCircle className="w-3 h-3" /> Reviewing
           </span>
         );
-      case 'pending':
+      case 'processing':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-yellow-100 text-yellow-700 border border-yellow-200">
-            <AlertCircle className="w-3 h-3" /> Pending
+            <AlertCircle className="w-3 h-3" /> Processing
           </span>
         );
       case 'completed':
@@ -720,11 +724,11 @@ export function Bookings({
 
     const activeStep = (() => {
       switch (status) {
-        case 'reviewing':  return 0;
-        case 'pending':    return 1;
-        case 'confirmed':  return 2;
-        case 'completed':  return 3;
-        default:           return -1;
+        case 'reviewing':   return 0;
+        case 'processing':  return 1;
+        case 'confirmed':   return 2;
+        case 'completed':   return 3;
+        default:            return -1;
       }
     })();
 
@@ -740,10 +744,10 @@ export function Bookings({
     };
 
     const steps = [
-      { baseLabel: 'Reviewing',  idx: 0 },
-      { baseLabel: 'Pending',    idx: 1 },
-      { baseLabel: 'Confirmed',  idx: 2 },
-      { baseLabel: 'Completed',  idx: 3 },
+      { baseLabel: 'Reviewing',   idx: 0 },
+      { baseLabel: 'Processing',  idx: 1 },
+      { baseLabel: 'Confirmed',   idx: 2 },
+      { baseLabel: 'Completed',   idx: 3 },
     ].map(s => ({
       ...s,
       label: isTerminated && s.idx === 2
@@ -888,7 +892,7 @@ export function Bookings({
           {/* Search Bar Row */}
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
               <input
                 type="text"
                 placeholder="Search by lounge, flight, or reference..."
@@ -907,7 +911,7 @@ export function Bookings({
               <option value="all">All Status</option>
               <option value="confirmed">Confirmed</option>
               <option value="reviewing">Reviewing</option>
-              <option value="pending">Pending</option>
+              <option value="processing">Processing</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
               <option value="rejected">Rejected</option>
@@ -965,7 +969,23 @@ export function Bookings({
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-xl font-semibold" style={{ color: colors.text }}>{booking.lounge}</h3>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>{booking.terminal}</p>
+                    {/* 2026-06-27 (round 6.2.95 — Sky): drop the
+                        `terminal` subtitle. Per Sky's prior
+                        "we don't use terminal now" directive
+                        (see NewBooking.tsx dropped terminal row),
+                        the customer app no longer surfaces terminal
+                        anywhere. BookingsContainer now returns
+                        `terminal: ''` when the API omits the
+                        field, and the line is hidden entirely so
+                        legacy rows that have a terminal value still
+                        display nothing in the customer app
+                        (the figma Make preview keeps `MOCK_*` data
+                        with terminal filled — that's fine because
+                        the MOCK path is gated behind the undefined
+                        check below). */}
+                    {booking.terminal ? (
+                      <p className="text-sm" style={{ color: colors.textSecondary }}>{booking.terminal}</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -999,7 +1019,7 @@ export function Bookings({
                     <div>
                       <p className="text-xs" style={{ color: colors.textMuted }}>Guests</p>
                       <p className="text-sm font-medium">
-                        {booking.guests === 0 ? 'Solo' : `+${booking.guests} guest${booking.guests > 1 ? 's' : ''}`}
+                        {booking.guests === 0 ? 'Solo' : `${booking.guests} guest${booking.guests > 1 ? 's' : ''}`}
                       </p>
                     </div>
                   </div>
@@ -1022,7 +1042,7 @@ export function Bookings({
                     QR Code
                   </button>
                 )}
-                {(booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'reviewing') && (
+                {(booking.status === 'confirmed' || booking.status === 'processing' || booking.status === 'reviewing') && (
                   <>
                     <button
                       onClick={() => handleEditClick(booking)}
@@ -1199,7 +1219,7 @@ export function Bookings({
               <div>
                 <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Flight Type</label>
                 <div className="relative">
-                  <Plane className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
+                  <Plane className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                   <select
                     name="flightType"
                     value={bookingForm.flightType}
@@ -1218,7 +1238,7 @@ export function Bookings({
                 <div>
                   <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Date</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                     <input
                       type="date"
                       name="date"
@@ -1233,7 +1253,7 @@ export function Bookings({
                 <div>
                   <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Time</label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                     <input
                       type="time"
                       name="time"
@@ -1257,7 +1277,7 @@ export function Bookings({
                   <div key={id}>
                     <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{label}</label>
                     <div className="relative">
-                      <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
+                      <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                       <input
                         type="number"
                         name={id}
@@ -1390,7 +1410,15 @@ export function Bookings({
                 { label: 'Date:', value: formatDateDDMMYYYY(selectedBooking.date) },
                 { label: 'Time:', value: selectedBooking.time },
                 { label: 'Flight:', value: selectedBooking.flightNumber },
-                { label: 'Terminal:', value: selectedBooking.terminal },
+                // 2026-06-27 (round 6.2.95 — Sky): drop the
+                // Terminal row when the booking has no terminal
+                // value. Mirrors the booking-card subtitle fix
+                // above (line 982). MOCK_BOOKINGS_DATA still has
+                // the field filled so figma Make preview keeps
+                // showing it.
+                ...(selectedBooking.terminal
+                  ? [{ label: 'Terminal:', value: selectedBooking.terminal }]
+                  : []),
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between">
                   <span style={{ color: colors.textMuted }}>{label}</span>
