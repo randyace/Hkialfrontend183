@@ -350,6 +350,89 @@ function combineContactNo(regionCode: string, contactNumber: string): string {
   return `${rc} ${cn}`;
 }
 
+/**
+ * Two-column HH:MM time picker with a fixed 5-minute step on the minute
+ * column. Built from native `<select>` elements so the browser renders ONLY
+ * the options we provide — Chrome/Safari's native `<input type="time">`
+ * picker ignores `step={300}` and still shows all 60 minutes.
+ *
+ * Inlined here (instead of imported from a parent-tree component) per
+ * INV-X1 — figma-ui files must keep working when Sky copies them back into
+ * the Figma Make code base, which has no access to frontend/src/components.
+ */
+const TIME5MIN_HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const TIME5MIN_MINUTES = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+
+/** Inner selects are visually transparent so the wrapper's border/background
+ *  shows through. They split the row equally via `flex-1`. */
+const TIME5MIN_SELECT_CLS =
+  'flex-1 min-w-0 bg-transparent border-0 outline-none text-sm cursor-pointer appearance-none text-center px-2 py-0';
+
+function Time5MinSelect({
+  value,
+  onChange,
+  required,
+  wrapperClassName,
+  wrapperStyle,
+  testId,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  required?: boolean;
+  wrapperClassName?: string;
+  wrapperStyle?: React.CSSProperties;
+  testId?: string;
+}) {
+  // Parse `HH:MM` defensively (mirrors the parent-tree Time5MinSelect).
+  // Empty / malformed → both columns empty so the disabled `HH`/`MM`
+  // placeholder is shown rather than a stale `00`.
+  let safeH = '';
+  let safeM = '';
+  if (value && value.includes(':')) {
+    const [hStr = '', mStr = ''] = value.split(':');
+    const hNum = Number(hStr);
+    const mNum = Number(mStr);
+    if (Number.isFinite(hNum) && Number.isFinite(mNum)) {
+      safeH = hStr.padStart(2, '0');
+      safeM = mStr.padStart(2, '0').slice(0, 2);
+    }
+  }
+  return (
+    <div
+      className={`flex items-center gap-2 ${wrapperClassName ?? ''}`}
+      style={wrapperStyle}
+      data-testid={testId}
+      data-hkial-time-5min-select
+    >
+      <select
+        aria-label="Hour"
+        value={safeH}
+        onChange={(e) => onChange(`${e.target.value}:${safeM || '00'}`)}
+        required={required}
+        className={TIME5MIN_SELECT_CLS}
+      >
+        <option value="" disabled hidden>HH</option>
+        {TIME5MIN_HOURS.map((hh) => (
+          <option key={hh} value={hh}>{hh}</option>
+        ))}
+      </select>
+      <span className="opacity-60 text-sm select-none">:</span>
+      <select
+        aria-label="Minute"
+        value={safeM}
+        onChange={(e) => onChange(`${safeH || '00'}:${e.target.value}`)}
+        required={required}
+        className={TIME5MIN_SELECT_CLS}
+      >
+        <option value="" disabled hidden>MM</option>
+        {TIME5MIN_MINUTES.map((mm) => (
+          <option key={mm} value={mm}>{mm}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 interface MemberData {
   name: string;
   memberType: string;
@@ -455,6 +538,37 @@ interface NewBookingProps {
     vipData: Array<Record<string, unknown>>;
     nonFlyingGuestData: Array<Record<string, unknown>>;
   }) => void;
+  // 2026-06-30 (Pilot 2 Bug 4 follow-up) — Container-supplied
+  // promo code validator. The useEffect at ~line 2058 calls
+  // this when present, falling back to the in-file
+  // VALID_PROMO_CODES / USED_PROMO_CODES arrays (figma-ui
+  // standalone preview keeps working per INV-X1). The
+  // Container implements the callback by calling
+  // `promoCodesApi.validate(code, amount)` so the backend is
+  // the single source of truth — no more hardcoded-only check.
+  // Without this, ANY code that wasn't baked into the bundle
+  // (e.g. batch-created UP<ts>-<suffix>) is reported 'invalid'
+  // even when the backend would accept it.
+  onValidatePromoCode?: (
+    code: string,
+    amount: number,
+  ) => Promise<{
+    status: 'valid' | 'invalid' | 'used';
+    message?: string;
+    discountAmount?: number;
+  }>;
+  // R6.2.100b (2026-07-02) — wrapper-supplied product-aware
+  // per-hour rate for the "Lounge Extension" / "Additional
+  // Hour of Stay" chip. The customer wrapper
+  // (NewBookingContainer.tsx) derives it from
+  // `liveForm.premiereSuites` + `liveForm.vipPassengers/nonFlyingGuests`
+  // via `lib/addons/formalAdditionalHourRate.ts` and passes it
+  // here. Per INV-X1, the wrapper owns the product-aware
+  // knowledge; figma-ui stays presentational. When undefined
+  // (figma-ui standalone preview with the in-file MOCK_* path),
+  // the view falls back to the legacy `500` constant so the
+  // standalone preview remains visually consistent.
+  loungeExtensionPerHourRate?: number;
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -1408,7 +1522,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourRate }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1571,7 +1685,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }
 
   // ── Travel Agency discounted unit rates ───────────────────────────────────
-  const loungeRate      = isTravelAgency ? Math.round(500  * (1 - TA_DISCOUNT_LOUNGE))    : 500;   // 425
+  // R6.2.100b (2026-07-02) — wrapper-supplied product-aware
+  // per-hour base rate for the Lounge Extension chip +
+  // per-line rows. When the wrapper passes a defined value
+  // (PS → 3000, LD → 1000, mixed/null → 0), the chip + rows
+  // show the correct per-hour rate for the current product
+  // context. When undefined (figma-ui standalone preview with
+  // the in-file MOCK_* path), fall back to the legacy `500`
+  // constant so the standalone preview remains visually
+  // consistent with the legacy figma Make export. Per
+  // INV-X1, the wrapper owns the product-aware knowledge;
+  // figma-ui stays presentational.
+  const loungeExtensionBaseRate = loungeExtensionPerHourRate ?? 500;
+  const loungeRate      = isTravelAgency ? Math.round(loungeExtensionBaseRate * (1 - TA_DISCOUNT_LOUNGE)) : loungeExtensionBaseRate;
   // 2026-06-26 (round 6.2.74, Sky): limo base rate bumped from HK$1,200 → HK$1,500
   // to match the backend `prices.add_on_limousine` and the new
   // `bookable_items.Limousine Transfer` price. Keep the 20% TA discount
@@ -1689,6 +1815,29 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     !isArrivalOrDeparture || leg1FlightTime !== '';
   const step1CompanyValid =
     !isArrivalOrDeparture || !isCompany || form.companyCode.trim() !== '';
+  // 2026-06-30 (round ? — Sky) — date+time must be in the future.
+  // The native `<input type="date" min={today}>` (line ~5422) only
+  // blocks past DATES through the picker UI; it does NOT block (a)
+  // typed / pasted past dates, OR (b) past TIMES on today's date.
+  // Add a combined datetime check so the hint list catches every
+  // past-datetime case (leg 1 for all flight types + leg 2 for
+  // Transit). Both checks return `true` when the relevant inputs are
+  // empty so the existing empty-field hints stay authoritative.
+  const leg1DateTimeInFuture = (() => {
+    if (form.date === '' || leg1FlightTime === '') return true;
+    const dt = new Date(`${form.date}T${leg1FlightTime}:00`);
+    if (Number.isNaN(dt.getTime())) return true;
+    return dt.getTime() > Date.now();
+  })();
+  const leg2DateTimeInFuture = (() => {
+    if (form.flightType !== 'Transit' || !leg2ArrivalDate) return true;
+    const datePart = leg2ArrivalDate.split('T')[0] || '';
+    const timePart = leg2ArrivalDate.split('T')[1]?.slice(0, 5) || '';
+    if (datePart === '' || timePart === '') return true;
+    const dt = new Date(`${datePart}T${timePart}:00`);
+    if (Number.isNaN(dt.getTime())) return true;
+    return dt.getTime() > Date.now();
+  })();
   const step1FlightValid =
     form.date !== '' &&
     form.flightNumber.trim() !== '' &&
@@ -1698,7 +1847,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1OriginValid &&
     step1DestinationValid &&
     step1TimeValid &&
-    step1CompanyValid;
+    step1CompanyValid &&
+    leg1DateTimeInFuture &&
+    leg2DateTimeInFuture;
   // 2026-06-28 (round 6.2.98): collect ALL step 1 validation failures
   // so the user sees every missing field at once. Order is stable
   // (leg 2 first for Transit, then leg 1, then common fields, then
@@ -1737,6 +1888,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }
   if (!step1TimeValid) {
     step1FlightHints.push(`Please enter the ${form.flightType === 'Departure' ? 'departure' : 'arrival'} time`);
+  }
+  // 2026-06-30 (round ? — Sky) — surface past-datetime picks in the
+  // existing bulleted hint list (see step1FlightHints comment at
+  // line ~1748). Empty inputs return `true` from the checks above so
+  // we don't double-up with the "please enter ..." hints.
+  if (!leg1DateTimeInFuture) {
+    const which = form.flightType === 'Departure' ? 'departure' : 'arrival';
+    step1FlightHints.push(`Please select a future ${which} date and time (the selected datetime is in the past)`);
+  }
+  if (!leg2DateTimeInFuture) {
+    step1FlightHints.push('Please select a future 2nd leg arrival date and time (the selected datetime is in the past)');
   }
   if (!step1OriginValid) {
     step1FlightHints.push('Please enter the origin');
@@ -1844,15 +2006,45 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // The dialog is now opened from `updateCount` itself via the
   // pure helpers in `utils/passengerCountReducer.ts`, with the
   // form change deferred until the user picks Remove (or
-  // abandons via Cancel). This effect is left as a one-way sync
-  // that:
-  //   - appends empty entries when the form count grows (e.g.
-  //     user increments the PS/LD stepper),
-  //   - is a no-op when the count shrinks (handled by
-  //     `handleDeleteVip` which already removed the matching
-  //     array entry before the form count went down).
+  // abandons via Cancel). This effect keeps `vipData.length`
+  // in sync with `totalVip`:
+  //   - When the count grows, INSERT empty entries at the
+  //     segment boundary (PS grows → splice at the OLD PS/LD
+  //     boundary; LD grows → push at end). This keeps the
+  //     invariant `vipData[0..premiereVipPassengers)` is PS and
+  //     `vipData[premiereVipPassengers..totalVip)` is LD.
+  //   - When the count shrinks, slice trailing empty entries
+  //     (the `handleDeleteVip` path already removed the matching
+  //     entry before the form count went down, so the array is
+  //     already in sync — this is just a defensive belt-and-braces
+  //     guard against external state resets / Quick Fill / etc.).
+  //
+  // 2026-06-28 (round 6.2.99 — Sky): the pre-6.2.99 effect
+  // ALWAYS appended the new empty entries to the END of
+  // `vipData`. That was wrong when only the PS segment grew
+  // AND there were existing LD VIPs: the new empty entry
+  // landed at index `totalVip - 1` (the LD tail), pushing the
+  // first LD VIP up by 1 into the PS slot. The render uses
+  // `index < premiereVipPassengers` to badge the box as
+  // "Premiere Suite - VIP Passenger", so the LAST PS box would
+  // display the FIRST LD VIP's filled data — symptom reported
+  // by Sky: "the last ps vip info will wrongly use the first ld
+  // vip info, while it should insert a blank ps vip info at
+  // the last of the ps vip info instead". The fix: track the
+  // previous per-segment counts in a ref, and when the PS
+  // segment grows, SPLICE the new empty entries at the OLD
+  // PS/LD boundary (`prevSegCountsRef.current.ps`) so existing
+  // LD entries get pushed back by `psDelta` slots. The LD
+  // append path is unchanged (LD segments are always at the
+  // tail).
+  const prevSegCountsRef = useRef<{ ps: number; ld: number }>({ ps: 0, ld: 0 });
   useEffect(() => {
     const cur = vipData.length;
+    const psNow = form.premiereVipPassengers;
+    const ldNow = form.vipPassengers;
+    const psPrev = prevSegCountsRef.current.ps;
+    const ldPrev = prevSegCountsRef.current.ld;
+
     if (totalVip > cur) {
       const extra = Array.from({ length: totalVip - cur }, () => ({
         vipTitle: 'Mr',
@@ -1864,7 +2056,23 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         vipBirthday: '',
         foodAllergies: '',
       }));
-      setVipData((prev) => [...prev, ...extra]);
+      const psDelta = psNow - psPrev;
+      const ldDelta = ldNow - ldPrev;
+      setVipData((prev) => {
+        const next = [...prev];
+        // PS grew → insert blanks at the OLD PS/LD boundary.
+        // The splice pushes existing LD entries back by
+        // `psDelta` slots, preserving segment alignment.
+        if (psDelta > 0) {
+          next.splice(psPrev, 0, ...extra.slice(0, psDelta));
+        }
+        // LD grew → append blanks at the tail. LD is always
+        // the trailing segment in `vipData`.
+        if (ldDelta > 0) {
+          next.push(...extra.slice(psDelta));
+        }
+        return next;
+      });
     }
     // Defensive: if totalVip dropped below cur for any reason
     // (e.g. external state change, Quick Fill reset) and no
@@ -1884,9 +2092,38 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         setVipData((prev) => prev.slice(0, totalVip));
       }
     }
-  }, [totalVip, pendingVipDeletion]);
+
+    // Sync the ref AFTER processing so the next run computes
+    // deltas against the form state this run observed.
+    prevSegCountsRef.current = { ps: psNow, ld: ldNow };
+  }, [totalVip, form.premiereVipPassengers, form.vipPassengers, pendingVipDeletion]);
 
   // Validate promotion code
+  //
+  // 2026-06-30 (Pilot 2 Bug 4 follow-up) — defer to the
+  // Container-supplied callback (the backend's
+  // /api/promo-codes/validate). Pre-fix this useEffect checked
+  // the in-file VALID_PROMO_CODES / USED_PROMO_CODES arrays
+  // ONLY, so any backend-stored code (e.g. batch-created
+  // UP1782649293237-B79YNZ) was reported 'invalid' regardless
+  // of its real status. The local arrays are kept as a
+  // figma-ui standalone-preview fallback (INV-X1) — they no
+  // longer gate the production path.
+  //
+  // Mapping rules:
+  //   - empty code                 → status null
+  //   - USED_PROMO_CODES.includes  → 'used'  (legacy figma preview)
+  //   - VALID_PROMO_CODES.includes → 'valid' (legacy figma preview)
+  //   - callback present           → status = callback result
+  //   - callback absent (figma-ui) → 'invalid' (no preview data)
+  //
+  // Cancellation: the previous in-flight validation is cancelled
+  // on every code change so the last-call-wins guarantee holds.
+  const onValidatePromoCodeRef = useRef(onValidatePromoCode);
+  useEffect(() => {
+    onValidatePromoCodeRef.current = onValidatePromoCode;
+  }, [onValidatePromoCode]);
+  const promoAbortRef = useRef<{ cancelled: boolean } | null>(null);
   useEffect(() => {
     const code = step2Form.promotionCode.trim();
     if (!code) {
@@ -1894,14 +2131,44 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       return;
     }
 
+    // Legacy figma-ui preview fallback. The 4 hardcoded codes
+    // are the only ones Randy's figma Make copy knows about;
+    // they're consulted FIRST so MOCK-mode previews keep
+    // working. Production always takes the backend path.
     if (USED_PROMO_CODES.includes(code)) {
       setPromoCodeStatus('used');
-    } else if (VALID_PROMO_CODES.includes(code)) {
-      setPromoCodeStatus('valid');
-    } else {
-      setPromoCodeStatus('invalid');
+      return;
     }
-  }, [step2Form.promotionCode]);
+    if (VALID_PROMO_CODES.includes(code)) {
+      setPromoCodeStatus('valid');
+      return;
+    }
+
+    const validate = onValidatePromoCodeRef.current;
+    if (!validate) return; // figma-ui preview without callback — fall through to 'invalid' below
+
+    // amount is the live price-preview total so the backend's
+    // min_purchase check is wired through. Falls back to 0
+    // when the user hasn't picked enough fields yet (pre-6.2.28
+    // Option B); the backend treats amount=0 as a no-op for
+    // the discount math and only flags existence + status.
+    const amount = typeof pricePreview?.total === 'number' ? pricePreview.total : 0;
+    if (promoAbortRef.current) promoAbortRef.current.cancelled = true;
+    const handle = { cancelled: false };
+    promoAbortRef.current = handle;
+    validate(code, amount)
+      .then((result) => {
+        if (handle.cancelled) return;
+        setPromoCodeStatus(result.status);
+      })
+      .catch(() => {
+        if (handle.cancelled) return;
+        setPromoCodeStatus('invalid');
+      });
+    return () => {
+      handle.cancelled = true;
+    };
+  }, [step2Form.promotionCode, pricePreview?.total]);
 
   // 2026-06-11 (round 6.2.36 — Sky ask: "ensure the 2nd leg time is at
   // least 6 hours apart from the 1st leg arrival"): recompute the
@@ -1996,11 +2263,30 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // because `updateCount` now defers the form decrement and
   // opens the dialog via the pure helpers in
   // utils/passengerCountReducer.ts (which know which segment
-  // was decremented). This effect just keeps the array length
-  // in sync with the form count.
+  // was decremented). This effect keeps the array length in
+  // sync with the form count.
+  //
+  // 2026-06-28 (round 6.2.101 — Sky): NFG mirror of the VIP
+  // segment-boundary fix. The pre-6.2.101 effect appended the
+  // new empty entries to the END of `nonFlyingGuestData`, which
+  // was wrong when only the PS-NFG segment grew AND there were
+  // existing LD NFGs: the new empty entry landed at the LD tail
+  // and the first LD NFG got pushed into the PS slot. The render
+  // binds by array index (and badged by `index <
+  // premiereNonFlyingGuests`), so the LAST PS NFG box would
+  // display the FIRST LD NFG's filled data. Fix mirrors the VIP
+  // effect: track the previous per-segment counts in a ref,
+  // SPLICE the new empty entries at the OLD PS/LD boundary when
+  // PS grew (LD append path unchanged).
   const totalNonFlying = form.premiereNonFlyingGuests + form.nonFlyingGuests;
+  const prevSegNfgCountsRef = useRef<{ ps: number; ld: number }>({ ps: 0, ld: 0 });
   useEffect(() => {
     const cur = nonFlyingGuestData.length;
+    const psNow = form.premiereNonFlyingGuests;
+    const ldNow = form.nonFlyingGuests;
+    const psPrev = prevSegNfgCountsRef.current.ps;
+    const ldPrev = prevSegNfgCountsRef.current.ld;
+
     if (totalNonFlying > cur) {
       const extra = Array.from({ length: totalNonFlying - cur }, () => ({
         guestTitle: 'Mr',
@@ -2009,7 +2295,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         guestAgeGroup: '',
         foodAllergies: '',
       }));
-      setNonFlyingGuestData((prev) => [...prev, ...extra]);
+      const psDelta = psNow - psPrev;
+      const ldDelta = ldNow - ldPrev;
+      setNonFlyingGuestData((prev) => {
+        const next = [...prev];
+        // PS NFG grew → insert blanks at the OLD PS/LD boundary.
+        // The splice pushes existing LD NFGs back by `psDelta`
+        // slots, preserving segment alignment.
+        if (psDelta > 0) {
+          next.splice(psPrev, 0, ...extra.slice(0, psDelta));
+        }
+        // LD NFG grew → append blanks at the tail.
+        if (ldDelta > 0) {
+          next.push(...extra.slice(psDelta));
+        }
+        return next;
+      });
     } else if (totalNonFlying < cur && !pendingGuestDeletion) {
       // Defensive slice when trailing entries are empty.
       const trailingFilled = nonFlyingGuestData
@@ -2019,7 +2320,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         setNonFlyingGuestData((prev) => prev.slice(0, totalNonFlying));
       }
     }
-  }, [totalNonFlying, pendingGuestDeletion]);
+
+    // Sync the ref AFTER processing so the next run computes
+    // deltas against the form state this run observed.
+    prevSegNfgCountsRef.current = { ps: psNow, ld: ldNow };
+  }, [totalNonFlying, form.premiereNonFlyingGuests, form.nonFlyingGuests, pendingGuestDeletion]);
 
   // ── Step 1 Handlers ───────────────────────────────────────────────────────
   const handleFlightNumber = (v: string) => {
@@ -2599,7 +2904,121 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             }}
           />
         </div>
-        <style>{`@keyframes stepProgressBar { from { width: 0%; } to { width: 100%; } }`}</style>
+         <style>{`@keyframes stepProgressBar { from { width: 0%; } to { width: 100%; } }`}</style>
+       </div>
+     </div>
+   ) : null;
+
+  // 2026-06-28 (round 6.2.102 — Sky): the <48h warning dialog was
+  // accidentally nested INSIDE step 2's <form> JSX in round 6.2.97,
+  // which meant it only rendered when currentStep === 2. Customer
+  // clicked Confirm on step 5 → handleFinalConfirm set
+  // showShortNoticeWarning = true → BUT the dialog JSX tree was
+  // gated by the `if (currentStep === 2)` early return, so nothing
+  // rendered. User only saw the dialog appear after manually
+  // navigating back to step 2 (via stepper), which is wrong UX.
+  //
+  // Fix: define the dialog at component-level (next to
+  // stepLoadingOverlay, which already follows this same pattern),
+  // and render it as a sibling of {stepLoadingOverlay} inside EVERY
+  // step's return. This matches the existing overlay pattern and
+  // keeps the dialog's z-50 stacking independent of the active
+  // step's <form> subtree. Net diff: remove 88 lines from inside
+  // step 2, add 5 sibling references + 95 lines of const above.
+  //
+  // Behavior matrix (post-fix):
+  //   currentStep === 5 + click Confirm + within48h
+  //     → setShowShortNoticeWarning(true) → dialog renders on step 5 ✓
+  //   currentStep === 2 + click any handler → dialog renders on step 2 ✓
+  //   All other steps → dialog renders if showShortNoticeWarning = true ✓
+  //   Confirm Anyway → calls onSubmit exactly as before (unchanged)
+  //   Cancel → just closes the dialog (unchanged)
+  const shortNoticeWarningDialog = showShortNoticeWarning ? (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+      data-hkial-dialog="short-notice-warning"
+    >
+      <div
+        className="max-w-md w-full rounded-2xl p-6"
+        style={{
+          background: isDark ? '#0a1929' : '#FFFFFF',
+          border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(200,199,190,0.5)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div className="flex items-start gap-3 mb-4">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+            style={{
+              background: isDark ? 'rgba(251,191,36,0.18)' : 'rgba(251,191,36,0.2)',
+              border: isDark ? '1px solid rgba(251,191,36,0.4)' : '1px solid rgba(251,191,36,0.5)',
+            }}
+          >
+            <AlertTriangle className="w-5 h-5" style={{ color: 'rgb(220,181,21)' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold mb-1" style={textPrimary}>
+              Short-Notice Booking
+            </h3>
+            <p className="text-sm" style={textSecondary}>
+              The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mt-6">
+          <button
+            type="button"
+            onClick={() => setShowShortNoticeWarning(false)}
+            className="py-2.5 px-4 rounded-xl text-sm transition-all hover:opacity-80"
+            style={{ ...secondaryBtnStyle, color: colors.text }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowShortNoticeWarning(false);
+              // Re-enter the submit path WITHOUT re-triggering
+              // the 48h gate (would loop forever). Delegate
+              // directly to the same body as handleFinalConfirm
+              // (the `onSubmit` / mock-booking-number branch).
+              if (onSubmit) {
+                onSubmit({
+                  form,
+                  step2Form,
+                  vipData,
+                  nonFlyingGuestData,
+                  memberData,
+                  flightDetails,
+                  leg1FlightTime,
+                  leg2ArrivalDate,
+                  leg2FlightNo,
+                  leg2FlightTime: leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '',
+                  leg2FlightClass,
+                  leg2Destination,
+                  transitGapError,
+                });
+              } else {
+                const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
+                const flightPrefix = flightPrefixMap[form.flightType] || 'D';
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                const randomNum = Math.floor(10000 + Math.random() * 90000);
+                const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
+                setBookingNumber(generatedBookingNumber);
+                setSubmitted(true);
+                setTimeout(() => navigate('/mybooking'), 3000);
+              }
+            }}
+            className="py-2.5 px-4 rounded-xl text-white text-sm transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)' }}
+          >
+            Confirm Anyway
+          </button>
+        </div>
       </div>
     </div>
   ) : null;
@@ -2751,7 +3170,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const lnStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
     const loungeLabel = lvStr + (lvStr && lnStr ? ' · ' : '') + lnStr;
     const addonOrig =
-      step2Form.loungeExtension * 500 +
+      step2Form.loungeExtension * loungeExtensionBaseRate +
       step2Form.limousineService * 1500 +
       step2Form.wheelchairService * 300;
     const addonAmt =
@@ -2888,7 +3307,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Extension × {step2Form.loungeExtension}</span>
                   <div className="text-right">
-                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.loungeExtension * 500).toLocaleString()}</span>}
+                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.loungeExtension * loungeExtensionBaseRate).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</span>
                   </div>
                 </div>
@@ -3048,6 +3467,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       </div>
       {stepLoadingOverlay}
+      {shortNoticeWarningDialog}
       </>
     );
   }
@@ -3056,7 +3476,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   if (currentStep === 5) {
 
     const addonOriginal =
-      step2Form.loungeExtension * 500 +
+      step2Form.loungeExtension * loungeExtensionBaseRate +
       step2Form.limousineService * 1500 +
       step2Form.wheelchairService * 300;
     const addonTotal =
@@ -3389,14 +3809,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="text-right flex-shrink-0">
                       {isTravelAgency ? (
                         <>
-                          <div className="text-xs line-through" style={textMuted}>HK$500 × {step2Form.loungeExtension}</div>
+                          <div className="text-xs line-through" style={textMuted}>HK${loungeExtensionBaseRate} × {step2Form.loungeExtension}</div>
                           <div className="text-xs text-green-400">HK${loungeRate} × {step2Form.loungeExtension} ({Math.round(TA_DISCOUNT_LOUNGE * 100)}% off)</div>
                           <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</div>
                         </>
                       ) : (
                         <>
-                          <div className="text-xs" style={textMuted}>HK$500 × {step2Form.loungeExtension}</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * 500).toLocaleString()}</div>
+                          <div className="text-xs" style={textMuted}>HK${loungeExtensionBaseRate} × {step2Form.loungeExtension}</div>
+                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * loungeExtensionBaseRate).toLocaleString()}</div>
                         </>
                       )}
                     </div>
@@ -3855,6 +4275,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       </div>
       {stepLoadingOverlay}
+      {shortNoticeWarningDialog}
       </>
     );
   }
@@ -3938,7 +4359,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     {[
-                      { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: 500, disc: loungeRate },
+                      { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: loungeExtensionBaseRate, disc: loungeRate },
                       { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1500, disc: limoRate },
                       { label: 'Wheelchair Assist.', pct: Math.round(TA_DISCOUNT_WHEELCHAIR * 100), orig: 300, disc: wheelchairRate },
                     ].map((item) => (
@@ -3972,7 +4393,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Clock className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title="Lounge Extension"
-              subtitle={isTravelAgency ? 'HK$' + loungeRate + '/hr (was HK$500 · 15% TA off)' : 'HK$500 per hour'}
+              subtitle={isTravelAgency ? 'HK$' + loungeRate + '/hr (was HK$' + loungeExtensionBaseRate + ' · 15% TA off)' : 'HK$' + loungeExtensionBaseRate + ' per hour'}
               value={step2Form.loungeExtension}
               onDecrement={() => updateStep2Count('loungeExtension', -1)}
               onIncrement={() => updateStep2Count('loungeExtension', 1)}
@@ -4160,6 +4581,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       </form>
       {stepLoadingOverlay}
+      {shortNoticeWarningDialog}
       </>
     );
   }
@@ -4982,6 +5404,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         )}
       </form>
       {stepLoadingOverlay}
+      {shortNoticeWarningDialog}
       </>
     );
   }
@@ -5075,10 +5498,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {/* Flight Type toggle */}
             <div className="mb-4">
               <label className={labelClass}>Flight Type *</label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['Arrival', 'Departure', 'Transit'] as const).map((type) => {
+              <div className="grid grid-cols-2 gap-3">
+                {(['Arrival', 'Departure'] as const).map((type) => {
                   const active = form.flightType === type;
-                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : type === 'Transit' ? 'rotate(90deg)' : 'none';
+                  const planeRotation = type === 'Arrival' ? 'rotate(180deg)' : 'none';
                   const ftActiveBg = 'linear-gradient(135deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)';
                   const ftInactiveBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.5)';
                   const ftInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)';
@@ -5154,18 +5577,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <label className={labelClass}>
                 {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'} *
               </label>
-              <div className="relative">
-                <input
-                  type="time"
-                  value={leg1FlightTime}
-                  onChange={(e) => setLeg1FlightTime(e.target.value)}
-                  required
-                  style={fieldStyle}
-                  className={fieldClass + ' pr-10'}
-                  data-testid="leg1-flightTime"
-                />
-                <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
+              <Time5MinSelect
+                value={leg1FlightTime}
+                onChange={setLeg1FlightTime}
+                required
+                wrapperStyle={fieldStyle}
+                wrapperClassName={fieldClass}
+                testId="leg1-flightTime"
+              />
             </div>
 
             {/* Origin (Arrival + Transit) — 2026-06-08 (round 6.2.8):
@@ -5403,40 +5822,36 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     from MIN 6h to MAX 6h — error fires when gap > 6h. */}
                 <div className="mb-4">
                   <label className={labelClass}>Leg 2 Departure Time <span>*</span></label>
-                  <div className="relative">
-                    <input
-                      type="time"
-                      value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
-                      onChange={(e) => {
-                        const timePart = e.target.value;
-                        const datePart = leg2ArrivalDate?.split('T')[0] || '';
-                        const next = datePart ? `${datePart}T${timePart}` : '';
-                        setLeg2ArrivalDate(next);
-                        if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
-                        const l0Iso = form.date && leg1FlightTime
-                          ? new Date(`${form.date}T${leg1FlightTime}:00`).getTime()
-                          : null;
-                        const l1Ms = next ? new Date(next).getTime() : null;
-                        if (l0Iso === null || l1Ms === null || isNaN(l0Iso) || isNaN(l1Ms)) {
-                          setTransitGapError(null);
-                          return;
-                        }
-                        const diffMs = l1Ms - l0Iso;
-                        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
-                        if (diffMs > SIX_HOURS_MS) {
-                          const hours = Math.floor(diffMs / 3600000);
-                          const mins = Math.floor((diffMs % 3600000) / 60000);
-                          setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
-                        } else {
-                          setTransitGapError(null);
-                        }
-                      }}
-                      style={fieldStyle}
-                      className={fieldClass + ' pr-10'}
-                      data-testid="leg2-flightTime"
-                    />
-                    <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+                  <Time5MinSelect
+                    value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
+                    onChange={(timePart) => {
+                      const datePart = leg2ArrivalDate?.split('T')[0] || '';
+                      const next = datePart ? `${datePart}T${timePart}` : '';
+                      setLeg2ArrivalDate(next);
+                      if (form.flightType !== 'Transit') { setTransitGapError(null); return; }
+                      const l0Iso = form.date && leg1FlightTime
+                        ? new Date(`${form.date}T${leg1FlightTime}:00`).getTime()
+                        : null;
+                      const l1Ms = next ? new Date(next).getTime() : null;
+                      if (l0Iso === null || l1Ms === null || isNaN(l0Iso) || isNaN(l1Ms)) {
+                        setTransitGapError(null);
+                        return;
+                      }
+                      const diffMs = l1Ms - l0Iso;
+                      const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+                      if (diffMs > SIX_HOURS_MS) {
+                        const hours = Math.floor(diffMs / 3600000);
+                        const mins = Math.floor((diffMs % 3600000) / 60000);
+                        setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
+                      } else {
+                        setTransitGapError(null);
+                      }
+                    }}
+                    required
+                    wrapperStyle={fieldStyle}
+                    wrapperClassName={fieldClass}
+                    testId="leg2-flightTime"
+                  />
                 </div>
 
                 {/* Leg 2 Destination — full width. 2026-06-08 (round
@@ -5540,6 +5955,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       </form>
       {stepLoadingOverlay}
+      {shortNoticeWarningDialog}
       </>
     );
   }
@@ -6384,104 +6800,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       )}
 
-      {/* ── Short-Notice (<48h) Warning Dialog ───────────────────────── */}
-      {/* 2026-06-27 (round 6.2.97 — Sky): intercept Confirm when the
-          booking start is within 48 hours of now. The customer can
-          still confirm (booking submits as usual) or Cancel
-          (returns to the review step). The warning copy is the
-          user-facing translation of Sky's directive: "The booking
-          may not be able to fullfill, further confiration will be
-          made by HKIAL staffs." — verbatim wording preserved. */}
-      {showShortNoticeWarning && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
-          data-hkial-dialog="short-notice-warning"
-        >
-          <div
-            className="max-w-md w-full rounded-2xl p-6"
-            style={{
-              background: isDark ? '#0a1929' : '#FFFFFF',
-              border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(200,199,190,0.5)',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-            }}
-          >
-            <div className="flex items-start gap-3 mb-4">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: isDark ? 'rgba(251,191,36,0.18)' : 'rgba(251,191,36,0.2)',
-                  border: isDark ? '1px solid rgba(251,191,36,0.4)' : '1px solid rgba(251,191,36,0.5)',
-                }}
-              >
-                <AlertTriangle className="w-5 h-5" style={{ color: 'rgb(220,181,21)' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold mb-1" style={textPrimary}>
-                  Short-Notice Booking
-                </h3>
-                <p className="text-sm" style={textSecondary}>
-                  The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-6">
-              <button
-                type="button"
-                onClick={() => setShowShortNoticeWarning(false)}
-                className="py-2.5 px-4 rounded-xl text-sm transition-all hover:opacity-80"
-                style={{ ...secondaryBtnStyle, color: colors.text }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowShortNoticeWarning(false);
-                  // Re-enter the submit path WITHOUT re-triggering
-                  // the 48h gate (would loop forever). Delegate
-                  // directly to the same body as handleFinalConfirm
-                  // (the `onSubmit` / mock-booking-number branch).
-                  if (onSubmit) {
-                    onSubmit({
-                      form,
-                      step2Form,
-                      vipData,
-                      nonFlyingGuestData,
-                      memberData,
-                      flightDetails,
-                      leg1FlightTime,
-                      leg2ArrivalDate,
-                      leg2FlightNo,
-                      leg2FlightTime: leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '',
-                      leg2FlightClass,
-                      leg2Destination,
-                      transitGapError,
-                    });
-                  } else {
-                    const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
-                    const flightPrefix = flightPrefixMap[form.flightType] || 'D';
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-                    const day = now.getDate().toString().padStart(2, '0');
-                    const randomNum = Math.floor(10000 + Math.random() * 90000);
-                    const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
-                    setBookingNumber(generatedBookingNumber);
-                    setSubmitted(true);
-                    setTimeout(() => navigate('/mybooking'), 3000);
-                  }
-                }}
-                className="py-2.5 px-4 rounded-xl text-white text-sm transition-all hover:opacity-90"
-                style={{ background: 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)' }}
-              >
-                Confirm Anyway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Use History as New Booking Dialog ─────────────────────────── */}
       {showHistoryDialog && (
         <div
@@ -6722,6 +7040,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       )}
     </form>
     {stepLoadingOverlay}
+    {shortNoticeWarningDialog}
     </>
   );
   } // end if (currentStep === 2)
