@@ -76,10 +76,14 @@ import {
   isBookingStartWithin48Hours,
 } from '../../../../../utils/bookingShortNotice';
 
-// ── Travel Agency pre-negotiated rates ───────────────────────────────────────
-const TA_DISCOUNT_LOUNGE     = 0.15; // 15% off lounge extension
-const TA_DISCOUNT_LIMO       = 0.20; // 20% off limousine service
-const TA_DISCOUNT_WHEELCHAIR = 0.10; // 10% off wheelchair assistance
+// ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
+// R6.2.100d (2026-07-02, Sky): Travel Agency DISCOUNT percentages
+// (15/20/10%) are mock data and were removed. The TA member type
+// itself is kept — TA members still get a distinct payment method
+// (Direct Billing – Net 30 Terms) and billing reference (default
+// agency code) so the wire shape stays compatible with the
+// backend. Discount math is now uniform: all members see the
+// catalog rate for every addon.
 const TA_PAYMENT_METHOD      = 'Direct Billing – Net 30 Terms';
 const TA_AGENCY_CODE         = 'GTA-HK-001';
 
@@ -558,17 +562,25 @@ interface NewBookingProps {
     discountAmount?: number;
   }>;
   // R6.2.100b (2026-07-02) — wrapper-supplied product-aware
-  // per-hour rate for the "Lounge Extension" / "Additional
-  // Hour of Stay" chip. The customer wrapper
-  // (NewBookingContainer.tsx) derives it from
-  // `liveForm.premiereSuites` + `liveForm.vipPassengers/nonFlyingGuests`
-  // via `lib/addons/formalAdditionalHourRate.ts` and passes it
+  // per-hour DISPLAY (total + per-product breakdown) for the
+  // "Lounge Extension" / "Additional Hour of Stay" chip. The
+  // customer wrapper (NewBookingContainer.tsx) derives it
+  // from `liveForm.premiereSuites` +
+  // `liveForm.vipPassengers/nonFlyingGuests` via
+  // `lib/addons/formalAdditionalHourRate.ts` and passes it
   // here. Per INV-X1, the wrapper owns the product-aware
-  // knowledge; figma-ui stays presentational. When undefined
-  // (figma-ui standalone preview with the in-file MOCK_* path),
-  // the view falls back to the legacy `500` constant so the
-  // standalone preview remains visually consistent.
-  loungeExtensionPerHourRate?: number;
+  // knowledge; figma-ui stays presentational. R6.2.100c
+  // (2026-07-02, same day) added the `breakdown` array so
+  // mixed (1 PS + 1 LD) can show "HK$4,000 per hour · HK$3,000
+  // PS + HK$1,000 LD" instead of the misleading $0. When the
+  // prop is undefined (figma-ui standalone preview with the
+  // in-file MOCK_* path), the view falls back to the legacy
+  // `500` constant + empty breakdown so the standalone preview
+  // remains visually consistent.
+  loungeExtensionPerHourDisplay?: {
+    total: number;
+    breakdown: Array<{ label: 'PS' | 'LD'; amount: number }>;
+  };
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -1522,7 +1534,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourRate }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1684,26 +1696,43 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     setSuiteVouchersToUse((v) => Math.min(availableSuiteVouchers, v + 1));
   }
 
-  // ── Travel Agency discounted unit rates ───────────────────────────────────
+  // ── Addon unit rates (R6.2.100d — TA discount removed) ────────────────────
   // R6.2.100b (2026-07-02) — wrapper-supplied product-aware
   // per-hour base rate for the Lounge Extension chip +
   // per-line rows. When the wrapper passes a defined value
-  // (PS → 3000, LD → 1000, mixed/null → 0), the chip + rows
-  // show the correct per-hour rate for the current product
-  // context. When undefined (figma-ui standalone preview with
-  // the in-file MOCK_* path), fall back to the legacy `500`
-  // constant so the standalone preview remains visually
-  // consistent with the legacy figma Make export. Per
-  // INV-X1, the wrapper owns the product-aware knowledge;
-  // figma-ui stays presentational.
-  const loungeExtensionBaseRate = loungeExtensionPerHourRate ?? 500;
-  const loungeRate      = isTravelAgency ? Math.round(loungeExtensionBaseRate * (1 - TA_DISCOUNT_LOUNGE)) : loungeExtensionBaseRate;
-  // 2026-06-26 (round 6.2.74, Sky): limo base rate bumped from HK$1,200 → HK$1,500
-  // to match the backend `prices.add_on_limousine` and the new
-  // `bookable_items.Limousine Transfer` price. Keep the 20% TA discount
-  // variant for the strikethrough display.
-  const limoRate        = isTravelAgency ? Math.round(1500 * (1 - TA_DISCOUNT_LIMO))       : 1500;  // 1200
-  const wheelchairRate  = isTravelAgency ? Math.round(300  * (1 - TA_DISCOUNT_WHEELCHAIR)) : 300;   // 270
+  // (PS → 3000, LD → 1000, mixed = sum of both, null = 0),
+  // the chip + rows show the correct per-hour rate for the
+  // current product context. When undefined (figma-ui
+  // standalone preview with the in-file MOCK_* path), fall
+  // back to the legacy `500` constant + empty breakdown so
+  // the standalone preview remains visually consistent with
+  // the legacy figma Make export. Per INV-X1, the wrapper
+  // owns the product-aware knowledge; figma-ui stays
+  // presentational.
+  // R6.2.100c (2026-07-02, same day) — added the
+  // `loungeExtensionBreakdown` array so the chip can show
+  // "HK$4,000 per hour · HK$3,000 PS + HK$1,000 LD" for mixed
+  // instead of the misleading $0. The chip renders the
+  // breakdown when it has >1 item (mixed); single-product +
+  // null render only the total (the breakdown is redundant
+  // for those).
+  // R6.2.100d (2026-07-02, same day, Sky) — TA discount
+  // removed. `loungeRate` collapses to `loungeExtensionBaseRate`
+  // (uniform rate, no TA branch). `loungeRateBreakdown`
+  // collapses to `loungeExtensionBreakdown`. `limoRate` and
+  // `wheelchairRate` lose their TA ternaries. Call sites that
+  // reference these aliases are unchanged.
+  const loungeExtensionBaseRate = loungeExtensionPerHourDisplay?.total ?? 500;
+  const loungeExtensionBreakdown = loungeExtensionPerHourDisplay?.breakdown ?? [];
+  const loungeRateBreakdownText = loungeExtensionBreakdown
+    .map((b) => 'HK$' + b.amount.toLocaleString() + ' ' + b.label)
+    .join(' + ');
+  const loungeRate = loungeExtensionBaseRate;
+  // 2026-06-26 (round 6.2.74, Sky): limo base rate HK$1,500
+  // matches the backend `prices.add_on_limousine` and the
+  // `bookable_items.Limousine Transfer` price.
+  const limoRate = 1500;
+  const wheelchairRate = 300;
 
   // ── Step 2 state ──────────────────────────────────────────────────────────
   const [step2Form, setStep2Form] = useState({
@@ -3307,7 +3336,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Extension × {step2Form.loungeExtension}</span>
                   <div className="text-right">
-                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.loungeExtension * loungeExtensionBaseRate).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</span>
                   </div>
                 </div>
@@ -3316,7 +3344,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Limousine Service × {step2Form.limousineService}</span>
                   <div className="text-right">
-                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.limousineService * 1500).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</span>
                   </div>
                 </div>
@@ -3325,7 +3352,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>Wheelchair Service × {step2Form.wheelchairService}</span>
                   <div className="text-right">
-                    {isTravelAgency && <span className="text-xs line-through mr-1.5" style={{ color: colors.textMuted }}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</span>}
                     <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</span>
                   </div>
                 </div>
@@ -3337,9 +3363,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <span className="text-xs font-medium" style={textPrimary}>Add-on Services Subtotal</span>
                 <span className="text-sm font-semibold" style={textPrimary}>HK${addonsAmtFinal.toLocaleString()}</span>
               </div>
-              {isTravelAgency && addonSave > 0 && (
-                <div className="text-xs text-green-400">Agency saving: HK${addonSave.toLocaleString()}</div>
-              )}
+              {/* R6.2.100d (2026-07-02, Sky): TA "Agency saving"
+                  line removed (mock data — discount is gone). */}
             </div>
           )}
           {(psSectionPrice > 0 || ldSectionPrice > 0 || addonsAmtFinal > 0) && (
@@ -3807,18 +3832,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      {isTravelAgency ? (
-                        <>
-                          <div className="text-xs line-through" style={textMuted}>HK${loungeExtensionBaseRate} × {step2Form.loungeExtension}</div>
-                          <div className="text-xs text-green-400">HK${loungeRate} × {step2Form.loungeExtension} ({Math.round(TA_DISCOUNT_LOUNGE * 100)}% off)</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-xs" style={textMuted}>HK${loungeExtensionBaseRate} × {step2Form.loungeExtension}</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * loungeExtensionBaseRate).toLocaleString()}</div>
-                        </>
-                      )}
+                      {/* R6.2.100d (2026-07-02, Sky): TA discount
+                          branch removed (mock data). All members
+                          see the uniform catalog rate. */}
+                      <div className="text-xs" style={textMuted}>HK${loungeExtensionBaseRate} × {step2Form.loungeExtension}</div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.loungeExtension * loungeExtensionBaseRate).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
@@ -3875,18 +3893,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      {isTravelAgency ? (
-                        <>
-                          <div className="text-xs line-through" style={textMuted}>HK$1,500 × {step2Form.limousineService}</div>
-                          <div className="text-xs text-green-400">HK${limoRate} × {step2Form.limousineService} ({Math.round(TA_DISCOUNT_LIMO * 100)}% off)</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-xs" style={textMuted}>HK$1,500 × {step2Form.limousineService}</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * 1500).toLocaleString()}</div>
-                        </>
-                      )}
+                      {/* R6.2.100d (2026-07-02, Sky): TA discount
+                          branch removed (mock data). */}
+                      <div className="text-xs" style={textMuted}>HK$1,500 × {step2Form.limousineService}</div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.limousineService * 1500).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
@@ -3916,18 +3926,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      {isTravelAgency ? (
-                        <>
-                          <div className="text-xs line-through" style={textMuted}>HK$300 × {step2Form.wheelchairService}</div>
-                          <div className="text-xs text-green-400">HK${wheelchairRate} × {step2Form.wheelchairService} ({Math.round(TA_DISCOUNT_WHEELCHAIR * 100)}% off)</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="text-xs" style={textMuted}>HK$300 × {step2Form.wheelchairService}</div>
-                          <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>
-                        </>
-                      )}
+                      {/* R6.2.100d (2026-07-02, Sky): TA discount
+                          branch removed (mock data). */}
+                      <div className="text-xs" style={textMuted}>HK$300 × {step2Form.wheelchairService}</div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
@@ -3947,9 +3949,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   )}
                 </div>
                 <div className="text-right">
-                  {isTravelAgency && addonSaving > 0 && (
-                    <div className="text-xs line-through" style={textMuted}>HK${addonOriginal.toLocaleString()}</div>
-                  )}
+                  {/* R6.2.100d (2026-07-02, Sky): TA strikethrough
+                      removed (mock data — no discount). */}
                   <span className="text-base" style={textPrimary}>
                     HK${addonTotal.toLocaleString()}
                   </span>
@@ -3960,39 +3961,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         )}
 
         {/* ── Travel Agency Pricing & Payment (TA only) ──────────────────── */}
+        {/* R6.2.100d (2026-07-02, Sky): TA discount badge
+            removed (mock data). Payment / billing fields stay
+            — TA members still get Direct Billing – Net 30 Terms
+            and a billing reference. */}
         {isTravelAgency && (
           <ReviewSection
             icon={<BadgeCheck className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
             title="Travel Agency Pricing & Payment"
           >
-            {/* TA discount badge */}
-            <div
-              className="rounded-lg px-4 py-3 mb-4"
-              style={{ 
-                background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.18)', 
-                border: isDark ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(16,185,129,0.45)' 
-              }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <Percent className="w-3.5 h-3.5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                <span className="text-xs" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }}>Pre-Negotiated Agency Discounts Applied</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center">
-                  <div className="text-sm" style={textPrimary}>{Math.round(TA_DISCOUNT_LOUNGE * 100)}% off</div>
-                  <div className="text-xs" style={textMuted}>Lounge Extension</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm" style={textPrimary}>{Math.round(TA_DISCOUNT_LIMO * 100)}% off</div>
-                  <div className="text-xs" style={textMuted}>Limousine Service</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm" style={textPrimary}>{Math.round(TA_DISCOUNT_WHEELCHAIR * 100)}% off</div>
-                  <div className="text-xs" style={textMuted}>Wheelchair Assist.</div>
-                </div>
-              </div>
-            </div>
             <ReviewGrid>
               <ReviewField label="Payment Method" value={TA_PAYMENT_METHOD} />
               <ReviewField label="Agency Billing Reference" value={step2Form.billingReference || TA_AGENCY_CODE} />
@@ -4335,50 +4313,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           )}
 
           {/* ── Travel Agency Benefits Banner ───────────────────────────── */}
-          {isTravelAgency && (
-            <div
-              className="rounded-xl p-4"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.08) 100%)'
-                  : 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(5,150,105,0.12) 100%)',
-                border: isDark ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(16,185,129,0.5)',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                  style={{ background: isDark ? 'rgba(16,185,129,0.2)' : 'rgba(16,185,129,0.3)' }}
-                >
-                  <BadgeCheck className="w-5 h-5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm mb-1" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>Travel Agency – Pre-Negotiated Benefits Active</div>
-                  <div className="text-xs mb-3" style={textMuted}>
-                    Discounts are automatically applied to all add-on services.
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    {[
-                      { label: 'Lounge Extension', pct: Math.round(TA_DISCOUNT_LOUNGE * 100), orig: loungeExtensionBaseRate, disc: loungeRate },
-                      { label: 'Limousine Service', pct: Math.round(TA_DISCOUNT_LIMO * 100), orig: 1500, disc: limoRate },
-                      { label: 'Wheelchair Assist.', pct: Math.round(TA_DISCOUNT_WHEELCHAIR * 100), orig: 300, disc: wheelchairRate },
-                    ].map((item) => (
-                      <div key={item.label} className="rounded-lg p-2 text-center" style={taInfoBoxBg}>
-                        <div className="text-green-400 text-xs mb-0.5">{item.pct}% off</div>
-                        <div className="text-xs line-through" style={textMuted}>HK${item.orig.toLocaleString()}</div>
-                        <div className="text-xs" style={textPrimary}>HK${item.disc.toLocaleString()}</div>
-                        <div className="text-xs mt-0.5" style={textMuted}>{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Banknote className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                    <span className="text-green-300 text-xs">Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span></span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* R6.2.100d (2026-07-02, Sky): Travel Agency "Pre-
+              Negotiated Benefits Active" info banner removed
+              (was 100% TA discount display — all mock data).
+              TA-specific payment info is shown in the step 5
+              final review's "Travel Agency Pricing & Payment"
+              section. */}
 
           {/* ── Add-on Services ─────────────────────────────────────────── */}
           <div className="p-5" style={card}>
@@ -4393,7 +4333,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Clock className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title="Lounge Extension"
-              subtitle={isTravelAgency ? 'HK$' + loungeRate + '/hr (was HK$' + loungeExtensionBaseRate + ' · 15% TA off)' : 'HK$' + loungeExtensionBaseRate + ' per hour'}
+              // R6.2.100c (2026-07-02) — show the per-product
+              // breakdown for mixed bookings (1 PS + 1 LD
+              // → "HK$4,000 per hour · HK$3,000 PS + HK$1,000 LD")
+              // so the chip no longer reads the misleading
+              // "HK$0 per hour" (R6.2.100b returned 0 for mixed).
+              // Single-product bookings (PS-only or LD-only)
+              // render only the total — the breakdown is
+              // redundant when there's just one item.
+              // R6.2.100d (2026-07-02, same day, Sky) — TA
+              // discount path removed (mock data). All members
+              // see the uniform catalog rate.
+              subtitle={
+                loungeRateBreakdownText
+                  ? 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' per hour  ·  ' + loungeRateBreakdownText
+                  : 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' per hour'
+              }
               value={step2Form.loungeExtension}
               onDecrement={() => updateStep2Count('loungeExtension', -1)}
               onIncrement={() => updateStep2Count('loungeExtension', 1)}
@@ -4405,7 +4360,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Car className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title="Limousine Service"
-              subtitle={isTravelAgency ? 'HK$' + limoRate + '/vehicle (was HK$1,500 · 20% TA off)' : 'HK$1,500 per vehicle'}
+              subtitle={'HK$1,500 per vehicle'}
               value={step2Form.limousineService}
               onDecrement={() => updateStep2Count('limousineService', -1)}
               onIncrement={() => updateStep2Count('limousineService', 1)}
@@ -4501,7 +4456,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Accessibility className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title="Wheelchair Assistance"
-              subtitle={isTravelAgency ? 'HK$' + wheelchairRate + '/service (was HK$300 · 10% TA off)' : 'HK$300 per service'}
+              subtitle={'HK$300 per service'}
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
               onIncrement={() => updateStep2Count('wheelchairService', 1)}
