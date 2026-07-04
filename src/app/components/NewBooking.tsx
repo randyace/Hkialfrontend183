@@ -656,6 +656,44 @@ const companyDatabase: { [key: string]: string } = {
   'MTR2024': 'MTR Corporation',
 };
 
+// ── Price breakdown helper (R6.2.104, 2026-07-04, Sky) ───────────────────────
+// Single source of truth for "PS / LD / Add-ons / Total" extraction from the
+// Container's `pricePreview` prop. Used by both `BookingSummaryCard` (Step 5)
+// AND the new Step 2 PS/LD running-subtotal chips, so the two surfaces
+// stay in lock-step with each other and with the backend's
+// `PricingService::compute()`. Returns zero for sections the backend
+// hasn't loaded yet (gated by `ppHasLoaded`) so callers can safely render
+// the chip without a stale `HK$0` flash.
+function getPriceSectionPrices(pricePreview?: {
+  total?: number | null;
+  breakdown?: Array<{
+    key: string;
+    label: string;
+    qty: number;
+    unit_price: number;
+    subtotal: number;
+    note?: string;
+  }>;
+} | null) {
+  const ppBreakdown = pricePreview?.breakdown ?? [];
+  const ppHasLoaded = ppBreakdown.length > 0;
+  const ppPsSectionSubtotal = ppBreakdown
+    .filter((l) => /Premiere Suite/i.test(l.label))
+    .reduce((sum, l) => sum + l.subtotal, 0);
+  const ppLdSectionSubtotal = ppBreakdown
+    .filter((l) => /Lounge Deluxe/i.test(l.label))
+    .reduce((sum, l) => sum + l.subtotal, 0);
+  const ppAddonsLine = ppBreakdown.find((l) => l.key === 'addons');
+  return {
+    psSectionPrice: ppHasLoaded ? ppPsSectionSubtotal : 0,
+    ldSectionPrice: ppHasLoaded ? ppLdSectionSubtotal : 0,
+    addonsAmtFinal: ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : 0,
+    hasAddonsLine: ppHasLoaded && ppAddonsLine !== undefined,
+    ppHasLoaded,
+    finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
+  };
+}
+
 // ── Theme-aware style hook ───────────────────────────────────────────────────
 function useThemedStyles() {
   const { mode, colors } = useTheme();
@@ -3235,29 +3273,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // existing total-row guard also stays in place so no price
     // figure appears until the backend's authoritative preview
     // lands.
-    const ppBreakdown = pricePreview?.breakdown ?? [];
-    const ppHasLoaded = ppBreakdown.length > 0;
-    const ppPsSectionSubtotal = ppBreakdown
-      .filter((l) => /Premiere Suite/i.test(l.label))
-      .reduce((sum, l) => sum + l.subtotal, 0);
-    const ppLdSectionSubtotal = ppBreakdown
-      .filter((l) => /Lounge Deluxe/i.test(l.label))
-      .reduce((sum, l) => sum + l.subtotal, 0);
-    const ppAddonsLine = ppBreakdown.find((l) => l.key === 'addons');
-    const psSectionPrice = ppHasLoaded ? ppPsSectionSubtotal : 0;
-    const ldSectionPrice = ppHasLoaded ? ppLdSectionSubtotal : 0;
-    const addonsAmtFinal = ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : 0;
-    const finalTotal =
-      pricePreview?.total != null
-        ? pricePreview.total
-        : 0;
-    // When backend has loaded, gate the Add-on Services section on the
-    // backend's addons line presence. When the backend hasn't loaded
-    // yet, hide the section entirely (consistent with the
-    // `psSectionPrice / ldSectionPrice` zeroing above).
-    const hasAddonSection = ppHasLoaded
-      ? ppAddonsLine !== undefined && (ppAddonsLine?.subtotal ?? 0) > 0
-      : false;
+    // R6.2.104 (2026-07-04, Sky): use the shared helper instead of
+    // recomputing locally — keeps Step 2 chips + Step 5 summary card in
+    // lock-step with the backend's `PricingService::compute()`.
+    const {
+      psSectionPrice,
+      ldSectionPrice,
+      addonsAmtFinal,
+      hasAddonsLine,
+      ppHasLoaded,
+      finalTotal,
+    } = getPriceSectionPrices(pricePreview);
+    // Gate the Add-on Services section on the backend's addons line
+    // presence. When the backend hasn't loaded yet, hide the section
+    // entirely (consistent with the `psSectionPrice / ldSectionPrice`
+    // zeroing above).
+    const hasAddonSection = hasAddonsLine && addonsAmtFinal > 0;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -3369,11 +3400,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           )}
           {(psSectionPrice > 0 || ldSectionPrice > 0 || addonsAmtFinal > 0) && (
             <div
-              className="flex items-center justify-between pt-2.5 mt-2"
+              className="pt-2.5 mt-2 space-y-1"
               style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid rgba(0,0,0,0.12)' }}
             >
-              <span className="text-sm font-semibold" style={textPrimary}>Total</span>
-              <span className="text-base font-semibold" style={textPrimary}>HK${finalTotal.toLocaleString()}</span>
+              {/* R6.2.104 (2026-07-04, Sky): explicit PS+LD+Add-ons
+                  math line above the Total Charge row so the user can
+                  see how the bottom number is composed (per Sky's
+                  "Total is not really the Total Charge" complaint). */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: colors.textMuted }}>
+                  PS HK${psSectionPrice.toLocaleString()} + LD HK${ldSectionPrice.toLocaleString()} + Add-ons HK${addonsAmtFinal.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-sm font-semibold" style={textPrimary}>Total Charge</span>
+                <span className="text-base font-semibold" style={textPrimary}>HK${finalTotal.toLocaleString()}</span>
+              </div>
             </div>
           )}
           {isTravelAgency && (
@@ -6166,6 +6208,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 testId="ps-nfg"
               />
             </div>
+
+            {/* R6.2.104 (2026-07-04, Sky): running-subtotal chip
+                that mirrors the Step 3 Add-on stepper pattern (see
+                lines 3838-3839 for the per-stepper running subtotal).
+                Gates on `ppHasLoaded` so we never flash a stale HK$0
+                before the backend's `usePricePreview` returns. */}
+            {(() => {
+              const { psSectionPrice: psAmt, ppHasLoaded: ppReady } = getPriceSectionPrices(pricePreview);
+              return ppReady && psAmt > 0 ? (
+                <div
+                  className="mt-3 pt-3 flex items-center justify-between"
+                  style={{ borderTop: borderSubtle }}
+                  data-hkial-ps-subtotal="1"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
+                  <span className="text-sm font-semibold" style={textPrimary}>HK${psAmt.toLocaleString()}</span>
+                </div>
+              ) : null;
+            })()}
           </div>
 
           {/* Lounge Deluxe */}
@@ -6204,6 +6265,23 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 testId="ld-nfg"
               />
             </div>
+
+            {/* R6.2.104 (2026-07-04, Sky): running-subtotal chip for
+                the Lounge Deluxe section. Same pattern as the PS chip
+                above and the Step 3 Add-on per-stepper subtotals. */}
+            {(() => {
+              const { ldSectionPrice: ldAmt, ppHasLoaded: ppReady } = getPriceSectionPrices(pricePreview);
+              return ppReady && ldAmt > 0 ? (
+                <div
+                  className="mt-3 pt-3 flex items-center justify-between"
+                  style={{ borderTop: borderSubtle }}
+                  data-hkial-ld-subtotal="1"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
+                  <span className="text-sm font-semibold" style={textPrimary}>HK${ldAmt.toLocaleString()}</span>
+                </div>
+              ) : null;
+            })()}
           </div>
 
         </div>
