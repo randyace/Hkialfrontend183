@@ -664,6 +664,22 @@ const companyDatabase: { [key: string]: string } = {
 // `PricingService::compute()`. Returns zero for sections the backend
 // hasn't loaded yet (gated by `ppHasLoaded`) so callers can safely render
 // the chip without a stale `HK$0` flash.
+//
+// R6.2.105 (2026-07-04, Sky) — refined the per-section key filter:
+//   - PS / LD sections: only `base`, `add_on_flying_guest`,
+//     `add_on_non_flying_guest`, `add_on_child_2_11_1_2`,
+//     `add_on_child_2_11_3_plus` lines. The `add_on_additional_hour`
+//     line was previously lumped into the section subtotal because its
+//     label contains "Premiere Suite" / "Lounge Deluxe" — but the
+//     Lounge Extension belongs in the Add-ons subtotal, not the
+//     section subtotal.
+//   - Add-ons: sum `add_on_additional_hour` (Lounge Extension, one or
+//     two lines per booking — one per sub-context), `add_on_limousine`
+//     (Limousine Transfer, only when emitted — see note below), and
+//     the folded `addons` line (Limo+Wheelchair from
+//     `request.addons.items[]` via `postFoldAddonsAndDiscount`). Pre-6.2.105
+//     the helper only read the `addons` line and silently dropped the
+//     Lounge Extension from the Add-on Services Subtotal.
 function getPriceSectionPrices(pricePreview?: {
   total?: number | null;
   breakdown?: Array<{
@@ -677,18 +693,37 @@ function getPriceSectionPrices(pricePreview?: {
 } | null) {
   const ppBreakdown = pricePreview?.breakdown ?? [];
   const ppHasLoaded = ppBreakdown.length > 0;
+  // Section keys (PS / LD): base + per-kind guest additions.
+  const PS_LD_SECTION_KEYS = new Set([
+    'base',
+    'add_on_flying_guest',
+    'add_on_non_flying_guest',
+    'add_on_child_2_11_1_2',
+    'add_on_child_2_11_3_plus',
+  ]);
+  // Add-on keys: additional hour (Lounge Extension), limousine
+  // (admin-side only — the customer always sends Limo via
+  // `addons.items[]` which folds into the `addons` line, so
+  // `add_on_limousine` is never emitted for customer requests),
+  // and the folded `addons` line.
+  const ADDON_KEYS = new Set([
+    'add_on_additional_hour',
+    'add_on_limousine',
+    'addons',
+  ]);
   const ppPsSectionSubtotal = ppBreakdown
-    .filter((l) => /Premiere Suite/i.test(l.label))
+    .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Premiere Suite/i.test(l.label))
     .reduce((sum, l) => sum + l.subtotal, 0);
   const ppLdSectionSubtotal = ppBreakdown
-    .filter((l) => /Lounge Deluxe/i.test(l.label))
+    .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Lounge Deluxe/i.test(l.label))
     .reduce((sum, l) => sum + l.subtotal, 0);
-  const ppAddonsLine = ppBreakdown.find((l) => l.key === 'addons');
+  const ppAddonsSubtotal = ppBreakdown
+    .filter((l) => ADDON_KEYS.has(l.key))
+    .reduce((sum, l) => sum + l.subtotal, 0);
   return {
     psSectionPrice: ppHasLoaded ? ppPsSectionSubtotal : 0,
     ldSectionPrice: ppHasLoaded ? ppLdSectionSubtotal : 0,
-    addonsAmtFinal: ppHasLoaded ? ppAddonsLine?.subtotal ?? 0 : 0,
-    hasAddonsLine: ppHasLoaded && ppAddonsLine !== undefined,
+    addonsAmtFinal: ppHasLoaded ? ppAddonsSubtotal : 0,
     ppHasLoaded,
     finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
   };
@@ -3276,19 +3311,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // R6.2.104 (2026-07-04, Sky): use the shared helper instead of
     // recomputing locally — keeps Step 2 chips + Step 5 summary card in
     // lock-step with the backend's `PricingService::compute()`.
+    // R6.2.105 (2026-07-04, Sky): helper now sums all addon-related
+    // keys (`add_on_additional_hour` + `add_on_limousine` + `addons`)
+    // instead of just the `addons` folded line — the Lounge Extension
+    // subtotal was being silently dropped from the Add-on Services
+    // Subtotal before.
     const {
       psSectionPrice,
       ldSectionPrice,
       addonsAmtFinal,
-      hasAddonsLine,
       ppHasLoaded,
       finalTotal,
     } = getPriceSectionPrices(pricePreview);
-    // Gate the Add-on Services section on the backend's addons line
-    // presence. When the backend hasn't loaded yet, hide the section
-    // entirely (consistent with the `psSectionPrice / ldSectionPrice`
-    // zeroing above).
-    const hasAddonSection = hasAddonsLine && addonsAmtFinal > 0;
+    // Gate the Add-on Services section on a non-zero subtotal. The
+    // helper already zero-gates on `ppHasLoaded` so the section
+    // stays hidden until the backend returns a real number.
+    const hasAddonSection = addonsAmtFinal > 0;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
