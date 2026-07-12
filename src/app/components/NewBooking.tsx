@@ -455,6 +455,11 @@ interface MemberData {
   // init (commit c22dde0e). Optional — splitContactPhone() falls
   // back to region='+852' + empty number when undefined.
   contactNumber?: string;
+  // Round 6.2.140 — Individual membership free-credit quotas from /auth/member/me.
+  membershipType?: string | null;
+  membershipExpiryDate?: string;
+  freeLoungeDeluxeEntriesRemaining?: number | null;
+  freePremiereSuiteUpgradesRemaining?: number | null;
 }
 
 interface BookForMemberData {
@@ -485,6 +490,9 @@ interface NewBookingProps {
     nonFlyingGuestData: Array<Record<string, unknown>>;
     memberData: { name: string; memberType: string };
     flightDetails?: { origin?: string; destination?: string } | null;
+    /** Round 6.2.140 — free membership credit opt-in. */
+    useMembershipLdFree?: boolean;
+    useMembershipPsFree?: boolean;
   }) => void;
   isSubmitting?: boolean;
   error?: string;
@@ -541,6 +549,9 @@ interface NewBookingProps {
     step2Form: Record<string, unknown>;
     vipData: Array<Record<string, unknown>>;
     nonFlyingGuestData: Array<Record<string, unknown>>;
+    /** Round 6.2.140 — free membership credit opt-in. */
+    useMembershipLdFree?: boolean;
+    useMembershipPsFree?: boolean;
   }) => void;
   // 2026-06-30 (Pilot 2 Bug 4 follow-up) — Container-supplied
   // promo code validator. The useEffect at ~line 2058 calls
@@ -1719,30 +1730,62 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // can still confirm (booking submits as usual); Cancel returns
   // to the review step.
   const [showShortNoticeWarning, setShowShortNoticeWarning] = useState(false);
-  const [useMembership, setUseMembership] = useState(false);
-  const [bookingVouchersToUse, setBookingVouchersToUse] = useState(0);
-  const [suiteVouchersToUse, setSuiteVouchersToUse] = useState(0);
+  // Round 6.2.140 — Individual free Lounge Deluxe / free Premiere Suite
+  // upgrade opt-in (replaces mock booking/suite voucher UI). Default ON
+  // when the member still has remaining credit; forced OFF + disabled when 0.
+  const [useMembershipLdFree, setUseMembershipLdFree] = useState(true);
+  const [useMembershipPsFree, setUseMembershipPsFree] = useState(true);
   const [stepLoading, setStepLoading] = useState(false);
 
   // ── Derived member flags (computed before any state that references them) ──
-  const isCompany      = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
+  const isCompany = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
   const isTravelAgency = memberData.memberType === 'Travel Agency';
 
-  // ── Membership voucher helpers ─────────────────────────────────────────────
-  const BOOKING_VOUCHER_VALUE    = 200; // HKD per booking voucher
-  const totalVoucherPool         = prefillMember ? prefillMember.voucherCount : (memberData.voucherCount ?? 0);
-  // All member types receive suite upgrade vouchers
-  const availableSuiteVouchers   = 2;
-  const availableBookingVouchers = Math.max(0, totalVoucherPool - availableSuiteVouchers);
-
-  function handleToggleMembership() {
-    const next = !useMembership;
-    setUseMembership(next);
-    if (!next) {
-      setBookingVouchersToUse(0);
-      setSuiteVouchersToUse(0);
-    }
+  function formatFreeCreditRemaining(value: number | null | undefined): string {
+    if (value === null || value === undefined) return 'Not available';
+    if (value === -1) return 'Unlimited';
+    if (value <= 0) return '0 remaining';
+    return `${value.toLocaleString()} remaining`;
   }
+
+  function hasFreeCreditAvailable(value: number | null | undefined): boolean {
+    if (value === null || value === undefined) return false;
+    return value === -1 || value > 0;
+  }
+
+  const membershipExpiryOk = (() => {
+    const exp = memberData.membershipExpiryDate;
+    if (!exp) return false;
+    const d = new Date(`${exp}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d.getTime() >= today.getTime();
+  })();
+
+  const isEligibleIndividualMembership =
+    (memberData.memberType === 'Individual' || memberData.memberType === 'individual')
+    && Boolean(memberData.membershipType)
+    && membershipExpiryOk;
+
+  const freeLdRemaining = memberData.freeLoungeDeluxeEntriesRemaining;
+  const freePsRemaining = memberData.freePremiereSuiteUpgradesRemaining;
+  const canUseFreeLd = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
+  // Free Premiere Suite upgrade is dual-quota: needs free PS voucher AND a free Lounge Deluxe entry (or unlimited).
+  const canUseFreePs =
+    isEligibleIndividualMembership
+    && hasFreeCreditAvailable(freePsRemaining)
+    && hasFreeCreditAvailable(freeLdRemaining);
+
+  // Keep toggles honest when quotas are exhausted (Sky Q5: disable when remaining = 0).
+  useEffect(() => {
+    if (!canUseFreeLd && useMembershipLdFree) {
+      setUseMembershipLdFree(false);
+    }
+    if (!canUseFreePs && useMembershipPsFree) {
+      setUseMembershipPsFree(false);
+    }
+  }, [canUseFreeLd, canUseFreePs, useMembershipLdFree, useMembershipPsFree]);
 
   function advanceStep(nextStep: number) {
     setStepLoading(true);
@@ -1751,22 +1794,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       setStepLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 900);
-  }
-
-  function handleBookingVoucherDecrement() {
-    setBookingVouchersToUse((v) => Math.max(0, v - 1));
-  }
-
-  function handleBookingVoucherIncrement() {
-    setBookingVouchersToUse((v) => Math.min(availableBookingVouchers, v + 1));
-  }
-
-  function handleSuiteVoucherDecrement() {
-    setSuiteVouchersToUse((v) => Math.max(0, v - 1));
-  }
-
-  function handleSuiteVoucherIncrement() {
-    setSuiteVouchersToUse((v) => Math.min(availableSuiteVouchers, v + 1));
   }
 
   // ── Addon unit rates (R6.2.100d — TA discount removed) ────────────────────
@@ -2355,8 +2382,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form: step2Form as unknown as Record<string, unknown>,
       vipData: vipData as unknown as Array<Record<string, unknown>>,
       nonFlyingGuestData: nonFlyingGuestData as unknown as Array<Record<string, unknown>>,
+      useMembershipLdFree,
+      useMembershipPsFree,
     });
-  }, [form, step2Form, vipData, nonFlyingGuestData]);
+  }, [form, step2Form, vipData, nonFlyingGuestData, useMembershipLdFree, useMembershipPsFree]);
 
   // Sync non-flying guest array length with totalNonFlying
   //
@@ -2888,6 +2917,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         // `legs[1].destination` for future use.
         leg2Destination,
         transitGapError,
+        useMembershipLdFree,
+        useMembershipPsFree,
       });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
@@ -3100,6 +3131,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   leg2FlightClass,
                   leg2Destination,
                   transitGapError,
+                  useMembershipLdFree,
+                  useMembershipPsFree,
                 });
               } else {
                 const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
@@ -3513,16 +3546,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             Your lounge booking request has been successfully submitted and is currently under staff approval.
             You will receive a confirmation email once your booking is verified.
           </p>
-          {useMembership && bookingVouchersToUse > 0 && (
-            <p className="text-sm mb-1" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }}>
-              <strong>{bookingVouchersToUse} Booking Voucher{bookingVouchersToUse !== 1 ? 's' : ''}</strong> applied · saving HKD {(bookingVouchersToUse * BOOKING_VOUCHER_VALUE).toLocaleString()}.
-            </p>
-          )}
-          {useMembership && suiteVouchersToUse > 0 && (
-            <p className="text-sm mb-1" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }}>
-              <strong>{suiteVouchersToUse} Suite Upgrade Voucher{suiteVouchersToUse !== 1 ? 's' : ''}</strong> applied · complimentary Premiere Suite upgrade{suiteVouchersToUse !== 1 ? 's' : ''} confirmed.
-            </p>
-          )}
           {step2Form.promotionCode && (
             <p className="text-yellow-400 text-sm mb-4">
               Promotion / Redemption code <strong>{step2Form.promotionCode}</strong> applied.
@@ -3593,7 +3616,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
       step2Form.wheelchairService > 0;
-    const hasSuiteVouchers = availableSuiteVouchers > 0;
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
     const suiteCount = form.premiereSuites || 1;
@@ -3634,16 +3656,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const suiteAccentColor = isDark ? 'rgb(251,191,36)' : 'rgb(180,140,10)';
     const loungeIconColor = isDark ? '#94a3b8' : '#64748b';
     const sectionLabelColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-
-    // Pre-compute review field values to avoid nested template literals with ternaries in JSX
-    const bookingVoucherPlural = bookingVouchersToUse !== 1 ? 's' : '';
-    const bookingVoucherReviewValue = bookingVouchersToUse > 0
-      ? bookingVouchersToUse + ' voucher' + bookingVoucherPlural + ' (\u2212HKD ' + (bookingVouchersToUse * BOOKING_VOUCHER_VALUE).toLocaleString() + ')'
-      : 'None';
-    const suiteVoucherPlural = suiteVouchersToUse !== 1 ? 's' : '';
-    const suiteVoucherReviewValue = suiteVouchersToUse > 0
-      ? suiteVouchersToUse + ' upgrade' + suiteVoucherPlural + ' applied'
-      : 'None';
 
     const gradientText: React.CSSProperties = {
       background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)',
@@ -4105,28 +4117,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </ReviewSection>
         ))}
 
-        {/* ── Membership Checkout ─────────────────────────────────────────────── */}
-        {useMembership && (
+        {/* ── Membership benefits (round 6.2.140) ─────────────────────────────── */}
+        {isEligibleIndividualMembership && (
           <ReviewSection
             icon={<BadgeCheck className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Membership Checkout"
+            title="Membership Benefits"
           >
             <ReviewGrid>
-              <ReviewField label="Using Membership" value="Yes" />
               <ReviewField
-                label="Booking Vouchers"
-                value={bookingVoucherReviewValue}
+                label="Use free Lounge Deluxe entry"
+                value={useMembershipLdFree ? 'Yes' : 'No — keep credit unused'}
               />
-              {hasSuiteVouchers && (
-                <ReviewField
-                  label="Suite Upgrade Vouchers"
-                  value={suiteVoucherReviewValue}
-                />
-              )}
-              {bookingVouchersToUse > 0 && (
-                <ReviewField label="Total Booking Saving" value={`HKD ${(bookingVouchersToUse * BOOKING_VOUCHER_VALUE).toLocaleString()}`} />
-              )}
+              <ReviewField
+                label="Use free Premiere Suite upgrade"
+                value={useMembershipPsFree ? 'Yes' : 'No — pay reduced Suite rate if applicable'}
+              />
             </ReviewGrid>
           </ReviewSection>
         )}
@@ -4624,57 +4630,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // ── Step 4: Other Information & Checkout ─────────────────────────────────
   if (currentStep === 4) {
 
-    // ── Membership card pre-computed styles ──────────────────────────────────
-    const membershipCardBg = isDark
-      ? (useMembership ? 'rgba(220,181,21,0.09)' : 'rgba(255,255,255,0.06)')
-      : (useMembership ? 'rgba(220,181,21,0.08)' : 'rgba(231,230,221,0.7)');
-    const membershipCardBorder = useMembership
-      ? '1px solid rgba(220,181,21,0.45)'
-      : (isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.6)');
-    const toggleTrackBg = useMembership
-      ? 'linear-gradient(135deg, rgb(220,181,21), rgb(180,140,10))'
-      : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(200,199,190,0.6)');
-    const toggleKnobLeft = useMembership ? '22px' : '2px';
-    const voucherStepperBg = isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.9)';
-    const voucherStepperBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(200,199,190,0.6)';
-    const voucherBtnBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(231,230,221,0.6)';
-    const voucherBtnBorder = isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(200,199,190,0.5)';
-    const voucherBadgeBg = isDark ? 'rgba(220,181,21,0.15)' : 'rgba(220,181,21,0.12)';
-    const voucherSuiteBadgeBg = isDark ? 'rgba(52,199,89,0.12)' : 'rgba(52,199,89,0.09)';
-    const voucherInfoBg = isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.06)';
-    const voucherInfoBorder = '1px solid rgba(220,181,21,0.25)';
-    const suiteInfoBg = isDark ? 'rgba(52,199,89,0.07)' : 'rgba(52,199,89,0.06)';
-    const suiteInfoBorder = '1px solid rgba(52,199,89,0.25)';
-    const voucherSavingBg = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.12)';
-    const voucherSavingBorder = isDark ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(16,185,129,0.4)';
-    const voucherSavingColor = isDark ? '#34d399' : 'rgb(5,150,105)';
-    const maxReachedBg = isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.06)';
-    const maxReachedColor = isDark ? '#f87171' : '#dc2626';
-    const bookingSaving = bookingVouchersToUse * BOOKING_VOUCHER_VALUE;
-    const isBookingMaxed = bookingVouchersToUse >= availableBookingVouchers;
-    const isSuiteMaxed = suiteVouchersToUse >= availableSuiteVouchers;
-    const totalVoucherSaving = bookingSaving;
-    const hasSuiteVouchers = availableSuiteVouchers > 0;
-    const sectionDivider = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.35)';
-
-    // Pre-compute voucher saving summary text to avoid chained ternary in JSX
-    let voucherSavingSummaryText = '';
-    if (bookingVouchersToUse > 0 && suiteVouchersToUse > 0) {
-      const suitePlural = suiteVouchersToUse !== 1 ? 's' : '';
-      voucherSavingSummaryText = 'Saving HKD ' + totalVoucherSaving.toLocaleString() + ' + ' + suiteVouchersToUse + ' suite upgrade' + suitePlural + ' applied.';
-    } else if (bookingVouchersToUse > 0) {
-      const bookingPlural = bookingVouchersToUse !== 1 ? 's' : '';
-      voucherSavingSummaryText = 'Saving HKD ' + totalVoucherSaving.toLocaleString() + ' with ' + bookingVouchersToUse + ' booking voucher' + bookingPlural + '.';
-    } else {
-      const suitePlural = suiteVouchersToUse !== 1 ? 's' : '';
-      voucherSavingSummaryText = suiteVouchersToUse + ' complimentary suite upgrade' + suitePlural + ' applied.';
-    }
-
-    // Pre-compute summary row values for vouchers to avoid nested template literals in JSX
-    const summaryBookingVoucherPlural = bookingVouchersToUse !== 1 ? 's' : '';
-    const summaryBookingVoucherValue = bookingVouchersToUse + ' voucher' + summaryBookingVoucherPlural + ' (\u2212HKD ' + (bookingVouchersToUse * BOOKING_VOUCHER_VALUE).toLocaleString() + ')';
-    const summarySuiteVoucherPlural = suiteVouchersToUse !== 1 ? 's' : '';
-    const summarySuiteVoucherValue = suiteVouchersToUse + ' upgrade' + summarySuiteVoucherPlural + ' applied';
+    // Round 6.2.140 — membership benefits card styles (readable end-customer copy).
+    const membershipBenefitsBg = isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.06)';
+    const membershipBenefitsBorder = '1px solid rgba(220,181,21,0.35)';
     const summaryLuggagePlural = step2Form.luggageCount !== 1 ? 's' : '';
     const summaryLuggageValue = step2Form.luggageCount + ' piece' + summaryLuggagePlural;
 
@@ -4841,180 +4799,86 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             )}
           </div>
 
-          {/* ── Use My Membership ────────────────────────────────────────── */}
-          {/* TODO(customer): hidden — membership vouchers not fully implemented yet. Flip `false` to `true` when ready (Sky 2026-06-28). */}
-          {false && (
-          <div className="p-5 rounded-xl" style={{ background: membershipCardBg, border: membershipCardBorder }}>
+          {/* ── Membership benefits (round 6.2.140) ──────────────────────── */}
+          {isEligibleIndividualMembership && (
+          <div
+            className="p-5 rounded-xl"
+            style={{ background: membershipBenefitsBg, border: membershipBenefitsBorder }}
+            data-testid="membership-benefits-card"
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <BadgeCheck className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
+              <span className="text-sm" style={textPrimary}>Your membership benefits for this booking</span>
+            </div>
+            <p className="text-xs mb-4" style={textMuted}>
+              You can choose whether to use your free credits on this booking. Unchecking keeps the credit for later.
+              Membership does not add a percentage discount — free entries and free suite upgrades only.
+            </p>
 
-            {/* Header row — title + toggle */}
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <BadgeCheck className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
-                <span className="text-sm" style={textPrimary}>Use My Membership to Checkout</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div className="rounded-lg px-3 py-2.5" style={{ background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.7)' }}>
+                <p className="text-xs mb-0.5" style={textMuted}>Free Lounge Deluxe entries</p>
+                <p className="text-sm font-medium" style={textPrimary} data-testid="membership-ld-remaining">
+                  {formatFreeCreditRemaining(freeLdRemaining)}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={handleToggleMembership}
-                aria-label="Toggle membership checkout"
-                className="relative flex-shrink-0 w-12 h-6 rounded-full transition-all duration-200 focus:outline-none"
-                style={{ background: toggleTrackBg }}
+              <div className="rounded-lg px-3 py-2.5" style={{ background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.7)' }}>
+                <p className="text-xs mb-0.5" style={textMuted}>Free Premiere Suite upgrades</p>
+                <p className="text-sm font-medium" style={textPrimary} data-testid="membership-ps-remaining">
+                  {formatFreeCreditRemaining(freePsRemaining)}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <label
+                className={`flex items-start gap-3 text-sm ${canUseFreeLd ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
               >
-                <span
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
-                  style={{ left: toggleKnobLeft }}
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  data-testid="use-membership-ld-free"
+                  checked={useMembershipLdFree}
+                  disabled={!canUseFreeLd}
+                  onChange={(e) => setUseMembershipLdFree(e.target.checked)}
                 />
-              </button>
-            </div>
-
-            {/* Sub-label */}
-            <div className="text-xs mb-4" style={textMuted}>
-              Apply membership vouchers to offset the cost of this booking
-            </div>
-
-            {/* Available voucher badges row */}
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span
-                className="text-xs px-2.5 py-1 rounded-full"
-                style={{ background: voucherBadgeBg, color: 'rgb(220,181,21)', border: '1px solid rgba(220,181,21,0.35)' }}
-              >
-                {availableBookingVouchers} Booking Voucher{availableBookingVouchers !== 1 ? 's' : ''} · HKD {BOOKING_VOUCHER_VALUE} each
-              </span>
-              {hasSuiteVouchers && (
-                <span
-                  className="text-xs px-2.5 py-1 rounded-full"
-                  style={{ background: voucherSuiteBadgeBg, color: 'rgb(52,199,89)', border: '1px solid rgba(52,199,89,0.35)' }}
-                >
-                  {availableSuiteVouchers} Suite Upgrade Voucher{availableSuiteVouchers !== 1 ? 's' : ''}
+                <span>
+                  <span className="font-medium" style={textPrimary}>Use free Lounge Deluxe entry on this booking</span>
+                  <span className="block text-xs mt-0.5" style={textMuted}>
+                    For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries
+                    (or Unlimited). Turn off to keep the free entry and pay the normal Lounge Deluxe price.
+                    {!canUseFreeLd ? ' You have no free Lounge Deluxe entries left.' : ''}
+                  </span>
                 </span>
-              )}
+              </label>
+
+              <label
+                className={`flex items-start gap-3 text-sm ${canUseFreePs ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  data-testid="use-membership-ps-free"
+                  checked={useMembershipPsFree}
+                  disabled={!canUseFreePs}
+                  onChange={(e) => setUseMembershipPsFree(e.target.checked)}
+                />
+                <span>
+                  <span className="font-medium" style={textPrimary}>Use free Premiere Suite upgrade on this booking</span>
+                  <span className="block text-xs mt-0.5" style={textMuted}>
+                    For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry
+                    together. If you turn this off (or have no free upgrade left), you still get the membership reduced rate
+                    of about 40% off the Premiere Suite base price.
+                    {!canUseFreePs ? ' Free Premiere Suite upgrade is not available right now (no free upgrade and/or no free Lounge Deluxe entry left).' : ''}
+                  </span>
+                </span>
+              </label>
             </div>
 
-            {/* ── Voucher pickers — only shown when toggle is ON ── */}
-            {useMembership && (
-              <div className="space-y-5">
-
-                {/* ── 1. Booking Vouchers ── */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Tag className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-                    <span className="text-xs" style={textPrimary}>Booking Vouchers</span>
-                    <span className="text-xs" style={textMuted}>— HKD {BOOKING_VOUCHER_VALUE} off per voucher</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-2">
-                    <button
-                      type="button"
-                      onClick={handleBookingVoucherDecrement}
-                      disabled={bookingVouchersToUse === 0}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 disabled:opacity-30"
-                      style={{ background: voucherBtnBg, border: voucherBtnBorder }}
-                    >
-                      <Minus className="w-4 h-4" style={textPrimary} />
-                    </button>
-                    <div
-                      className="flex-1 flex items-center justify-center rounded-lg py-2"
-                      style={{ background: voucherStepperBg, border: voucherStepperBorder }}
-                    >
-                      <span className="text-xl tabular-nums" style={{ color: 'rgb(220,181,21)' }}>
-                        {bookingVouchersToUse}
-                      </span>
-                      <span className="text-xs ml-1.5" style={textMuted}>/ {availableBookingVouchers}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleBookingVoucherIncrement}
-                      disabled={isBookingMaxed}
-                      className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 disabled:opacity-30"
-                      style={{ background: voucherBtnBg, border: voucherBtnBorder }}
-                    >
-                      <Plus className="w-4 h-4" style={textPrimary} />
-                    </button>
-                  </div>
-
-                  {bookingVouchersToUse > 0 && (
-                    <div className="rounded-lg px-4 py-2.5 flex items-center justify-between" style={{ background: voucherInfoBg, border: voucherInfoBorder }}>
-                      <span className="text-xs" style={textMuted}>
-                        {bookingVouchersToUse} × HKD {BOOKING_VOUCHER_VALUE}
-                      </span>
-                      <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>
-                        − HKD {bookingSaving.toLocaleString()}
-                      </span>
-                    </div>
-                  )}
-                  {isBookingMaxed && (
-                    <div className="rounded-lg px-3 py-2 flex items-center gap-2 mt-1.5" style={{ background: maxReachedBg, border: '1px solid rgba(239,68,68,0.25)' }}>
-                      <Info className="w-3 h-3 flex-shrink-0" style={{ color: maxReachedColor }} />
-                      <span className="text-xs" style={{ color: maxReachedColor }}>All {availableBookingVouchers} booking vouchers used.</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── 2. Suite Upgrade Vouchers (always visible; shows unavailable state for Individual) ── */}
-                <div style={{ paddingTop: '16px', borderTop: sectionDivider }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Crown className="w-3.5 h-3.5" style={{ color: 'rgb(52,199,89)' }} />
-                    <span className="text-xs" style={textPrimary}>Suite Upgrade Vouchers</span>
-                    <span className="text-xs" style={textMuted}>— complimentary Premiere Suite upgrade</span>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                      <button
-                        type="button"
-                        onClick={handleSuiteVoucherDecrement}
-                        disabled={suiteVouchersToUse === 0}
-                        className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 disabled:opacity-30"
-                        style={{ background: voucherBtnBg, border: voucherBtnBorder }}
-                      >
-                        <Minus className="w-4 h-4" style={textPrimary} />
-                      </button>
-                      <div
-                        className="flex-1 flex items-center justify-center rounded-lg py-2"
-                        style={{ background: voucherStepperBg, border: voucherStepperBorder }}
-                      >
-                        <span className="text-xl tabular-nums" style={{ color: 'rgb(52,199,89)' }}>
-                          {suiteVouchersToUse}
-                        </span>
-                        <span className="text-xs ml-1.5" style={textMuted}>/ {availableSuiteVouchers}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleSuiteVoucherIncrement}
-                        disabled={isSuiteMaxed}
-                        className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:opacity-80 disabled:opacity-30"
-                        style={{ background: voucherBtnBg, border: voucherBtnBorder }}
-                      >
-                        <Plus className="w-4 h-4" style={textPrimary} />
-                      </button>
-                    </div>
-
-                    {suiteVouchersToUse > 0 && (
-                      <div className="rounded-lg px-4 py-2.5 flex items-center justify-between" style={{ background: suiteInfoBg, border: suiteInfoBorder }}>
-                        <span className="text-xs" style={textMuted}>
-                          {suiteVouchersToUse} complimentary suite upgrade{suiteVouchersToUse !== 1 ? 's' : ''} applied
-                        </span>
-                        <span className="text-xs" style={{ color: 'rgb(52,199,89)' }}>✓ Applied</span>
-                      </div>
-                    )}
-                    {isSuiteMaxed && (
-                      <div className="rounded-lg px-3 py-2 flex items-center gap-2 mt-1.5" style={{ background: maxReachedBg, border: '1px solid rgba(239,68,68,0.25)' }}>
-                        <Info className="w-3 h-3 flex-shrink-0" style={{ color: maxReachedColor }} />
-                        <span className="text-xs" style={{ color: maxReachedColor }}>All {availableSuiteVouchers} suite upgrade vouchers used.</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Total saving summary ── */}
-                {(bookingVouchersToUse > 0 || suiteVouchersToUse > 0) && (
-                  <div className="rounded-lg px-4 py-2.5 flex items-center gap-2" style={{ background: voucherSavingBg, border: voucherSavingBorder }}>
-                    <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: voucherSavingColor }} />
-                    <span className="text-xs" style={{ color: voucherSavingColor }}>
-                      {voucherSavingSummaryText}
-                    </span>
-                  </div>
-                )}
-              </div>
+            {(form.premiereSuites > 0 && (form.vipPassengers > 0 || form.nonFlyingGuests > 0)) && (
+              <p className="text-xs mt-3" style={textMuted}>
+                Note: free membership credits apply to Lounge Deluxe-only or Premiere Suite-only bookings, not when both are on the same booking.
+              </p>
             )}
           </div>
           )}
@@ -5373,16 +5237,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   label="Private Transport"
                   value={step2Form.privateTransport > 0 ? String(step2Form.privateTransport) : 'No'}
                 />
-                {useMembership && bookingVouchersToUse > 0 && (
+                {isEligibleIndividualMembership && (
                   <SummaryRow
-                    label="Booking Vouchers"
-                    value={summaryBookingVoucherValue}
+                    label="Free Lounge Deluxe entry"
+                    value={useMembershipLdFree ? 'Using for this booking' : 'Not using (kept for later)'}
                   />
                 )}
-                {useMembership && suiteVouchersToUse > 0 && (
+                {isEligibleIndividualMembership && (
                   <SummaryRow
-                    label="Suite Upgrade Vouchers"
-                    value={summarySuiteVoucherValue}
+                    label="Free Premiere Suite upgrade"
+                    value={useMembershipPsFree ? 'Using for this booking' : 'Not using (kept for later)'}
                   />
                 )}
                 {step2Form.promotionCode && (
