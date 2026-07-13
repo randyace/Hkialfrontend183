@@ -280,7 +280,55 @@ const termsAndConditions = [
 type MemberTab = 'Individual' | 'Corporate';
 type View = 'list' | 'checkout' | 'success';
 
-export function MembershipPackages() {
+/** Round 6.2.144 — API package row (Icon optional; figma attaches by tier name). */
+export type MembershipPackageInput = Omit<TierData, 'Icon'> & { Icon?: React.ElementType };
+
+export interface MembershipPackagesProps {
+  /** Live catalogue from API; when empty/undefined falls back to mock INDIVIDUAL_TIERS. */
+  packages?: MembershipPackageInput[] | null;
+  isLoading?: boolean;
+  error?: string | null;
+  isSubmitting?: boolean;
+  submitError?: string | null;
+  /** When set, Confirm & Pay calls this instead of mock success (Adyen redirect). */
+  onConfirmPurchase?: (tier: TierData) => void | Promise<void>;
+  /** Hide Corporate tab (self-serve is Individual-only). */
+  hideCorporate?: boolean;
+}
+
+const TIER_ICONS: Record<string, React.ElementType> = {
+  Gold: Medal,
+  Platinum: Star,
+  Diamond: Gem,
+  Sapphire: Crown,
+};
+
+function withTierIcon(pkg: MembershipPackageInput): TierData {
+  return {
+    ...pkg,
+    Icon: pkg.Icon || TIER_ICONS[pkg.name] || Medal,
+    currency: pkg.currency || 'HKD',
+    period: pkg.period || 'year',
+    memberType: pkg.memberType || 'Individual',
+    features: Array.isArray(pkg.features) ? pkg.features : [],
+    accentColor: pkg.accentColor || 'rgb(220,181,21)',
+    tagline: pkg.tagline || '',
+    highlight: Boolean(pkg.highlight),
+    entries: pkg.entries ?? 0,
+    freeUpgradesPerYear: pkg.freeUpgradesPerYear ?? 'NA',
+    hasNonFlyingGuest: Boolean(pkg.hasNonFlyingGuest),
+  };
+}
+
+export function MembershipPackages({
+  packages,
+  isLoading = false,
+  error = null,
+  isSubmitting = false,
+  submitError = null,
+  onConfirmPurchase,
+  hideCorporate = false,
+}: MembershipPackagesProps = {}) {
   const { colors, mode } = useTheme();
   const [activeTab, setActiveTab] = useState<MemberTab>('Individual');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -308,7 +356,8 @@ export function MembershipPackages() {
   const rowBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)';
   const checkboxBorder = agreedToTerms ? 'rgb(220,181,21)' : isDark ? 'rgba(255,255,255,0.3)' : 'rgba(150,149,138,0.6)';
   const checkboxBg = agreedToTerms ? 'rgb(220,181,21)' : 'transparent';
-  const payBtnOpacity = agreedToTerms ? 1 : 0.4;
+  const canPay = agreedToTerms && !isSubmitting;
+  const payBtnOpacity = canPay ? 1 : 0.4;
   const tabActiveBg = isDark ? 'rgba(220,181,21,0.15)' : 'rgba(220,181,21,0.12)';
   const tabInactiveBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.5)';
   const tabInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)';
@@ -317,8 +366,17 @@ export function MembershipPackages() {
   const notesBg = isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)';
   const notesBorder = '1px solid rgba(59,130,246,0.25)';
 
-  const displayTiers = activeTab === 'Individual' ? INDIVIDUAL_TIERS : CORPORATE_TIERS;
-  const gridCols = activeTab === 'Individual' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3';
+  const liveIndividual =
+    Array.isArray(packages) && packages.length > 0
+      ? packages.map(withTierIcon)
+      : INDIVIDUAL_TIERS;
+  const displayTiers = activeTab === 'Individual' ? liveIndividual : CORPORATE_TIERS;
+  const gridCols =
+    activeTab === 'Individual'
+      ? (displayTiers.length >= 4
+          ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+          : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3')
+      : 'grid-cols-1 sm:grid-cols-3';
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handleSelectTier(tier: TierData) {
@@ -334,8 +392,13 @@ export function MembershipPackages() {
     setAgreedToTerms(false);
   }
 
-  function handleConfirmPurchase() {
-    if (!agreedToTerms) return;
+  async function handleConfirmPurchase() {
+    if (!agreedToTerms || !selectedTier || isSubmitting) return;
+    if (onConfirmPurchase) {
+      await onConfirmPurchase(selectedTier);
+      return;
+    }
+    // Figma Make / mock fallback when no container callback is wired.
     setView('success');
   }
 
@@ -536,19 +599,25 @@ export function MembershipPackages() {
                 </div>
 
                 <button
-                  onClick={handleConfirmPurchase}
-                  disabled={!agreedToTerms}
+                  onClick={() => { void handleConfirmPurchase(); }}
+                  disabled={!canPay}
                   className="w-full py-3.5 rounded-xl text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                   style={{
                     background: 'linear-gradient(135deg, rgb(220,181,21) 0%, rgb(160,128,8) 100%)',
-                    boxShadow: agreedToTerms ? '0 8px 24px rgba(220,181,21,0.35)' : 'none',
+                    boxShadow: canPay ? '0 8px 24px rgba(220,181,21,0.35)' : 'none',
                     opacity: payBtnOpacity,
-                    cursor: agreedToTerms ? 'pointer' : 'not-allowed',
+                    cursor: canPay ? 'pointer' : 'not-allowed',
                   }}
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  Confirm &amp; Pay
+                  {isSubmitting ? 'Redirecting to payment…' : 'Confirm & Pay'}
                 </button>
+
+                {submitError && (
+                  <p className="text-xs text-center mt-3" style={{ color: 'rgb(239,68,68)' }}>
+                    {submitError}
+                  </p>
+                )}
 
                 {!agreedToTerms && (
                   <p className="text-xs text-center mt-3" style={{ color: subText }}>
@@ -560,7 +629,7 @@ export function MembershipPackages() {
 
             <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: sectionBg, border: sectionBorder }}>
               <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(52,199,89)' }} />
-              <p className="text-xs" style={{ color: subText }}>Your payment is secured with 256-bit SSL encryption.</p>
+              <p className="text-xs" style={{ color: subText }}>Your payment is secured with Adyen (card / FPS / wallets).</p>
             </div>
           </div>
         </div>
@@ -583,25 +652,51 @@ export function MembershipPackages() {
         </p>
       </div>
 
-      {/* Tab Selector */}
-      <div className="flex gap-3 mb-8 justify-center">
-        <button
-          onClick={handleTabIndividual}
-          className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
-          style={{
-            background: activeTab === 'Individual' ? tabActiveBg : tabInactiveBg,
-            border: activeTab === 'Individual' ? '1px solid rgba(220,181,21,0.45)' : tabInactiveBorder,
-            color: activeTab === 'Individual' ? 'rgb(220,181,21)' : subText,
-          }}
-        >
-          <Medal className="w-4 h-4" />
-          Individual Membership
-          <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: activeTab === 'Individual' ? 'rgba(220,181,21,0.2)' : 'rgba(255,255,255,0.08)' }}>
-            4-tier
-          </span>
-        </button>
-        
-      </div>
+      {/* Tab Selector — Corporate hidden for self-serve (round 6.2.144) */}
+      {!hideCorporate && (
+        <div className="flex gap-3 mb-8 justify-center">
+          <button
+            onClick={handleTabIndividual}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+            style={{
+              background: activeTab === 'Individual' ? tabActiveBg : tabInactiveBg,
+              border: activeTab === 'Individual' ? '1px solid rgba(220,181,21,0.45)' : tabInactiveBorder,
+              color: activeTab === 'Individual' ? 'rgb(220,181,21)' : subText,
+            }}
+          >
+            <Medal className="w-4 h-4" />
+            Individual Membership
+            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: activeTab === 'Individual' ? 'rgba(220,181,21,0.2)' : 'rgba(255,255,255,0.08)' }}>
+              {displayTiers.length}-tier
+            </span>
+          </button>
+        </div>
+      )}
+      {hideCorporate && (
+        <div className="flex gap-3 mb-8 justify-center">
+          <div
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2"
+            style={{
+              background: tabActiveBg,
+              border: '1px solid rgba(220,181,21,0.45)',
+              color: 'rgb(220,181,21)',
+            }}
+          >
+            <Medal className="w-4 h-4" />
+            Individual Membership
+            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(220,181,21,0.2)' }}>
+              {liveIndividual.length} packages
+            </span>
+          </div>
+        </div>
+      )}
+
+      {isLoading && (
+        <p className="text-center text-sm mb-6" style={{ color: subText }}>Loading packages…</p>
+      )}
+      {error && (
+        <p className="text-center text-sm mb-6" style={{ color: 'rgb(239,68,68)' }}>{error}</p>
+      )}
 
       {/* Tier Cards */}
       <div className={`grid ${gridCols} gap-5 mb-10`}>
