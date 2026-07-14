@@ -162,6 +162,12 @@ export interface GroupAdminProps {
   /** When provided (including []), never flash MOCK_MEMBERS. Omitted = Figma Make preview. */
   members?: GroupMember[];
   memberPackages?: Record<number, MemberPackage[]>;
+  /**
+   * Parent Travel Agency spendable credit (accounts.credit_balance).
+   * When provided in controlled mode, drives the "Total Credit" / "Avg Credit"
+   * stats instead of summing per-member balances (sub-accounts are usually 0).
+   */
+  agencyCreditBalance?: number;
   isLoading?: boolean;
   isSaving?: boolean;
   error?: string | null;
@@ -280,6 +286,7 @@ const MOCK_MEMBERS: GroupMember[] = [
 export function GroupAdmin({
   members: membersProp,
   memberPackages: memberPackagesProp,
+  agencyCreditBalance: agencyCreditBalanceProp,
   isLoading = false,
   isSaving = false,
   error = null,
@@ -320,7 +327,13 @@ export function GroupAdmin({
   });
 
   const activeCount = groupMembers.filter(m => m.status === 'active').length;
-  const totalCredit = groupMembers.reduce((sum, m) => sum + (m.creditBalance || 0), 0);
+  // Controlled + agencyCreditBalance: show parent ledger (real TA credit).
+  // Uncontrolled Figma preview: sum mock per-member balances as before.
+  const memberCreditSum = groupMembers.reduce((sum, m) => sum + (m.creditBalance || 0), 0);
+  const totalCredit =
+    isControlled && agencyCreditBalanceProp !== undefined
+      ? Number(agencyCreditBalanceProp) || 0
+      : memberCreditSum;
   const avgCredit = groupMembers.length > 0 ? Math.round(totalCredit / groupMembers.length) : 0;
 
   // ── Toasts ────────────────────────────────────────────────
