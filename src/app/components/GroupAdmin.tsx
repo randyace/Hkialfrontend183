@@ -32,7 +32,7 @@ import { MembershipFlowModal } from './MembershipFlowModal';
 
 // ── BookForMember payload ────────────────────────────────────────────────────
 
-interface BookForMemberData {
+export interface BookForMemberData {
   title: string;
   firstName: string;
   lastName: string;
@@ -43,7 +43,7 @@ interface BookForMemberData {
 
 // ── Membership package types ────────────────────────────────────────────────
 
-interface MemberPackage {
+export interface MemberPackage {
   id: string;
   tierId: string;
   tierName: string;
@@ -52,6 +52,17 @@ interface MemberPackage {
   currency: string;
   activatedAt: string;
   validUntil: string;
+}
+
+export interface GroupMemberForm {
+  title: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  nationality: string;
+  passportPrefix: string;
+  status: 'active' | 'inactive';
 }
 
 const TIER_COLOR_MAP: Record<string, string> = {
@@ -147,14 +158,25 @@ const INITIAL_PACKAGES: Record<number, MemberPackage[]> = {
 
 // ── GroupAdmin props ─────────────────────────────────────────────────────────
 
-interface GroupAdminProps {
+export interface GroupAdminProps {
+  /** When provided (including []), never flash MOCK_MEMBERS. Omitted = Figma Make preview. */
+  members?: GroupMember[];
+  memberPackages?: Record<number, MemberPackage[]>;
+  isLoading?: boolean;
+  isSaving?: boolean;
+  error?: string | null;
+  successMessage?: string;
+  searchQuery?: string;
   setActiveTab?: (tab: string) => void;
+  onSearchChange?: (query: string) => void;
+  onAddMember?: (data: GroupMemberForm) => void | Promise<void>;
+  onUpdateMember?: (id: number, data: GroupMemberForm) => void | Promise<void>;
   onBookForMember?: (data: BookForMemberData) => void;
 }
 
 // ── Member type ─────────────────────────────────────────────────────────────
 
-interface GroupMember {
+export interface GroupMember {
   id: number;
   title: string;
   firstName: string;
@@ -182,9 +204,95 @@ const EMPTY_FORM = {
   status: 'active' as 'active' | 'inactive',
 };
 
-export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
+const MOCK_MEMBERS: GroupMember[] = [
+  {
+    id: 1,
+    title: 'Ms',
+    firstName: 'Sarah',
+    lastName: 'Chen',
+    email: 'sarah.chen@cathay.com',
+    phone: '+852 9123 4567',
+    nationality: 'Hong Kong',
+    passportPrefix: 'K293',
+    creditBalance: 15000,
+    memberSince: '2022-03-15',
+    status: 'active',
+    lastActive: '2026-01-08',
+  },
+  {
+    id: 2,
+    title: 'Mr',
+    firstName: 'Michael',
+    lastName: 'Wong',
+    email: 'michael.wong@cathay.com',
+    phone: '+852 9234 5678',
+    nationality: 'Hong Kong',
+    passportPrefix: 'H471',
+    creditBalance: 8500,
+    memberSince: '2023-06-20',
+    status: 'active',
+    lastActive: '2026-01-07',
+  },
+  {
+    id: 3,
+    title: 'Ms',
+    firstName: 'Jennifer',
+    lastName: 'Lee',
+    email: 'jennifer.lee@cathay.com',
+    phone: '+852 9345 6789',
+    nationality: 'Hong Kong',
+    passportPrefix: 'M108',
+    creditBalance: 12000,
+    memberSince: '2022-11-10',
+    status: 'active',
+    lastActive: '2026-01-06',
+  },
+  {
+    id: 4,
+    title: 'Mr',
+    firstName: 'David',
+    lastName: 'Liu',
+    email: 'david.liu@cathay.com',
+    phone: '+852 9456 7890',
+    nationality: 'Mainland China',
+    passportPrefix: 'E552',
+    creditBalance: 5000,
+    memberSince: '2024-02-14',
+    status: 'active',
+    lastActive: '2026-01-05',
+  },
+  {
+    id: 5,
+    title: 'Ms',
+    firstName: 'Amanda',
+    lastName: 'Ng',
+    email: 'amanda.ng@cathay.com',
+    phone: '+852 9567 8901',
+    nationality: '',
+    passportPrefix: '',
+    creditBalance: 0,
+    memberSince: '2025-09-01',
+    status: 'inactive',
+    lastActive: '2025-12-20',
+  },
+];
+
+export function GroupAdmin({
+  members: membersProp,
+  memberPackages: memberPackagesProp,
+  isLoading = false,
+  isSaving = false,
+  error = null,
+  successMessage: successMessageProp,
+  searchQuery: searchQueryProp,
+  setActiveTab,
+  onSearchChange,
+  onAddMember,
+  onUpdateMember,
+  onBookForMember,
+}: GroupAdminProps) {
   const { colors, glassStyle, mode } = useTheme();
-  const [searchQuery, setSearchQuery] = useState('');
+  const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -194,96 +302,32 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [addErrors, setAddErrors] = useState<Partial<typeof EMPTY_FORM>>({});
   const [editErrors, setEditErrors] = useState<Partial<typeof EMPTY_FORM>>({});
-  const [successMessage, setSuccessMessage] = useState('');
-  const [memberPackages, setMemberPackages] = useState<Record<number, MemberPackage[]>>(INITIAL_PACKAGES);
+  const [internalSuccessMessage, setInternalSuccessMessage] = useState('');
+  const [internalPackages, setInternalPackages] = useState<Record<number, MemberPackage[]>>(INITIAL_PACKAGES);
+  const [internalMembers, setInternalMembers] = useState<GroupMember[]>(MOCK_MEMBERS);
 
-  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([
-    {
-      id: 1,
-      title: 'Ms',
-      firstName: 'Sarah',
-      lastName: 'Chen',
-      email: 'sarah.chen@cathay.com',
-      phone: '+852 9123 4567',
-      nationality: 'Hong Kong',
-      passportPrefix: 'K293',
-      creditBalance: 15000,
-      memberSince: '2022-03-15',
-      status: 'active',
-      lastActive: '2026-01-08',
-    },
-    {
-      id: 2,
-      title: 'Mr',
-      firstName: 'Michael',
-      lastName: 'Wong',
-      email: 'michael.wong@cathay.com',
-      phone: '+852 9234 5678',
-      nationality: 'Hong Kong',
-      passportPrefix: 'H471',
-      creditBalance: 8500,
-      memberSince: '2023-06-20',
-      status: 'active',
-      lastActive: '2026-01-07',
-    },
-    {
-      id: 3,
-      title: 'Ms',
-      firstName: 'Jennifer',
-      lastName: 'Lee',
-      email: 'jennifer.lee@cathay.com',
-      phone: '+852 9345 6789',
-      nationality: 'Hong Kong',
-      passportPrefix: 'M108',
-      creditBalance: 12000,
-      memberSince: '2022-11-10',
-      status: 'active',
-      lastActive: '2026-01-06',
-    },
-    {
-      id: 4,
-      title: 'Mr',
-      firstName: 'David',
-      lastName: 'Liu',
-      email: 'david.liu@cathay.com',
-      phone: '+852 9456 7890',
-      nationality: 'Mainland China',
-      passportPrefix: 'E552',
-      creditBalance: 5000,
-      memberSince: '2024-02-14',
-      status: 'active',
-      lastActive: '2026-01-05',
-    },
-    {
-      id: 5,
-      title: 'Ms',
-      firstName: 'Amanda',
-      lastName: 'Ng',
-      email: 'amanda.ng@cathay.com',
-      phone: '+852 9567 8901',
-      nationality: '',
-      passportPrefix: '',
-      creditBalance: 0,
-      memberSince: '2025-09-01',
-      status: 'inactive',
-      lastActive: '2025-12-20',
-    }
-  ]);
+  const isControlled = membersProp !== undefined;
+  const groupMembers = isControlled ? membersProp : internalMembers;
+  const searchQuery = searchQueryProp !== undefined ? searchQueryProp : internalSearchQuery;
+  const setSearchQuery = onSearchChange ?? setInternalSearchQuery;
+  const memberPackages = memberPackagesProp !== undefined ? memberPackagesProp : internalPackages;
+  const successMessage = successMessageProp !== undefined ? successMessageProp : internalSuccessMessage;
 
   const filteredMembers = groupMembers.filter(member => {
     const fullName = `${member.firstName} ${member.lastName}`.toLowerCase();
     const query = searchQuery.toLowerCase();
-    return fullName.includes(query) || member.email.toLowerCase().includes(query);
+    return fullName.includes(query) || (member.email ?? '').toLowerCase().includes(query);
   });
 
   const activeCount = groupMembers.filter(m => m.status === 'active').length;
-  const totalCredit = groupMembers.reduce((sum, m) => sum + m.creditBalance, 0);
+  const totalCredit = groupMembers.reduce((sum, m) => sum + (m.creditBalance || 0), 0);
   const avgCredit = groupMembers.length > 0 ? Math.round(totalCredit / groupMembers.length) : 0;
 
   // ── Toasts ────────────────────────────────────────────────
   function showSuccess(msg: string) {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(''), 3000);
+    if (successMessageProp !== undefined) return;
+    setInternalSuccessMessage(msg);
+    setTimeout(() => setInternalSuccessMessage(''), 3000);
   }
 
   // ── Credit modal ──────────────────────────────────────────
@@ -299,6 +343,11 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
 
   function handleMembershipSuccess(tier: { tierId: string; tierName: string; memberType: string; price: number; currency: string }) {
     if (!selectedMember) return;
+    // Controlled mode: membership assignment is staff/API-owned; keep modal as local preview only.
+    if (memberPackagesProp !== undefined) {
+      showSuccess(`Membership request for ${selectedMember.firstName} recorded (staff confirmation required).`);
+      return;
+    }
     const today = new Date();
     const nextYear = new Date(today);
     nextYear.setFullYear(today.getFullYear() + 1);
@@ -314,7 +363,7 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
       activatedAt,
       validUntil,
     };
-    setMemberPackages(prev => {
+    setInternalPackages(prev => {
       const existing = prev[selectedMember.id] || [];
       return { ...prev, [selectedMember.id]: [...existing, newPkg] };
     });
@@ -371,30 +420,39 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
     return errs;
   }
 
-  function confirmEdit() {
+  async function confirmEdit() {
     const errs = validateEditForm();
     if (Object.keys(errs).length > 0) { setEditErrors(errs); return; }
     if (!selectedMember) return;
-    setGroupMembers(prev =>
+    const payload: GroupMemberForm = {
+      title: editForm.title,
+      firstName: editForm.firstName.trim(),
+      lastName: editForm.lastName.trim(),
+      email: editForm.email.trim(),
+      phone: editForm.phone.trim(),
+      nationality: editForm.nationality.trim(),
+      passportPrefix: editForm.passportPrefix.trim().toUpperCase(),
+      status: editForm.status,
+    };
+    if (onUpdateMember) {
+      await onUpdateMember(selectedMember.id, payload);
+      setShowEditModal(false);
+      setSelectedMember(null);
+      return;
+    }
+    setInternalMembers(prev =>
       prev.map(m =>
         m.id === selectedMember.id
           ? {
               ...m,
-              title: editForm.title,
-              firstName: editForm.firstName.trim(),
-              lastName: editForm.lastName.trim(),
-              email: editForm.email.trim(),
-              phone: editForm.phone.trim(),
-              nationality: editForm.nationality.trim(),
-              passportPrefix: editForm.passportPrefix.trim().toUpperCase(),
-              status: editForm.status,
+              ...payload,
             }
           : m
       )
     );
     setShowEditModal(false);
     setSelectedMember(null);
-    showSuccess(`${editForm.firstName.trim()} ${editForm.lastName.trim()}'s details have been updated.`);
+    showSuccess(`${payload.firstName} ${payload.lastName}'s details have been updated.`);
   }
 
   function closeEditModal() {
@@ -420,11 +478,10 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
     return errs;
   }
 
-  function confirmAdd() {
+  async function confirmAdd() {
     const errs = validateAddForm();
     if (Object.keys(errs).length > 0) { setAddErrors(errs); return; }
-    const newMember: GroupMember = {
-      id: Date.now(),
+    const payload: GroupMemberForm = {
       title: addForm.title,
       firstName: addForm.firstName.trim(),
       lastName: addForm.lastName.trim(),
@@ -432,12 +489,21 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
       phone: addForm.phone.trim() || '—',
       nationality: addForm.nationality.trim(),
       passportPrefix: addForm.passportPrefix.trim().toUpperCase(),
+      status: 'active',
+    };
+    if (onAddMember) {
+      await onAddMember(payload);
+      setShowAddModal(false);
+      return;
+    }
+    const newMember: GroupMember = {
+      id: Date.now(),
+      ...payload,
       creditBalance: 0,
       memberSince: new Date().toISOString().slice(0, 10),
-      status: 'active',
       lastActive: new Date().toISOString().slice(0, 10),
     };
-    setGroupMembers(prev => [...prev, newMember]);
+    setInternalMembers(prev => [...prev, newMember]);
     setShowAddModal(false);
     showSuccess(`${newMember.firstName} ${newMember.lastName} has been added to the group.`);
   }
@@ -515,6 +581,13 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
         </div>
       )}
 
+      {error && (
+        <div className="rounded-xl px-4 py-3 text-sm font-medium border border-red-400/40 text-red-200"
+          style={{ background: 'rgba(185,28,28,0.25)' }}>
+          {error}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
@@ -525,12 +598,19 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
         </div>
         <button
           onClick={handleOpenAdd}
-          className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
+          disabled={isSaving || isLoading}
+          className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
         >
           <UserPlus className="w-5 h-5" />
           Add Member
         </button>
       </div>
+
+      {isLoading && (
+        <div className="rounded-2xl p-8 text-center border border-white/20" style={glassStyle}>
+          <p style={{ color: colors.textSecondary }}>Loading group members…</p>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -573,7 +653,7 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
       </div>
 
       {/* Members Table */}
-      <div className="rounded-2xl overflow-hidden border border-white/20" style={glassStyle}>
+      {!isLoading && <div className="rounded-2xl overflow-hidden border border-white/20" style={glassStyle}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead style={{ background: theadBg }} className="border-b border-white/20">
@@ -706,10 +786,14 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
         {filteredMembers.length === 0 && (
           <div className="p-12 text-center">
             <Users className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-            <p style={{ color: colors.textSecondary }}>No members found matching your search.</p>
+            <p style={{ color: colors.textSecondary }}>
+              {groupMembers.length === 0
+                ? 'No group members yet. Click Add Member to create one.'
+                : 'No members found matching your search.'}
+            </p>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Add Member Modal ───────────────────────────────── */}
       {showAddModal && (
@@ -843,11 +927,12 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
                 Cancel
               </button>
               <button
-                onClick={confirmAdd}
-                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                onClick={() => { void confirmAdd(); }}
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Plus className="w-4 h-4" />
-                Add Member
+                {isSaving ? 'Saving…' : 'Add Member'}
               </button>
             </div>
           </div>
@@ -1015,11 +1100,12 @@ export function GroupAdmin({ setActiveTab, onBookForMember }: GroupAdminProps) {
                 Cancel
               </button>
               <button
-                onClick={confirmEdit}
-                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                onClick={() => { void confirmEdit(); }}
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Save className="w-4 h-4" />
-                Save Changes
+                {isSaving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </div>
