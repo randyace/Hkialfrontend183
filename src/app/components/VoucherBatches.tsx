@@ -18,14 +18,14 @@ import {
 import { useTheme } from './ThemeContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-interface VoucherCode {
+export interface VoucherCode {
   code: string;
   status: 'available' | 'used' | 'expired';
   usedBy?: string;
   usedDate?: string;
 }
 
-interface VoucherBatch {
+export interface VoucherBatch {
   id: string;
   batchName: string;
   voucherName: string;
@@ -34,7 +34,37 @@ interface VoucherBatch {
   validUntil: string;
   totalCount: number;
   usedCount: number;
+  /** List endpoint may omit codes[] and supply availableCount instead. */
+  availableCount?: number;
   codes: VoucherCode[];
+}
+
+export interface VoucherBatchesStats {
+  totalBatches?: number;
+  activeBatches?: number;
+  totalVouchers?: number;
+  usedVouchers?: number;
+  availableVouchers?: number;
+}
+
+export interface VoucherBatchesProps {
+  /** When provided (including []), never flash MOCK_BATCHES. Omitted = Figma Make preview. */
+  batches?: VoucherBatch[];
+  stats?: VoucherBatchesStats;
+  isLoading?: boolean;
+  error?: string | null;
+  searchTerm?: string;
+  selectedBatch?: VoucherBatch | null;
+  codesLoading?: boolean;
+  onSearchChange?: (term: string) => void;
+  onSelectBatch?: (batchId: string | null) => void;
+  onCloseBatch?: () => void;
+}
+
+function availableInBatch(batch: VoucherBatch): number {
+  if (typeof batch.availableCount === 'number') return batch.availableCount;
+  if (batch.codes?.length) return batch.codes.filter((c) => c.status === 'available').length;
+  return Math.max(0, (batch.totalCount || 0) - (batch.usedCount || 0));
 }
 
 // ── Code generator ─────────────────────────────────────────────────────────────
@@ -340,9 +370,9 @@ function CopyButton({ text, isDark }: CopyButtonProps) {
 }
 
 // ── Voucher Codes Modal ────────────────────────────────────────────────────────
-interface CodesModalProps { batch: VoucherBatch; onClose: () => void; }
+interface CodesModalProps { batch: VoucherBatch; onClose: () => void; codesLoading?: boolean; }
 
-function CodesModal({ batch, onClose }: CodesModalProps) {
+function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
   const { colors, mode } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'available' | 'used' | 'expired'>('all');
@@ -371,8 +401,12 @@ function CodesModal({ batch, onClose }: CodesModalProps) {
   const xlsBtnColor   = isDark ? 'rgb(52,211,153)'                          : 'rgb(5,120,85)';
   const availHintColor = isDark ? 'rgb(52,211,153)'                         : 'rgb(5,150,105)';
 
-  const availableCount = batch.codes.filter(c => c.status === 'available').length;
-  const usedCount      = batch.codes.filter(c => c.status === 'used').length;
+  const availableCount = batch.codes.length > 0
+    ? batch.codes.filter(c => c.status === 'available').length
+    : availableInBatch(batch);
+  const usedCount      = batch.codes.length > 0
+    ? batch.codes.filter(c => c.status === 'used').length
+    : batch.usedCount;
   const expiredCount   = batch.codes.filter(c => c.status === 'expired').length;
   const availableCodes = batch.codes.filter(c => c.status === 'available');
 
@@ -537,7 +571,12 @@ function CodesModal({ batch, onClose }: CodesModalProps) {
 
         {/* Code list */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
-          {filtered.length === 0 && (
+          {codesLoading && batch.codes.length === 0 && (
+            <div className="text-center py-10" style={{ color: colors.textMuted }}>
+              Loading voucher codes…
+            </div>
+          )}
+          {!codesLoading && filtered.length === 0 && (
             <div className="text-center py-10" style={{ color: colors.textMuted }}>
               No voucher codes match your search.
             </div>
@@ -682,11 +721,31 @@ function CodesModal({ batch, onClose }: CodesModalProps) {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export function VoucherBatches() {
+export function VoucherBatches({
+  batches: batchesProp,
+  stats: statsProp,
+  isLoading = false,
+  error = null,
+  searchTerm: searchTermProp,
+  selectedBatch: selectedBatchProp,
+  codesLoading = false,
+  onSearchChange,
+  onSelectBatch,
+  onCloseBatch,
+}: VoucherBatchesProps = {}) {
   const { colors, mode, glassStyle } = useTheme();
-  const [selectedBatch, setSelectedBatch] = useState<VoucherBatch | null>(null);
+  // Controlled selectedBatch when parent passes the prop; otherwise local state (Figma Make).
+  const isSelectedControlled = selectedBatchProp !== undefined;
+  const [localSelectedBatch, setLocalSelectedBatch] = useState<VoucherBatch | null>(null);
+  const selectedBatch = isSelectedControlled ? (selectedBatchProp ?? null) : localSelectedBatch;
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired'>('all');
-  const [search, setSearch] = useState('');
+  const [localSearch, setLocalSearch] = useState('');
+  const isSearchControlled = searchTermProp !== undefined && !!onSearchChange;
+  const search = isSearchControlled ? (searchTermProp ?? '') : localSearch;
+
+  // Only fall back to MOCK for standalone Figma Make (prop omitted).
+  // When container passes batches (even []), never flash mock rows.
+  const sourceBatches = batchesProp !== undefined ? batchesProp : MOCK_BATCHES;
 
   const isDark = mode === 'dark';
 
@@ -712,28 +771,55 @@ export function VoucherBatches() {
     { key: 'expired', label: 'Expired / Exhausted' },
   ];
 
-  const displayed = MOCK_BATCHES.filter((b) => {
+  const displayed = sourceBatches.filter((b) => {
     const status = getBatchStatus(b);
     const matchStatus =
       filterStatus === 'all' ||
       (filterStatus === 'active' && status === 'active') ||
       (filterStatus === 'expired' && (status === 'expired' || status === 'exhausted'));
+    // Container may already filter by searchTerm; still apply local filter for status + Figma Make.
+    const q = search.toLowerCase();
     const matchSearch =
-      b.batchName.toLowerCase().includes(search.toLowerCase()) ||
-      b.voucherName.toLowerCase().includes(search.toLowerCase()) ||
-      b.id.toLowerCase().includes(search.toLowerCase());
+      !q ||
+      b.batchName.toLowerCase().includes(q) ||
+      b.voucherName.toLowerCase().includes(q) ||
+      b.id.toLowerCase().includes(q);
     return matchStatus && matchSearch;
   });
 
-  const totalActive    = MOCK_BATCHES.filter(b => getBatchStatus(b) === 'active').length;
-  const totalVouchers  = MOCK_BATCHES.reduce((sum, b) => sum + b.totalCount, 0);
-  const totalUsed      = MOCK_BATCHES.reduce((sum, b) => sum + b.usedCount, 0);
-  const totalAvailable = MOCK_BATCHES.reduce(
-    (sum, b) => sum + b.codes.filter(c => c.status === 'available').length, 0
+  const totalActive    = statsProp?.activeBatches ?? sourceBatches.filter(b => getBatchStatus(b) === 'active').length;
+  const totalVouchers  = statsProp?.totalVouchers ?? sourceBatches.reduce((sum, b) => sum + b.totalCount, 0);
+  const totalUsed      = statsProp?.usedVouchers ?? sourceBatches.reduce((sum, b) => sum + b.usedCount, 0);
+  const totalAvailable = statsProp?.availableVouchers ?? sourceBatches.reduce(
+    (sum, b) => sum + availableInBatch(b), 0
   );
 
-  const handleOpenModal  = (batch: VoucherBatch) => setSelectedBatch(batch);
-  const handleCloseModal = () => setSelectedBatch(null);
+  const handleOpenModal  = (batch: VoucherBatch) => {
+    if (onSelectBatch) {
+      onSelectBatch(batch.id);
+      return;
+    }
+    setLocalSelectedBatch(batch);
+  };
+  const handleCloseModal = () => {
+    if (onCloseBatch) {
+      onCloseBatch();
+      return;
+    }
+    if (onSelectBatch) {
+      onSelectBatch(null);
+      return;
+    }
+    setLocalSelectedBatch(null);
+  };
+
+  const handleSearchChange = (value: string) => {
+    if (isSearchControlled) {
+      onSearchChange?.(value);
+    } else {
+      setLocalSearch(value);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -780,7 +866,7 @@ export function VoucherBatches() {
             type="text"
             placeholder="Search by batch name, voucher, or ID…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
             style={{ background: inputBg, border: inputBorder, color: colors.text }}
           />
@@ -807,8 +893,20 @@ export function VoucherBatches() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', color: isDark ? 'rgb(248,113,113)' : 'rgb(185,28,28)' }}>
+          {error}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="rounded-2xl p-12 text-center" style={glassStyle}>
+          <p className="text-sm" style={{ color: colors.textMuted }}>Loading voucher batches…</p>
+        </div>
+      )}
+
       {/* Empty state */}
-      {displayed.length === 0 && (
+      {!isLoading && displayed.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Ticket className="w-12 h-12 mx-auto mb-4 opacity-30" style={{ color: colors.textMuted }} />
           <p className="text-sm" style={{ color: colors.textMuted }}>No voucher batches match your criteria.</p>
@@ -817,10 +915,10 @@ export function VoucherBatches() {
 
       {/* Batch cards */}
       <div className="space-y-4">
-        {displayed.map((batch) => {
+        {!isLoading && displayed.map((batch) => {
           const status       = getBatchStatus(batch);
-          const available    = batch.codes.filter(c => c.status === 'available').length;
-          const usagePercent = Math.round((batch.usedCount / batch.totalCount) * 100);
+          const available    = availableInBatch(batch);
+          const usagePercent = batch.totalCount > 0 ? Math.round((batch.usedCount / batch.totalCount) * 100) : 0;
 
           const isStatusActive  = status === 'active';
           const isStatusExpired = status === 'expired';
@@ -952,8 +1050,14 @@ export function VoucherBatches() {
       </div>
 
       {selectedBatch && (
-        <CodesModal batch={selectedBatch} onClose={handleCloseModal} />
+        <CodesModal
+          batch={selectedBatch}
+          codesLoading={codesLoading}
+          onClose={handleCloseModal}
+        />
       )}
     </div>
   );
 }
+
+export default VoucherBatches;
