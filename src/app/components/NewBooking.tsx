@@ -731,6 +731,14 @@ function getPriceSectionPrices(pricePreview?: {
     'membership_ps_free',
     'membership_ps_discount',
   ]);
+  // Free-entry / % promo codes land as `promo_discount` (server
+  // postFoldPromoCode, or client adjustedPricePreview). Same display
+  // treatment as membership credits: gross section subtotals + a
+  // separate green deduction row so Booking Summary does not hide
+  // the free-entry amount while only changing Total Charge.
+  const PROMO_DISCOUNT_KEYS = new Set([
+    'promo_discount',
+  ]);
   const ppPsSectionSubtotal = ppBreakdown
     .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Premiere Suite/i.test(l.label))
     .reduce((sum, l) => sum + l.subtotal, 0);
@@ -744,12 +752,18 @@ function getPriceSectionPrices(pricePreview?: {
     .filter((l) => MEMBERSHIP_DISCOUNT_KEYS.has(l.key));
   const membershipDiscountTotal = membershipDiscounts
     .reduce((sum, l) => sum + l.subtotal, 0);
+  const promoDiscounts = ppBreakdown
+    .filter((l) => PROMO_DISCOUNT_KEYS.has(l.key));
+  const promoDiscountTotal = promoDiscounts
+    .reduce((sum, l) => sum + l.subtotal, 0);
   return {
     psSectionPrice: ppHasLoaded ? ppPsSectionSubtotal : 0,
     ldSectionPrice: ppHasLoaded ? ppLdSectionSubtotal : 0,
     addonsAmtFinal: ppHasLoaded ? ppAddonsSubtotal : 0,
     membershipDiscounts,
     membershipDiscountTotal: ppHasLoaded ? membershipDiscountTotal : 0,
+    promoDiscounts,
+    promoDiscountTotal: ppHasLoaded ? promoDiscountTotal : 0,
     ppHasLoaded,
     finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
   };
@@ -3370,6 +3384,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       addonsAmtFinal,
       membershipDiscounts,
       membershipDiscountTotal,
+      promoDiscounts,
+      promoDiscountTotal,
       ppHasLoaded,
       finalTotal,
     } = getPriceSectionPrices(pricePreview);
@@ -3457,6 +3473,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               ))}
             </div>
           )}
+          {promoDiscounts.length > 0 && (
+            <div className="space-y-1.5" data-testid="booking-summary-promo-discounts">
+              {promoDiscounts.map((d, idx) => (
+                <div
+                  key={`${d.key}-${idx}`}
+                  className="flex items-center justify-between"
+                  data-testid="booking-summary-promo-discount-row"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{d.label}</span>
+                  <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
+                    −HK${Math.abs(d.subtotal).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {hasAddonSection && (
             <div
               className="rounded-lg px-3 py-2.5 space-y-1.5"
@@ -3512,6 +3544,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   Subtotal HK${(psSectionPrice + ldSectionPrice + addonsAmtFinal).toLocaleString()}
                   {membershipDiscountTotal < 0 && (
                     <> − Membership discount HK${Math.abs(membershipDiscountTotal).toLocaleString()}</>
+                  )}
+                  {promoDiscountTotal < 0 && (
+                    <> − Promo discount HK${Math.abs(promoDiscountTotal).toLocaleString()}</>
                   )}
                 </span>
               </div>
