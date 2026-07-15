@@ -730,6 +730,9 @@ function getPriceSectionPrices(pricePreview?: {
     'membership_ld_free',
     'membership_ps_free',
     'membership_ps_discount',
+    'membership_flying_guest_discount',
+    'membership_non_flying_guest_discount',
+    'membership_limousine_discount',
   ]);
   // Free-entry / % promo codes land as `promo_discount` (server
   // postFoldPromoCode, or client adjustedPricePreview). Same display
