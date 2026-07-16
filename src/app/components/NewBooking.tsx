@@ -592,6 +592,8 @@ interface NewBookingProps {
     total: number;
     breakdown: Array<{ label: 'PS' | 'LD'; amount: number }>;
   };
+  /** 2026-07-16 — Lane B catalog picker slot (container-owned). */
+  catalogAddonSlot?: React.ReactNode;
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -759,10 +761,20 @@ function getPriceSectionPrices(pricePreview?: {
     .filter((l) => PROMO_DISCOUNT_KEYS.has(l.key));
   const promoDiscountTotal = promoDiscounts
     .reduce((sum, l) => sum + l.subtotal, 0);
+  // 2026-07-16 — per-line add-on rows for Booking Summary / Final Review.
+  // Backend `postFoldAddonsAndDiscount` emits one `key=addons` line per
+  // catalog item (Lane A specials + Lane B). Lounge Extension lands as
+  // `add_on_additional_hour`. Pre-fix BookingSummaryCard only listed
+  // three step2Form steppers, so Lane B names were missing while the
+  // Add-on Services Subtotal still included them.
+  const addonLines = ppHasLoaded
+    ? ppBreakdown.filter((l) => ADDON_KEYS.has(l.key) && l.subtotal !== 0)
+    : [];
   return {
     psSectionPrice: ppHasLoaded ? ppPsSectionSubtotal : 0,
     ldSectionPrice: ppHasLoaded ? ppLdSectionSubtotal : 0,
     addonsAmtFinal: ppHasLoaded ? ppAddonsSubtotal : 0,
+    addonLines,
     membershipDiscounts,
     membershipDiscountTotal: ppHasLoaded ? membershipDiscountTotal : 0,
     promoDiscounts,
@@ -1650,7 +1662,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -3385,6 +3397,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       psSectionPrice,
       ldSectionPrice,
       addonsAmtFinal,
+      addonLines,
       membershipDiscounts,
       membershipDiscountTotal,
       promoDiscounts,
@@ -3395,7 +3408,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // Gate the Add-on Services section on a non-zero subtotal. The
     // helper already zero-gates on `ppHasLoaded` so the section
     // stays hidden until the backend returns a real number.
-    const hasAddonSection = addonsAmtFinal > 0;
+    const hasAddonSection = addonsAmtFinal > 0 || addonLines.length > 0;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -3496,32 +3509,28 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div
               className="rounded-lg px-3 py-2.5 space-y-1.5"
               style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
+              data-testid="booking-summary-addon-services"
             >
               <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>Add-on Services</div>
-              {step2Form.loungeExtension > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Extension × {step2Form.loungeExtension}</span>
+              {/* Render every price-preview addon line (Lane A + Lane B)
+                  so the list matches Add-on Services Subtotal. */}
+              {addonLines.map((line, idx) => (
+                <div
+                  key={`${line.key}-${line.label}-${idx}`}
+                  className="flex items-center justify-between"
+                  data-testid="booking-summary-addon-row"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>
+                    {line.label}
+                    {line.qty > 0 ? ` × ${line.qty}` : ''}
+                  </span>
                   <div className="text-right">
-                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.loungeExtension * loungeRate).toLocaleString()}</span>
+                    <span className="text-xs font-medium" style={textPrimary}>
+                      HK${line.subtotal.toLocaleString()}
+                    </span>
                   </div>
                 </div>
-              )}
-              {step2Form.limousineService > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Limousine Service × {step2Form.limousineService}</span>
-                  <div className="text-right">
-                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.limousineService * limoRate).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-              {step2Form.wheelchairService > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Wheelchair Service × {step2Form.wheelchairService}</span>
-                  <div className="text-right">
-                    <span className="text-xs font-medium" style={textPrimary}>HK${(step2Form.wheelchairService * wheelchairRate).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
+              ))}
               <div
                 className="flex items-center justify-between pt-1.5 mt-1"
                 style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
@@ -3677,15 +3686,33 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form.loungeExtension * loungeExtensionBaseRate +
       step2Form.limousineService * 1500 +
       step2Form.wheelchairService * 300;
+    const {
+      addonsAmtFinal: reviewAddonsAmtFinal,
+      addonLines: reviewAddonLines,
+    } = getPriceSectionPrices(pricePreview);
+    // Lane B catalog lines only — Lane A specials keep their rich cards below.
+    const reviewCatalogAddonLines = reviewAddonLines.filter((l) => {
+      const label = (l.label ?? '').toLowerCase();
+      return (
+        !/limousine/i.test(label) &&
+        !/wheelchair/i.test(label) &&
+        !/lounge extension|additional hour|extension of stay/i.test(label) &&
+        !/security escort/i.test(label) &&
+        !/private transport/i.test(label)
+      );
+    });
     const addonTotal =
-      step2Form.loungeExtension * loungeRate +
-      step2Form.limousineService * limoRate +
-      step2Form.wheelchairService * wheelchairRate;
-    const addonSaving = addonOriginal - addonTotal;
+      reviewAddonsAmtFinal > 0
+        ? reviewAddonsAmtFinal
+        : step2Form.loungeExtension * loungeRate +
+          step2Form.limousineService * limoRate +
+          step2Form.wheelchairService * wheelchairRate;
+    const addonSaving = Math.max(0, addonOriginal - addonTotal);
     const hasAddons =
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
-      step2Form.wheelchairService > 0;
+      step2Form.wheelchairService > 0 ||
+      reviewCatalogAddonLines.length > 0;
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
     const suiteCount = form.premiereSuites || 1;
@@ -4096,6 +4123,36 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
               )}
+
+              {/* 2026-07-16 — Lane B catalog add-ons from price-preview. */}
+              {reviewCatalogAddonLines.map((line, idx) => (
+                <div
+                  key={`catalog-addon-${line.label}-${idx}`}
+                  className="rounded-lg px-4 py-3"
+                  style={addonItemBg}
+                  data-testid="final-review-catalog-addon-row"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs" style={textMuted}>{line.label}</div>
+                        <div className="text-sm mt-0.5" style={textPrimary}>
+                          Qty {line.qty > 0 ? line.qty : 1}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-xs" style={textMuted}>
+                        HK${line.unit_price.toLocaleString()} × {line.qty > 0 ? line.qty : 1}
+                      </div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>
+                        HK${line.subtotal.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
 
               {/* Add-on total row */}
               <div
@@ -4668,6 +4725,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
           </div>
+
+          {catalogAddonSlot}
 
           {/* ── Navigation Buttons ──────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4">
@@ -5291,6 +5350,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     value={String(step2Form.wheelchairService)}
                   />
                 )}
+                {reviewCatalogAddonLines.map((line, idx) => (
+                  <SummaryRow
+                    key={`summary-catalog-${line.label}-${idx}`}
+                    label={line.label}
+                    value={`× ${line.qty > 0 ? line.qty : 1} · HK$${line.subtotal.toLocaleString()}`}
+                  />
+                ))}
                 {step2Form.securityService && (
                   <SummaryRow
                     label="Security Escort Service"

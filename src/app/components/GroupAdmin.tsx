@@ -210,6 +210,40 @@ const EMPTY_FORM = {
   status: 'active' as 'active' | 'inactive',
 };
 
+/**
+ * Module-level form helpers — MUST stay outside GroupAdmin.
+ * Defining them inside the parent re-creates a new component type on every
+ * keystroke, which remounts inputs and steals focus (only 1 char per click).
+ */
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="text-xs mt-1" style={{ color: '#f87171' }}>{msg}</p>;
+}
+
+function FormField({
+  label,
+  required,
+  children,
+  error,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+  error?: string;
+}) {
+  const { colors } = useTheme();
+  return (
+    <div>
+      <label className="block text-sm font-semibold mb-1.5" style={{ color: colors.text }}>
+        {label}
+        {required && <span className="ml-1">*</span>}
+      </label>
+      {children}
+      <FieldError msg={error} />
+    </div>
+  );
+}
+
 const MOCK_MEMBERS: GroupMember[] = [
   {
     id: 1,
@@ -448,9 +482,17 @@ export function GroupAdmin({
       status: editForm.status,
     };
     if (onUpdateMember) {
-      await onUpdateMember(selectedMember.id, payload);
-      setShowEditModal(false);
-      setSelectedMember(null);
+      // Keep modal open on API failure so the user can fix fields; container
+      // sets the page-level `error` prop (also shown inside this modal).
+      try {
+        await onUpdateMember(selectedMember.id, payload);
+        setShowEditModal(false);
+        setSelectedMember(null);
+        setEditErrors({});
+      } catch (err) {
+        const fieldErrs = mapApiFieldErrors(err);
+        if (Object.keys(fieldErrs).length > 0) setEditErrors(fieldErrs);
+      }
       return;
     }
     setInternalMembers(prev =>
@@ -491,6 +533,40 @@ export function GroupAdmin({
     return errs;
   }
 
+  /**
+   * Map Laravel 422 `errors` (snake_case keys) onto the camelCase form fields
+   * so duplicate-email / required-field API failures show next to inputs.
+   */
+  function mapApiFieldErrors(err: unknown): Partial<typeof EMPTY_FORM> {
+    const e = err as {
+      data?: { errors?: Record<string, string[] | string> };
+      errors?: Record<string, string[] | string>;
+    } | null;
+    const raw = e?.data?.errors ?? e?.errors;
+    if (!raw || typeof raw !== 'object') return {};
+    const keyMap: Record<string, keyof typeof EMPTY_FORM> = {
+      title: 'title',
+      first_name: 'firstName',
+      firstName: 'firstName',
+      last_name: 'lastName',
+      lastName: 'lastName',
+      email: 'email',
+      phone: 'phone',
+      nationality: 'nationality',
+      passport_prefix: 'passportPrefix',
+      passportPrefix: 'passportPrefix',
+      status: 'status',
+    };
+    const out: Partial<typeof EMPTY_FORM> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      const field = keyMap[k];
+      if (!field) continue;
+      const msg = Array.isArray(v) ? v.find(Boolean) : v;
+      if (typeof msg === 'string' && msg.trim()) out[field] = msg;
+    }
+    return out;
+  }
+
   async function confirmAdd() {
     const errs = validateAddForm();
     if (Object.keys(errs).length > 0) { setAddErrors(errs); return; }
@@ -505,8 +581,17 @@ export function GroupAdmin({
       status: 'active',
     };
     if (onAddMember) {
-      await onAddMember(payload);
-      setShowAddModal(false);
+      // Keep modal open on API failure so the user can fix fields; container
+      // sets the page-level `error` prop (also shown inside this modal).
+      try {
+        await onAddMember(payload);
+        setShowAddModal(false);
+        setAddForm(EMPTY_FORM);
+        setAddErrors({});
+      } catch (err) {
+        const fieldErrs = mapApiFieldErrors(err);
+        if (Object.keys(fieldErrs).length > 0) setAddErrors(fieldErrs);
+      }
       return;
     }
     const newMember: GroupMember = {
@@ -518,6 +603,7 @@ export function GroupAdmin({
     };
     setInternalMembers(prev => [...prev, newMember]);
     setShowAddModal(false);
+    setAddForm(EMPTY_FORM);
     showSuccess(`${newMember.firstName} ${newMember.lastName} has been added to the group.`);
   }
 
@@ -554,34 +640,6 @@ export function GroupAdmin({
   const editBtnBg = mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(231,230,221,0.5)';
   const editBtnHoverBg = mode === 'dark' ? 'rgba(255,255,255,0.15)' : 'rgba(231,230,221,0.7)';
   const theadBg = mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(231,230,221,0.6)';
-
-  function FieldError({ msg }: { msg?: string }) {
-    if (!msg) return null;
-    return <p className="text-xs mt-1" style={{ color: '#f87171' }}>{msg}</p>;
-  }
-
-  function FormField({
-    label,
-    required,
-    children,
-    error,
-  }: {
-    label: string;
-    required?: boolean;
-    children: React.ReactNode;
-    error?: string;
-  }) {
-    return (
-      <div>
-        <label className="block text-sm font-semibold mb-1.5" style={{ color: colors.text }}>
-          {label}
-          {required && <span className="ml-1">*</span>}
-        </label>
-        {children}
-        <FieldError msg={error} />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -811,7 +869,10 @@ export function GroupAdmin({
       {/* ── Add Member Modal ───────────────────────────────── */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-2xl p-8 max-w-lg w-full shadow-2xl" style={modalStyle}>
+          <div
+            className="rounded-2xl p-8 max-w-lg w-full shadow-2xl max-h-[min(90vh,720px)] overflow-y-auto"
+            style={modalStyle}
+          >
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -825,12 +886,24 @@ export function GroupAdmin({
               </div>
               <button
                 onClick={closeAddModal}
-                className="p-2 rounded-lg transition-colors hover:bg-white/10"
+                disabled={isSaving}
+                className="p-2 rounded-lg transition-colors hover:bg-white/10 disabled:opacity-50"
                 style={{ color: colors.textSecondary }}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* API / save errors must appear inside the modal (page banner is under the overlay). */}
+            {error && (
+              <div
+                className="mb-4 rounded-xl px-4 py-3 text-sm font-medium border border-red-400/40 text-red-200"
+                style={{ background: 'rgba(185,28,28,0.35)' }}
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
 
             {/* Form */}
             <div className="space-y-4">
@@ -932,7 +1005,8 @@ export function GroupAdmin({
             <div className="flex gap-3 mt-6">
               <button
                 onClick={closeAddModal}
-                className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all"
+                disabled={isSaving}
+                className="flex-1 px-4 py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
                 style={{ background: cancelBtnBg, color: colors.text }}
                 onMouseEnter={handleCancelBtnEnter}
                 onMouseLeave={handleCancelBtnLeave}
@@ -940,9 +1014,10 @@ export function GroupAdmin({
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={() => { void confirmAdd(); }}
                 disabled={isSaving}
-                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
                 {isSaving ? 'Saving…' : 'Add Member'}
@@ -955,7 +1030,10 @@ export function GroupAdmin({
       {/* ── Edit Member Modal ──────────────────────────────── */}
       {showEditModal && selectedMember && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-2xl p-8 max-w-lg w-full shadow-2xl" style={modalStyle}>
+          <div
+            className="rounded-2xl p-8 max-w-lg w-full shadow-2xl max-h-[min(90vh,720px)] overflow-y-auto"
+            style={modalStyle}
+          >
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -969,12 +1047,23 @@ export function GroupAdmin({
               </div>
               <button
                 onClick={closeEditModal}
-                className="p-2 rounded-lg transition-colors hover:bg-white/10"
+                disabled={isSaving}
+                className="p-2 rounded-lg transition-colors hover:bg-white/10 disabled:opacity-50"
                 style={{ color: colors.textSecondary }}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {error && (
+              <div
+                className="mb-4 rounded-xl px-4 py-3 text-sm font-medium border border-red-400/40 text-red-200"
+                style={{ background: 'rgba(185,28,28,0.35)' }}
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
 
             {/* Form */}
             <div className="space-y-4">
