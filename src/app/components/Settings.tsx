@@ -10,12 +10,13 @@ import {
   Phone,
   Mail,
   CreditCard,
-  Globe,
   Loader2,
   Check,
   X,
 } from "lucide-react";
 import { useTheme } from "./ThemeContext";
+import { NationalityTypeahead } from "../../../../../components/NationalityTypeahead";
+import { isValidCountryCode } from "../../../../../utils/countries";
 
 // ── Props interface ─────────────────────────────────────────────────────────
 export interface SettingsProps {
@@ -73,7 +74,7 @@ const MOCK_SETTINGS = {
     lastName: "Doe",
     email: "john.doe@example.com",
     phone: "+852 9876 5432",
-    nationality: "Hong Kong SAR",
+    nationality: "HK",
     passportFirst4: "1234",
   },
   appearance: {
@@ -495,37 +496,35 @@ export function Settings({
           </div>
         </div>
 
-        {/* Nationality */}
+        {/* Nationality — ISO 3166-1 alpha-2 typeahead (mandatory) */}
         <div>
           <label
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
             Nationality{" "}
-            <span style={{ color: colors.textMuted }}>
-              (Optional)
-            </span>
+            <span style={{ color: "rgb(220,181,21)" }}>*</span>
           </label>
-          <div className="relative">
-            <Globe
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-              style={{ color: colors.textMuted }}
-            />
-            <input
-              type="text"
-              value={profile.nationality}
-              onChange={(e) =>
-                updateSetting(
-                  "profile",
-                  "nationality",
-                  e.target.value,
-                )
-              }
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
-              style={inputStyle}
-              placeholder="e.g., Hong Kong SAR, United States"
-            />
-          </div>
+          <NationalityTypeahead
+            id="settings-nationality"
+            value={profile.nationality ?? ""}
+            required
+            onChange={(code) => updateSetting("profile", "nationality", code)}
+            className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+            listStyle={{
+              ...inputStyle,
+              background: isDark ? "rgba(30,30,30,0.98)" : "rgba(255,255,255,0.98)",
+            }}
+            highlightClassName={
+              isDark ? "bg-white/15" : "bg-[rgb(231,230,221)]"
+            }
+            mutedClassName={mutedColor}
+          />
+          {profile.nationality && !isValidCountryCode(profile.nationality) && (
+            <p className="mt-1 text-xs text-red-500">
+              Select a nationality from the list (ISO country code).
+            </p>
+          )}
         </div>
 
         {/* Passport First 4 Digits */}

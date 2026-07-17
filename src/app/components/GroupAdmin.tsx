@@ -16,7 +16,6 @@ import {
   X,
   Save,
   User,
-  Globe,
   CreditCard,
   UserCheck,
   Sparkles,
@@ -29,6 +28,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { MembershipFlowModal } from './MembershipFlowModal';
+import { NationalityTypeahead } from '../../../../../components/NationalityTypeahead';
+import { isValidCountryCode } from '../../../../../utils/countries';
 
 // ── BookForMember payload ────────────────────────────────────────────────────
 
@@ -36,6 +37,10 @@ export interface BookForMemberData {
   title: string;
   firstName: string;
   lastName: string;
+  /** End-customer contact email (booking contact, not the agency payer). */
+  email: string;
+  /** End-customer contact phone (booking contact, not the agency payer). */
+  phone: string;
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
@@ -279,7 +284,7 @@ const MOCK_MEMBERS: GroupMember[] = [
     lastName: 'Chen',
     email: 'sarah.chen@cathay.com',
     phone: '+852 9123 4567',
-    nationality: 'Hong Kong',
+    nationality: 'HK',
     passportPrefix: 'K293',
     creditBalance: 15000,
     memberSince: '2022-03-15',
@@ -293,7 +298,7 @@ const MOCK_MEMBERS: GroupMember[] = [
     lastName: 'Wong',
     email: 'michael.wong@cathay.com',
     phone: '+852 9234 5678',
-    nationality: 'Hong Kong',
+    nationality: 'HK',
     passportPrefix: 'H471',
     creditBalance: 8500,
     memberSince: '2023-06-20',
@@ -307,7 +312,7 @@ const MOCK_MEMBERS: GroupMember[] = [
     lastName: 'Lee',
     email: 'jennifer.lee@cathay.com',
     phone: '+852 9345 6789',
-    nationality: 'Hong Kong',
+    nationality: 'HK',
     passportPrefix: 'M108',
     creditBalance: 12000,
     memberSince: '2022-11-10',
@@ -321,7 +326,7 @@ const MOCK_MEMBERS: GroupMember[] = [
     lastName: 'Liu',
     email: 'david.liu@cathay.com',
     phone: '+852 9456 7890',
-    nationality: 'Mainland China',
+    nationality: 'CN',
     passportPrefix: 'E552',
     creditBalance: 5000,
     memberSince: '2024-02-14',
@@ -462,6 +467,8 @@ export function GroupAdmin({
       title: member.title,
       firstName: member.firstName,
       lastName: member.lastName,
+      email: member.email,
+      phone: member.phone,
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
@@ -469,6 +476,8 @@ export function GroupAdmin({
       title: member.title,
       firstName: member.firstName,
       lastName: member.lastName,
+      email: member.email,
+      phone: member.phone,
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
@@ -498,6 +507,9 @@ export function GroupAdmin({
     if (!editForm.lastName.trim()) errs.lastName = 'Last name is required.';
     if (!editForm.email.trim()) errs.email = 'Email is required.';
     else if (!/\S+@\S+\.\S+/.test(editForm.email)) errs.email = 'Invalid email address.';
+    if (!isValidCountryCode(editForm.nationality)) {
+      errs.nationality = 'Nationality is required. Select a country from the list.';
+    }
     if (editForm.passportPrefix && !/^[A-Za-z0-9]{4}$/.test(editForm.passportPrefix)) errs.passportPrefix = 'Must be exactly 4 alphanumeric characters.';
     return errs;
   }
@@ -512,7 +524,7 @@ export function GroupAdmin({
       lastName: editForm.lastName.trim(),
       email: editForm.email.trim(),
       phone: editForm.phone.trim(),
-      nationality: editForm.nationality.trim(),
+      nationality: editForm.nationality.trim().toUpperCase(),
       passportPrefix: editForm.passportPrefix.trim().toUpperCase(),
       status: editForm.status,
     };
@@ -564,6 +576,9 @@ export function GroupAdmin({
     if (!addForm.lastName.trim()) errs.lastName = 'Last name is required.';
     if (!addForm.email.trim()) errs.email = 'Email is required.';
     else if (!/\S+@\S+\.\S+/.test(addForm.email)) errs.email = 'Invalid email address.';
+    if (!isValidCountryCode(addForm.nationality)) {
+      errs.nationality = 'Nationality is required. Select a country from the list.';
+    }
     if (addForm.passportPrefix && !/^[A-Za-z0-9]{4}$/.test(addForm.passportPrefix)) errs.passportPrefix = 'Must be exactly 4 alphanumeric characters.';
     return errs;
   }
@@ -611,7 +626,7 @@ export function GroupAdmin({
       lastName: addForm.lastName.trim(),
       email: addForm.email.trim(),
       phone: addForm.phone.trim() || '—',
-      nationality: addForm.nationality.trim(),
+      nationality: addForm.nationality.trim().toUpperCase(),
       passportPrefix: addForm.passportPrefix.trim().toUpperCase(),
       status: 'active',
     };
@@ -1006,18 +1021,28 @@ export function GroupAdmin({
                 </div>
               </FormField>
 
-              <FormField label="Nationality" error={addErrors.nationality}>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={addForm.nationality}
-                    onChange={(e) => setAddForm(f => ({ ...f, nationality: e.target.value }))}
-                    placeholder="e.g. Hong Kong (Optional)"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
-                    style={fieldStyle}
-                  />
-                </div>
+              <FormField label="Nationality *" error={addErrors.nationality}>
+                <NationalityTypeahead
+                  id="group-admin-add-nationality"
+                  value={addForm.nationality}
+                  required
+                  onChange={(code) => {
+                    setAddForm((f) => ({ ...f, nationality: code }));
+                    if (addErrors.nationality) {
+                      setAddErrors((e) => {
+                        const next = { ...e };
+                        delete next.nationality;
+                        return next;
+                      });
+                    }
+                  }}
+                  className="w-full pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
+                  listStyle={{
+                    ...fieldStyle,
+                    background: mode === 'dark' ? 'rgba(30,30,30,0.98)' : 'rgba(255,255,255,0.98)',
+                  }}
+                  highlightClassName={mode === 'dark' ? 'bg-white/15' : 'bg-[rgb(231,230,221)]'}
+                />
               </FormField>
 
               <FormField label="First 4 Digits of Passport No." error={addErrors.passportPrefix}>
@@ -1166,18 +1191,28 @@ export function GroupAdmin({
                 </div>
               </FormField>
 
-              <FormField label="Nationality" error={editErrors.nationality}>
-                <div className="relative">
-                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={editForm.nationality}
-                    onChange={(e) => setEditForm(f => ({ ...f, nationality: e.target.value }))}
-                    placeholder="e.g. Hong Kong (Optional)"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
-                    style={fieldStyle}
-                  />
-                </div>
+              <FormField label="Nationality *" error={editErrors.nationality}>
+                <NationalityTypeahead
+                  id="group-admin-edit-nationality"
+                  value={editForm.nationality}
+                  required
+                  onChange={(code) => {
+                    setEditForm((f) => ({ ...f, nationality: code }));
+                    if (editErrors.nationality) {
+                      setEditErrors((e) => {
+                        const next = { ...e };
+                        delete next.nationality;
+                        return next;
+                      });
+                    }
+                  }}
+                  className="w-full pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
+                  listStyle={{
+                    ...fieldStyle,
+                    background: mode === 'dark' ? 'rgba(30,30,30,0.98)' : 'rgba(255,255,255,0.98)',
+                  }}
+                  highlightClassName={mode === 'dark' ? 'bg-white/15' : 'bg-[rgb(231,230,221)]'}
+                />
               </FormField>
 
               <FormField label="First 4 Digits of Passport No." error={editErrors.passportPrefix}>

@@ -42,8 +42,17 @@ import {
   Inbox,
   Loader2,
   AlertTriangle,
+  Globe2,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import {
+  COUNTRIES,
+  countryLabel,
+  countryNameFor,
+  filterCountries,
+  isValidCountryCode,
+  type CountryOption,
+} from '../../../../../utils/countries';
 // 2026-06-27 (round 6.2.79 — customer bug fix): segment-aware VIP
 // / NFG count controller. See utils/passengerCountReducer.ts (or
 // the in-tree mirror at ../../../../../../utils/passengerCountReducer
@@ -466,6 +475,10 @@ interface BookForMemberData {
   title: string;
   firstName: string;
   lastName: string;
+  /** End-customer contact email (booking contact, not the agency payer). */
+  email?: string;
+  /** End-customer contact phone (booking contact, not the agency payer). */
+  phone?: string;
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
@@ -637,6 +650,8 @@ interface VipPassenger {
   vipAgeGroup: string;
   vipBirthday: string;
   foodAllergies: string;
+  /** ISO 3166-1 alpha-2 (mandatory). */
+  nationality: string;
 }
 
 interface NonFlyingGuest {
@@ -645,6 +660,8 @@ interface NonFlyingGuest {
   guestLastName: string;
   guestAgeGroup: string;
   foodAllergies: string;
+  /** ISO 3166-1 alpha-2 (mandatory). */
+  nationality: string;
 }
 
 const flightDatabase: { [key: string]: { origin: string; destination: string; arrivalTime: string } } = {
@@ -1257,6 +1274,7 @@ function ContactNoSplit({
   };
 
   // Close region dropdown on outside click
+  // (nationality typeahead lives in GuestNationalityTypeahead below)
   useEffect(() => {
     if (!regionOpen) return;
     const handler = (e: MouseEvent) => {
@@ -1346,6 +1364,168 @@ function ContactNoSplit({
           required
         />
       </div>
+    </div>
+  );
+}
+
+// ── GuestNationalityTypeahead (2026-07-17) ───────────────────────────────────
+// ISO 3166-1 alpha-2 nationality typeahead for VIP / NFG guest rows.
+// Stores the 2-letter code; displays "Name (CODE)" when selected.
+function GuestNationalityTypeahead({
+  value,
+  onChange,
+  fieldStyle,
+  fieldClass,
+  isDark,
+  required = true,
+}: {
+  value: string;
+  onChange: (code: string) => void;
+  fieldStyle: React.CSSProperties;
+  fieldClass: string;
+  isDark: boolean;
+  required?: boolean;
+}) {
+  const { glassStyle } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const [query, setQuery] = useState(() => {
+    if (isValidCountryCode(value)) {
+      const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
+      return hit ? countryLabel(hit) : value;
+    }
+    return '';
+  });
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isValidCountryCode(value)) {
+      const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
+      if (hit) setQuery(countryLabel(hit));
+    } else if (!value) {
+      setQuery('');
+    }
+  }, [value]);
+
+  const filtered = useMemo(() => filterCountries(query), [query]);
+
+  const pick = (c: CountryOption) => {
+    onChange(c.code);
+    setQuery(countryLabel(c));
+    setOpen(false);
+    setHighlight(0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      setOpen(true);
+      return;
+    }
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const row = filtered[highlight];
+      if (row) pick(row);
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        if (isValidCountryCode(value)) {
+          const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
+          if (hit) setQuery(countryLabel(hit));
+        } else if (!value) {
+          setQuery('');
+        }
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open, value]);
+
+  const mutedColor = isDark ? 'text-gray-400' : 'text-[rgb(160,159,148)]';
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10 pointer-events-none" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          setHighlight(0);
+          if (value) onChange('');
+        }}
+        onFocus={() => {
+          setOpen(true);
+          setHighlight(0);
+        }}
+        onKeyDown={handleKeyDown}
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-autocomplete="list"
+        autoComplete="off"
+        required={required && !isValidCountryCode(value)}
+        style={fieldStyle}
+        className={fieldClass + ' pl-10 pr-8'}
+        placeholder="Search nationality (e.g. Hong Kong)"
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setOpen((o) => !o)}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+        aria-label="Toggle nationality list"
+      >
+        <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-white/20 shadow-lg"
+          style={glassStyle}
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-sm text-gray-400">No matches</li>
+          ) : (
+            filtered.map((c, idx) => {
+              const selected = value?.toUpperCase() === c.code;
+              const highlighted = idx === highlight;
+              return (
+                <li
+                  key={c.code}
+                  role="option"
+                  aria-selected={selected}
+                  onMouseEnter={() => setHighlight(idx)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pick(c);
+                  }}
+                  className={`px-3 py-2 cursor-pointer flex justify-between items-center text-sm ${
+                    highlighted ? (isDark ? 'bg-white/15' : 'bg-[rgb(231,230,221)]') : ''
+                  } ${selected ? 'font-semibold' : ''}`}
+                >
+                  <span>{c.name}</span>
+                  <span className={mutedColor}>{c.code}</span>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      )}
     </div>
   );
 }
@@ -1750,6 +1930,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         vipAgeGroup: 'Adults (aged 12 and above)',
         vipBirthday: '',
         foodAllergies: '',
+        nationality: '',
       }
     : null;
 
@@ -1915,8 +2096,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     privateTransport: 0,
     vehicles: [] as Array<{ driverName: string; driverContact: string; carPlateNo: string }>,
     promotionCode: '',
-    contactName: memberData.name || '',
-    contactEmail: memberData.email || '',
+    // Book-for-member: contact = end customer; account (payer) stays the agency.
+    // Without prefill, contact defaults to the logged-in member (agency self-book).
+    contactName: prefillMember
+      ? `${prefillMember.title} ${prefillMember.firstName} ${prefillMember.lastName}`.trim()
+      : (memberData.name || ''),
+    contactEmail: (prefillMember?.email && prefillMember.email.trim())
+      || memberData.email
+      || '',
     // 2026-06-24 (Sky) — split the contact number into a region
     // code combobox + a digits/dash number input. `contactNo` is
     // kept as a derived wire-shape field maintained in sync via
@@ -1934,8 +2121,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // (older accounts or local previews), splitContactPhone falls
     // back to region='+852' + empty number — same as the previous
     // hardcoded default.
+    //
+    // Book-for-member: prefer the end-customer's phone from Group Admin.
     ...(() => {
-      const split = splitContactPhone(memberData.contactNumber);
+      const phoneSource =
+        (prefillMember?.phone && prefillMember.phone.trim() && prefillMember.phone !== '—')
+          ? prefillMember.phone
+          : memberData.contactNumber;
+      const split = splitContactPhone(phoneSource);
       return {
         regionCode: split.regionCode,
         contactNumber: split.contactNumber,
@@ -2116,10 +2309,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
-    (v) => v.vipFirstName.trim() !== '' && v.vipLastName.trim() !== '' && v.vipAgeGroup !== ''
+    (v) =>
+      v.vipFirstName.trim() !== ''
+      && v.vipLastName.trim() !== ''
+      && v.vipAgeGroup !== ''
+      && isValidCountryCode(v.nationality)
   );
   const allGuestFilled = nonFlyingGuestData.every(
-    (g) => g.guestFirstName.trim() !== '' && g.guestLastName.trim() !== '' && g.guestAgeGroup !== ''
+    (g) =>
+      g.guestFirstName.trim() !== ''
+      && g.guestLastName.trim() !== ''
+      && g.guestAgeGroup !== ''
+      && isValidCountryCode(g.nationality)
   );
   // 2026-06-24 (Sky) — each PS / LD segment must include at least
   // one Adult (aged 12+) VIP passenger. Children / infants can't
@@ -2164,7 +2365,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Please add at least 1 guest (VIP Passenger or Non-Flying Guest) to proceed');
   }
   if (!allVipFilled) {
-    step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)');
+    step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group, Nationality)');
   }
   if (!adultPerPsOk) {
     step1Hints.push('Each Premiere Suite must have at least one Adult (aged 12+) VIP Passenger');
@@ -2176,14 +2377,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Each Premiere Suite requires at least 1 VIP Passenger');
   }
   if (!allGuestFilled) {
-    step1Hints.push('Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group)');
+    step1Hints.push('Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group, Nationality)');
   }
   // Legacy single-string for any caller still reading the old field.
   // The JSX hint block (line ~6149) now renders the bulleted list.
   const step1HintMsg =
     step1Hints.length > 0
       ? step1Hints[0]
-      : 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)';
+      : 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group, Nationality)';
 
   // Sync VIP passenger array length with totalVip
   //
@@ -2242,16 +2443,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const ldPrev = prevSegCountsRef.current.ld;
 
     if (totalVip > cur) {
-      const extra = Array.from({ length: totalVip - cur }, () => ({
-        vipTitle: 'Mr',
-        vipFirstName: '',
-        vipLastName: '',
-        vipTravelDocNo: '',
-        vipMembershipNo: '',
-        vipAgeGroup: '',
-        vipBirthday: '',
-        foodAllergies: '',
-      }));
+      const extra = Array.from({ length: totalVip - cur }, () => ({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '', nationality: '' }));
       const psDelta = psNow - psPrev;
       const ldDelta = ldNow - ldPrev;
       setVipData((prev) => {
@@ -2492,6 +2684,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         guestLastName: '',
         guestAgeGroup: '',
         foodAllergies: '',
+        nationality: '',
       }));
       const psDelta = psNow - psPrev;
       const ldDelta = ldNow - ldPrev;
@@ -2776,11 +2969,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       vipAgeGroup: 'Adults (aged 12 and above)',
       vipBirthday: '',
       foodAllergies: '',
+        nationality: '',
     }));
     const totalVipNeeded = booking.premiereSuites + booking.premiereVipPassengers + booking.vipPassengers;
     const paddedVip = clonedVip.slice(0, totalVipNeeded);
     while (paddedVip.length < totalVipNeeded) {
-      paddedVip.push({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '' });
+      paddedVip.push({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '', nationality: '' });
     }
     setVipData(paddedVip);
     const totalGuestNeeded = booking.premiereNonFlyingGuests + booking.nonFlyingGuests;
@@ -2790,6 +2984,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       guestLastName: '',
       guestAgeGroup: '',
       foodAllergies: '',
+        nationality: '',
     }));
     setNonFlyingGuestData(blankGuests);
     // 2026-06-16 (round ?) — also load the customer info (contact
@@ -3952,6 +4147,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <ReviewField label="Travel Document No." value={p.vipTravelDocNo || '—'} />
 
               <ReviewField label="Age Group" value={p.vipAgeGroup} />
+              <ReviewField
+                label="Nationality"
+                value={
+                  p.nationality
+                    ? `${countryNameFor(p.nationality)} (${p.nationality.toUpperCase()})`
+                    : '—'
+                }
+              />
               {p.vipBirthday && (
                 <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
               )}
@@ -3998,6 +4201,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     {g.guestAgeGroup && (
                       <ReviewField label="Age Group" value={g.guestAgeGroup} />
                     )}
+                    <ReviewField
+                      label="Nationality"
+                      value={
+                        g.nationality
+                          ? `${countryNameFor(g.nationality)} (${g.nationality.toUpperCase()})`
+                          : '—'
+                      }
+                    />
                     {g.foodAllergies && (
                       <ReviewField label="Food Allergies" value={g.foodAllergies} />
                     )}
@@ -6477,6 +6688,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
 
+                {/* Nationality */}
+                <div>
+                  <label className={labelClass}>Nationality *</label>
+                  <GuestNationalityTypeahead
+                    value={passenger.nationality}
+                    onChange={(code) => handleVipChange(index, 'nationality', code)}
+                    fieldStyle={fieldStyle}
+                    fieldClass={fieldClass}
+                    isDark={isDark}
+                    required
+                  />
+                </div>
+
                 {/* Birthday */}
                 <div>
                   <label className={labelClass}>Birthday (Date / Month / Year)</label>
@@ -6628,6 +6852,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
+                </div>
+
+                {/* Nationality */}
+                <div>
+                  <label className={labelClass}>Nationality *</label>
+                  <GuestNationalityTypeahead
+                    value={guest.nationality}
+                    onChange={(code) => handleNonFlyingGuestChange(index, 'nationality', code)}
+                    fieldStyle={fieldStyle}
+                    fieldClass={fieldClass}
+                    isDark={isDark}
+                    required
+                  />
                 </div>
               </div>
 
