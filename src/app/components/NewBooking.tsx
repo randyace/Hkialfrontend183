@@ -784,6 +784,29 @@ function getPriceSectionPrices(pricePreview?: {
   };
 }
 
+// Lane B catalog lines only — Lane A specials keep dedicated step2Form rows.
+function filterLaneBCatalogAddonLines(
+  addonLines: Array<{
+    key: string;
+    label: string;
+    qty: number;
+    unit_price: number;
+    subtotal: number;
+    note?: string;
+  }>,
+) {
+  return addonLines.filter((l) => {
+    const label = (l.label ?? '').toLowerCase();
+    return (
+      !/limousine/i.test(label) &&
+      !/wheelchair/i.test(label) &&
+      !/lounge extension|additional hour|extension of stay/i.test(label) &&
+      !/security escort/i.test(label) &&
+      !/private transport/i.test(label)
+    );
+  });
+}
+
 // ── Theme-aware style hook ───────────────────────────────────────────────────
 function useThemedStyles() {
   const { mode, colors } = useTheme();
@@ -3690,17 +3713,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       addonsAmtFinal: reviewAddonsAmtFinal,
       addonLines: reviewAddonLines,
     } = getPriceSectionPrices(pricePreview);
-    // Lane B catalog lines only — Lane A specials keep their rich cards below.
-    const reviewCatalogAddonLines = reviewAddonLines.filter((l) => {
-      const label = (l.label ?? '').toLowerCase();
-      return (
-        !/limousine/i.test(label) &&
-        !/wheelchair/i.test(label) &&
-        !/lounge extension|additional hour|extension of stay/i.test(label) &&
-        !/security escort/i.test(label) &&
-        !/private transport/i.test(label)
-      );
-    });
+    const reviewCatalogAddonLines = filterLaneBCatalogAddonLines(reviewAddonLines);
     const addonTotal =
       reviewAddonsAmtFinal > 0
         ? reviewAddonsAmtFinal
@@ -4758,6 +4771,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step 4: Other Information & Checkout ─────────────────────────────────
   if (currentStep === 4) {
+    // Must be defined in this scope — Complete Booking Summary maps Lane B
+    // catalog rows. Pre-fix only defined reviewCatalogAddonLines inside
+    // currentStep === 5, which threw ReferenceError and blanked Step 4.
+    const { addonLines: step4AddonLines } = getPriceSectionPrices(pricePreview);
+    const reviewCatalogAddonLines = filterLaneBCatalogAddonLines(step4AddonLines);
 
     // Round 6.2.140 — membership benefits card styles (readable end-customer copy).
     const membershipBenefitsBg = isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.06)';
