@@ -158,6 +158,24 @@ const INITIAL_PACKAGES: Record<number, MemberPackage[]> = {
 
 // ── GroupAdmin props ─────────────────────────────────────────────────────────
 
+/** Package catalogue row for Group Admin membership purchase (from API). */
+export type GroupMembershipPackageInput = {
+  id: string;
+  name: string;
+  memberType: string;
+  price: number;
+  currency: string;
+  period: string;
+  tagline: string;
+  highlight: boolean;
+  badge?: string;
+  accentColor: string;
+  entries: number | 'Unlimited';
+  freeUpgradesPerYear: number | 'NA';
+  hasNonFlyingGuest: boolean;
+  features: string[];
+};
+
 export interface GroupAdminProps {
   /** When provided (including []), never flash MOCK_MEMBERS. Omitted = Figma Make preview. */
   members?: GroupMember[];
@@ -168,8 +186,12 @@ export interface GroupAdminProps {
    * stats instead of summing per-member balances (sub-accounts are usually 0).
    */
   agencyCreditBalance?: number;
+  /** Live Individual membership packages for Join Membership modal. */
+  membershipCatalogue?: GroupMembershipPackageInput[] | null;
   isLoading?: boolean;
   isSaving?: boolean;
+  isPurchasingMembership?: boolean;
+  membershipPurchaseError?: string | null;
   error?: string | null;
   successMessage?: string;
   searchQuery?: string;
@@ -178,6 +200,11 @@ export interface GroupAdminProps {
   onAddMember?: (data: GroupMemberForm) => void | Promise<void>;
   onUpdateMember?: (id: number, data: GroupMemberForm) => void | Promise<void>;
   onBookForMember?: (data: BookForMemberData) => void;
+  /**
+   * Agency buys membership for a group member — always OnCredit on the server.
+   * packageId is the grading package id (string).
+   */
+  onPurchaseMembership?: (memberId: number, packageId: string) => void | Promise<void>;
 }
 
 // ── Member type ─────────────────────────────────────────────────────────────
@@ -321,8 +348,11 @@ export function GroupAdmin({
   members: membersProp,
   memberPackages: memberPackagesProp,
   agencyCreditBalance: agencyCreditBalanceProp,
+  membershipCatalogue = null,
   isLoading = false,
   isSaving = false,
+  isPurchasingMembership = false,
+  membershipPurchaseError = null,
   error = null,
   successMessage: successMessageProp,
   searchQuery: searchQueryProp,
@@ -331,6 +361,7 @@ export function GroupAdmin({
   onAddMember,
   onUpdateMember,
   onBookForMember,
+  onPurchaseMembership,
 }: GroupAdminProps) {
   const { colors, glassStyle, mode } = useTheme();
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
@@ -390,7 +421,11 @@ export function GroupAdmin({
 
   function handleMembershipSuccess(tier: { tierId: string; tierName: string; memberType: string; price: number; currency: string }) {
     if (!selectedMember) return;
-    // Controlled mode: membership assignment is staff/API-owned; keep modal as local preview only.
+    // Controlled + real OnCredit purchase: container already updated members + success toast.
+    if (onPurchaseMembership) {
+      return;
+    }
+    // Controlled without purchase API: local preview only.
     if (memberPackagesProp !== undefined) {
       showSuccess(`Membership request for ${selectedMember.firstName} recorded (staff confirmation required).`);
       return;
@@ -1217,9 +1252,23 @@ export function GroupAdmin({
       {/* ── Join Membership Modal ─────────────────────────── */}
       {showMembershipModal && selectedMember && (
         <MembershipFlowModal
+          key={`mem-flow-${selectedMember.id}`}
           member={{ title: selectedMember.title, firstName: selectedMember.firstName, lastName: selectedMember.lastName }}
           onClose={closeMembershipModal}
           onSuccess={handleMembershipSuccess}
+          packages={membershipCatalogue}
+          agencyCreditBalance={totalCredit}
+          paymentMode={onPurchaseMembership ? 'OnCredit' : 'Card'}
+          hideCorporate={Boolean(onPurchaseMembership)}
+          isSubmitting={isPurchasingMembership}
+          submitError={membershipPurchaseError}
+          onConfirmPurchase={
+            onPurchaseMembership
+              ? async (tier) => {
+                  await onPurchaseMembership(selectedMember.id, tier.id);
+                }
+              : undefined
+          }
         />
       )}
     </div>

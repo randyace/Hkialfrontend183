@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Check, Star, Sparkles, X, Medal,
   ArrowLeft, ShieldCheck, FileText, CreditCard, Lock,
   Crown, Building2, Award, Users, Car,
-  UserCheck, ChevronRight, Zap,
+  UserCheck, ChevronRight, Zap, Wallet, AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
@@ -287,15 +287,71 @@ interface MemberInfo {
   lastName: string;
 }
 
-interface Props {
+/** Live catalogue row from container (Icon optional; attached by tier name). */
+export type MembershipFlowPackageInput = Omit<TierData, 'Icon'> & { Icon?: React.ElementType };
+
+export interface MembershipFlowModalProps {
   member: MemberInfo;
   onClose: () => void;
   onSuccess?: (tier: { tierId: string; tierName: string; memberType: string; price: number; currency: string }) => void;
+  /** Live Individual packages from API; when empty/undefined uses mock tiers. */
+  packages?: MembershipFlowPackageInput[] | null;
+  /**
+   * Agency parent credit balance (accounts.credit_balance).
+   * Required for OnCredit checkout balance / top-up checks.
+   */
+  agencyCreditBalance?: number;
+  /**
+   * Agent Group Admin always settles via OnCredit against the parent ledger.
+   * Default 'Card' keeps Figma preview / non-agent mock behaviour.
+   */
+  paymentMode?: 'OnCredit' | 'Card';
+  isSubmitting?: boolean;
+  submitError?: string | null;
+  /** When set, Confirm calls this (real API) instead of mock success. */
+  onConfirmPurchase?: (tier: TierData) => void | Promise<void>;
+  /** Hide Corporate tab (Group Admin membership is Individual-only). */
+  hideCorporate?: boolean;
+}
+
+const TIER_ICONS: Record<string, React.ElementType> = {
+  Gold: Medal,
+  Platinum: Star,
+  Diamond: Sparkles,
+  Sapphire: Crown,
+};
+
+function withTierIcon(pkg: MembershipFlowPackageInput): TierData {
+  return {
+    ...pkg,
+    Icon: pkg.Icon || TIER_ICONS[pkg.name] || Medal,
+    currency: pkg.currency || 'HKD',
+    period: pkg.period || 'year',
+    memberType: pkg.memberType || 'Individual',
+    features: Array.isArray(pkg.features) ? pkg.features : [],
+    accentColor: pkg.accentColor || 'rgb(220,181,21)',
+    tagline: pkg.tagline || '',
+    highlight: Boolean(pkg.highlight),
+    entries: pkg.entries ?? 0,
+    freeUpgradesPerYear: pkg.freeUpgradesPerYear ?? 'NA',
+    hasNonFlyingGuest: Boolean(pkg.hasNonFlyingGuest),
+  };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
+export function MembershipFlowModal({
+  member,
+  onClose,
+  onSuccess,
+  packages,
+  agencyCreditBalance = 0,
+  paymentMode = 'Card',
+  isSubmitting = false,
+  submitError = null,
+  onConfirmPurchase,
+  hideCorporate = false,
+}: MembershipFlowModalProps) {
   const { colors, mode } = useTheme();
   const [view, setView] = useState<FlowView>('packages');
   const [activeTab, setActiveTab] = useState<MemberTab>('Individual');
@@ -304,6 +360,8 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const isDark = mode === 'dark';
+  const isOnCredit = paymentMode === 'OnCredit';
+  const creditBalance = Number(agencyCreditBalance) || 0;
 
   // ── Pre-computed styles ────────────────────────────────────────────────────
   const pageText = isDark ? '#ffffff' : 'rgb(64,63,52)';
@@ -321,9 +379,13 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
   const faqOpenBg = isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.06)';
   const rowBg = isDark ? 'rgba(0,0,0,0.2)' : 'rgba(231,230,221,0.4)';
   const rowBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)';
+  const selectedPrice = selectedTier ? Number(selectedTier.price) || 0 : 0;
+  const insufficientCredit = isOnCredit && selectedPrice > creditBalance;
+  const topupRequired = insufficientCredit ? Math.max(0, selectedPrice - creditBalance) : 0;
+  const canPay = agreedToTerms && !isSubmitting && !insufficientCredit;
   const checkboxBorder = agreedToTerms ? 'rgb(220,181,21)' : isDark ? 'rgba(255,255,255,0.3)' : 'rgba(150,149,138,0.6)';
   const checkboxBg = agreedToTerms ? 'rgb(220,181,21)' : 'transparent';
-  const payBtnOpacity = agreedToTerms ? 1 : 0.4;
+  const payBtnOpacity = canPay ? 1 : 0.4;
   const tabActiveBg = isDark ? 'rgba(220,181,21,0.15)' : 'rgba(220,181,21,0.12)';
   const tabInactiveBg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.5)';
   const tabInactiveBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)';
@@ -331,6 +393,8 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
   const otherBenefitsBorder = '1px solid rgba(220,181,21,0.25)';
   const notesBg = isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)';
   const notesBorder = '1px solid rgba(59,130,246,0.25)';
+  const warningBg = isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)';
+  const warningBorder = '1px solid rgba(239,68,68,0.35)';
   const modalBg = colors.modalBackground;
   const modalBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(200,199,190,0.5)';
   const headerBorderBottom = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)';
@@ -345,11 +409,18 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
   const corpBadgeCountBg = activeTab === 'Corporate' ? 'rgba(220,181,21,0.2)' : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(200,199,190,0.4)';
   const agreeBtnBg = agreedToTerms ? 'rgba(220,181,21,0.08)' : sectionBg;
   const agreeBtnBorder = agreedToTerms ? '1px solid rgba(220,181,21,0.4)' : sectionBorder;
-  const payBtnCursor = agreedToTerms ? 'pointer' : 'not-allowed';
-  const payBtnShadow = agreedToTerms ? '0 8px 24px rgba(220,181,21,0.35)' : 'none';
+  const payBtnCursor = canPay ? 'pointer' : 'not-allowed';
+  const payBtnShadow = canPay ? '0 8px 24px rgba(220,181,21,0.35)' : 'none';
   const rowTopBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)';
 
-  const displayTiers = activeTab === 'Individual' ? INDIVIDUAL_TIERS : CORPORATE_TIERS;
+  const liveIndividual = useMemo(
+    () =>
+      Array.isArray(packages) && packages.length > 0
+        ? packages.map(withTierIcon)
+        : INDIVIDUAL_TIERS,
+    [packages],
+  );
+  const displayTiers = activeTab === 'Individual' ? liveIndividual : CORPORATE_TIERS;
   const gridCols = activeTab === 'Individual' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3';
   const memberFullName = `${member.title} ${member.firstName} ${member.lastName}`;
 
@@ -366,18 +437,35 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
     setAgreedToTerms(false);
   }
 
-  function handleConfirmPurchase() {
-    if (!agreedToTerms) return;
-    setView('success');
-    if (onSuccess && selectedTier) {
-      onSuccess({
-        tierId: selectedTier.id,
-        tierName: selectedTier.name,
-        memberType: selectedTier.memberType,
-        price: selectedTier.price,
-        currency: selectedTier.currency,
-      });
+  async function handleConfirmPurchase() {
+    if (!agreedToTerms || !selectedTier || isSubmitting) return;
+    if (isOnCredit && selectedPrice > creditBalance) return;
+
+    if (onConfirmPurchase) {
+      try {
+        await onConfirmPurchase(selectedTier);
+        setView('success');
+        onSuccess?.({
+          tierId: selectedTier.id,
+          tierName: selectedTier.name,
+          memberType: selectedTier.memberType,
+          price: selectedTier.price,
+          currency: selectedTier.currency,
+        });
+      } catch {
+        // Container sets submitError; keep checkout open.
+      }
+      return;
     }
+
+    setView('success');
+    onSuccess?.({
+      tierId: selectedTier.id,
+      tierName: selectedTier.name,
+      memberType: selectedTier.memberType,
+      price: selectedTier.price,
+      currency: selectedTier.currency,
+    });
   }
 
   function handleFaqToggle(idx: number) {
@@ -401,6 +489,7 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
     const summaryRows = [
       { label: 'Member', value: memberFullName },
       { label: 'Order Reference', value: orderRef },
+      { label: 'Payment Method', value: isOnCredit ? 'On Credit' : 'Card' },
       { label: 'Amount Paid', value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
       { label: 'Valid Until', value: validUntil },
       { label: 'Status', value: 'Active' },
@@ -577,16 +666,62 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
                   })}
                 </div>
 
-                <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-5" style={{ background: 'rgba(220,181,21,0.1)', border: '1px solid rgba(220,181,21,0.3)' }}>
+                <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-4" style={{ background: 'rgba(220,181,21,0.1)', border: '1px solid rgba(220,181,21,0.3)' }}>
                   <span className="text-sm" style={{ color: pageText }}>Total Due</span>
                   <span className="text-sm" style={{ color: 'rgb(220,181,21)' }}>
                     {selectedTier.currency} {selectedTier.price.toLocaleString()}
                   </span>
                 </div>
 
+                {isOnCredit && (
+                  <div className="rounded-xl px-3 py-3 mb-4 space-y-2" style={{ background: sectionBg, border: sectionBorder }}>
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
+                      <span className="text-xs font-semibold" style={{ color: pageText }}>Payment method: On Credit</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: subText }}>Agency credit balance</span>
+                      <span className="text-xs font-semibold" style={{ color: insufficientCredit ? 'rgb(239,68,68)' : 'rgb(52,199,89)' }}>
+                        HKD {creditBalance.toLocaleString()}
+                      </span>
+                    </div>
+                    {!insufficientCredit && (
+                      <p className="text-xs" style={{ color: subText }}>
+                        This membership will be charged against your agency credit balance.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {isOnCredit && insufficientCredit && (
+                  <div
+                    className="rounded-xl px-3 py-3 mb-4 flex items-start gap-2"
+                    style={{ background: warningBg, border: warningBorder }}
+                    role="alert"
+                    data-testid="membership-topup-reminder"
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(239,68,68)' }} />
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold" style={{ color: 'rgb(239,68,68)' }}>
+                        Insufficient credit — top up required
+                      </p>
+                      <p className="text-xs leading-relaxed" style={{ color: isDark ? 'rgba(255,255,255,0.75)' : 'rgb(90,89,78)' }}>
+                        Need HKD {selectedPrice.toLocaleString()} but only HKD {creditBalance.toLocaleString()} is available.
+                        Please top up at least HKD {topupRequired.toLocaleString()} of agency credit before purchasing this membership.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {submitError && (
+                  <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: warningBg, border: warningBorder, color: 'rgb(239,68,68)' }} role="alert">
+                    {submitError}
+                  </p>
+                )}
+
                 <button
-                  onClick={handleConfirmPurchase}
-                  disabled={!agreedToTerms}
+                  onClick={() => { void handleConfirmPurchase(); }}
+                  disabled={!canPay}
                   className="w-full py-3.5 rounded-xl text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
                   style={{
                     background: 'linear-gradient(135deg, rgb(220,181,21) 0%, rgb(160,128,8) 100%)',
@@ -595,8 +730,12 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
                     cursor: payBtnCursor,
                   }}
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  Confirm &amp; Pay
+                  {isOnCredit ? <Wallet className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                  {isSubmitting
+                    ? 'Processing…'
+                    : isOnCredit
+                      ? (insufficientCredit ? 'Top up credit to continue' : 'Confirm & Pay on Credit')
+                      : 'Confirm & Pay'}
                 </button>
 
                 {!agreedToTerms && (
@@ -604,12 +743,28 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
                     Please agree to the Terms &amp; Conditions to proceed.
                   </p>
                 )}
+                {agreedToTerms && isOnCredit && insufficientCredit && (
+                  <p className="text-xs text-center mt-3" style={{ color: 'rgb(239,68,68)' }}>
+                    Top up your agency credit balance to complete this purchase.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: sectionBg, border: sectionBorder }}>
-              <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(52,199,89)' }} />
-              <p className="text-xs" style={{ color: subText }}>Your payment is secured with 256-bit SSL encryption.</p>
+              {isOnCredit ? (
+                <>
+                  <Wallet className="w-4 h-4 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
+                  <p className="text-xs" style={{ color: subText }}>
+                    Agency purchases for group members are settled on credit against your agency ledger balance.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(52,199,89)' }} />
+                  <p className="text-xs" style={{ color: subText }}>Your payment is secured with 256-bit SSL encryption.</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -633,27 +788,37 @@ export function MembershipFlowModal({ member, onClose, onSuccess }: Props) {
           </p>
         </div>
 
-        {/* Tab Selector */}
-        <div className="flex gap-3 mb-8 justify-center flex-wrap">
-          <button
-            onClick={handleTabIndividual}
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
-            style={{ background: indTabBg, border: indTabBorder, color: indTabColor }}
-          >
-            <Medal className="w-4 h-4" />
-            Individual Membership
-            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: indBadgeCountBg }}>4-tier</span>
-          </button>
-          <button
-            onClick={handleTabCorporate}
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
-            style={{ background: corpTabBg, border: corpTabBorder, color: corpTabColor }}
-          >
-            <Building2 className="w-4 h-4" />
-            Corporate Membership
-            <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: corpBadgeCountBg }}>3-tier</span>
-          </button>
-        </div>
+        {/* Tab Selector — Corporate hidden for Group Admin OnCredit purchases */}
+        {!hideCorporate && (
+          <div className="flex gap-3 mb-8 justify-center flex-wrap">
+            <button
+              onClick={handleTabIndividual}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+              style={{ background: indTabBg, border: indTabBorder, color: indTabColor }}
+            >
+              <Medal className="w-4 h-4" />
+              Individual Membership
+              <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: indBadgeCountBg }}>4-tier</span>
+            </button>
+            <button
+              onClick={handleTabCorporate}
+              className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+              style={{ background: corpTabBg, border: corpTabBorder, color: corpTabColor }}
+            >
+              <Building2 className="w-4 h-4" />
+              Corporate Membership
+              <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: corpBadgeCountBg }}>3-tier</span>
+            </button>
+          </div>
+        )}
+        {hideCorporate && (
+          <div className="mb-8 text-center">
+            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold" style={{ background: tabActiveBg, border: '1px solid rgba(220,181,21,0.45)', color: 'rgb(220,181,21)' }}>
+              <Medal className="w-4 h-4" />
+              Individual Membership
+            </span>
+          </div>
+        )}
 
         {/* Tier Cards */}
         <div className={`grid ${gridCols} gap-5 mb-10`}>
