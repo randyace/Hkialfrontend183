@@ -479,6 +479,8 @@ interface BookForMemberData {
   email?: string;
   /** End-customer contact phone (booking contact, not the agency payer). */
   phone?: string;
+  /** ISO 3166-1 alpha-2 nationality from the group member profile. */
+  nationality?: string;
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
@@ -1930,7 +1932,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         vipAgeGroup: 'Adults (aged 12 and above)',
         vipBirthday: '',
         foodAllergies: '',
-        nationality: '',
+        nationality: prefillMember.nationality || '',
       }
     : null;
 

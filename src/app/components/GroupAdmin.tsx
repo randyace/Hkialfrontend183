@@ -41,6 +41,8 @@ export interface BookForMemberData {
   email: string;
   /** End-customer contact phone (booking contact, not the agency payer). */
   phone: string;
+  /** ISO 3166-1 alpha-2 nationality from the group member profile. */
+  nationality: string;
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
@@ -469,6 +471,7 @@ export function GroupAdmin({
       lastName: member.lastName,
       email: member.email,
       phone: member.phone,
+      nationality: member.nationality,
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
@@ -478,6 +481,7 @@ export function GroupAdmin({
       lastName: member.lastName,
       email: member.email,
       phone: member.phone,
+      nationality: member.nationality,
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
