@@ -86,14 +86,11 @@ import {
 } from '../../../../../utils/bookingShortNotice';
 
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
-// R6.2.100d (2026-07-02, Sky): Travel Agency DISCOUNT percentages
-// (15/20/10%) are mock data and were removed. The TA member type
-// itself is kept — TA members still get a distinct payment method
-// (Direct Billing – Net 30 Terms) and billing reference (default
-// agency code) so the wire shape stays compatible with the
-// backend. Discount math is now uniform: all members see the
-// catalog rate for every addon.
-const TA_PAYMENT_METHOD      = 'Direct Billing – Net 30 Terms';
+// R6.2.100d (2026-07-02, Sky): Travel Agency MOCK addon discount percentages
+// (15/20/10%) were removed. Account discount still comes from
+// travel_agencies.discount_rate (spec §9) via price-preview / apply.
+// TA members settle OnCredit (accounts.credit_balance) with Net 30 terms.
+const TA_PAYMENT_METHOD      = 'On Credit – Net 30 Terms';
 const TA_AGENCY_CODE         = 'GTA-HK-001';
 
 // ── Valid & Used Promotion Codes ──────────────────────────────────────────────
@@ -1988,8 +1985,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [stepLoading, setStepLoading] = useState(false);
 
   // ── Derived member flags (computed before any state that references them) ──
-  const isCompany = memberData.memberType === 'Corporate' || memberData.memberType === 'Travel Agency';
-  const isTravelAgency = memberData.memberType === 'Travel Agency';
+  // Accept both API (`TravelAgency`) and UI (`Travel Agency`) forms so Group
+  // Admin book-on-behalf never falls through to Credit Card / Upfront when
+  // memberData still has the raw account type string.
+  const normalizedMemberType = String(memberData.memberType ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+  const isCompany =
+    normalizedMemberType === 'corporate' || normalizedMemberType === 'travelagency';
+  const isTravelAgency = normalizedMemberType === 'travelagency';
 
   function formatFreeCreditRemaining(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'Not available';
@@ -2139,8 +2144,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     })(),
     bookingMemo: '',
     // Travel Agency billing fields (auto-populated for TA, editable for others)
-    paymentMethod: memberData.memberType === 'Travel Agency' ? 'direct-billing' : 'credit-card',
-    billingReference: memberData.memberType === 'Travel Agency' ? TA_AGENCY_CODE : '',
+    paymentMethod: (() => {
+      const t = String(memberData.memberType ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, '');
+      return t === 'travelagency' ? 'on-credit' : 'credit-card';
+    })(),
+    billingReference: (() => {
+      const t = String(memberData.memberType ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_-]+/g, '');
+      return t === 'travelagency' ? TA_AGENCY_CODE : '';
+    })(),
   });
 
   // totalVip is the count of VIP passenger info boxes to render. Each box
