@@ -5,7 +5,6 @@ import {
   Users,
   Plane,
   Building,
-  Building2,
   Hash,
   User,
   Cake,
@@ -85,11 +84,19 @@ import {
   isBookingStartWithin48Hours,
 } from '../../../../../utils/bookingShortNotice';
 
+// INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
+const hktTodayYmd = (d: Date = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
+
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
 // R6.2.100d (2026-07-02, Sky): Travel Agency MOCK addon discount percentages
 // (15/20/10%) were removed. Account discount still comes from
 // travel_agencies.discount_rate (spec §9) via price-preview / apply.
 // TA members settle OnCredit (accounts.credit_balance) with Net 30 terms.
+// Agency Billing Reference prefills from memberData.agencyCode
+// (travel_agencies.agency_code via /auth/member/me). TA_AGENCY_CODE remains
+// only as a figma Make standalone-preview placeholder example — never as a
+// live default when the container supplies a real agency code.
 const TA_PAYMENT_METHOD      = 'On Credit – Net 30 Terms';
 const TA_AGENCY_CODE         = 'GTA-HK-001';
 
@@ -466,6 +473,8 @@ interface MemberData {
   membershipExpiryDate?: string;
   freeLoungeDeluxeEntriesRemaining?: number | null;
   freePremiereSuiteUpgradesRemaining?: number | null;
+  /** Spec §9 — travel_agencies.agency_code for Agency Billing Reference prefill. */
+  agencyCode?: string | null;
 }
 
 interface BookForMemberData {
@@ -674,17 +683,6 @@ const flightDatabase: { [key: string]: { origin: string; destination: string; ar
   'CX715': { origin: 'Sydney (SYD)', destination: 'Hong Kong (HKG)', arrivalTime: '05:45' },
 };
 
-const companyDatabase: { [key: string]: string } = {
-  'TECH2024': 'Tech Corporation Ltd',
-  'GTA2024': 'Global Travel Agency',
-  'CATHAY01': 'Cathay Pacific Airways',
-  'HSBC2024': 'HSBC Bank',
-  'SWIRE01': 'Swire Group',
-  'CKH2024': 'CK Hutchison Holdings',
-  'PCCW01': 'PCCW Limited',
-  'MTR2024': 'MTR Corporation',
-};
-
 // ── Price breakdown helper (R6.2.104, 2026-07-04, Sky) ───────────────────────
 // Single source of truth for "PS / LD / Add-ons / Total" extraction from the
 // Container's `pricePreview` prop. Used by both `BookingSummaryCard` (Step 5)
@@ -760,6 +758,12 @@ function getPriceSectionPrices(pricePreview?: {
   const PROMO_DISCOUNT_KEYS = new Set([
     'promo_discount',
   ]);
+  // Spec §9 — Agency / Corporate account % off (PricingService +
+  // postFoldAddonsAndDiscount). Same display treatment as promo /
+  // membership: keep section subtotals gross and show a green row.
+  const ACCOUNT_DISCOUNT_KEYS = new Set([
+    'account_discount',
+  ]);
   const ppPsSectionSubtotal = ppBreakdown
     .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Premiere Suite/i.test(l.label))
     .reduce((sum, l) => sum + l.subtotal, 0);
@@ -776,6 +780,10 @@ function getPriceSectionPrices(pricePreview?: {
   const promoDiscounts = ppBreakdown
     .filter((l) => PROMO_DISCOUNT_KEYS.has(l.key));
   const promoDiscountTotal = promoDiscounts
+    .reduce((sum, l) => sum + l.subtotal, 0);
+  const accountDiscounts = ppBreakdown
+    .filter((l) => ACCOUNT_DISCOUNT_KEYS.has(l.key));
+  const accountDiscountTotal = accountDiscounts
     .reduce((sum, l) => sum + l.subtotal, 0);
   // 2026-07-16 — per-line add-on rows for Booking Summary / Final Review.
   // Backend `postFoldAddonsAndDiscount` emits one `key=addons` line per
@@ -795,6 +803,8 @@ function getPriceSectionPrices(pricePreview?: {
     membershipDiscountTotal: ppHasLoaded ? membershipDiscountTotal : 0,
     promoDiscounts,
     promoDiscountTotal: ppHasLoaded ? promoDiscountTotal : 0,
+    accountDiscounts,
+    accountDiscountTotal: ppHasLoaded ? accountDiscountTotal : 0,
     ppHasLoaded,
     finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
   };
@@ -1961,7 +1971,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     destination: string;
     arrivalTime: string;
   } | null>(null);
-  const [companyName, setCompanyName] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [promoCodeStatus, setPromoCodeStatus] = useState<'valid' | 'invalid' | 'used' | null>(null);
@@ -1992,9 +2001,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     .trim()
     .toLowerCase()
     .replace(/[\s_-]+/g, '');
-  const isCompany =
-    normalizedMemberType === 'corporate' || normalizedMemberType === 'travelagency';
   const isTravelAgency = normalizedMemberType === 'travelagency';
+  // Spec §9 — real agency billing reference from /auth/member/me.
+  // Figma Make standalone preview falls back to TA_AGENCY_CODE only when
+  // the container has not supplied agencyCode.
+  const agencyBillingCode =
+    (typeof memberData.agencyCode === 'string' && memberData.agencyCode.trim() !== ''
+      ? memberData.agencyCode.trim()
+      : '') || (isTravelAgency ? TA_AGENCY_CODE : '');
 
   function formatFreeCreditRemaining(value: number | null | undefined): string {
     if (value === null || value === undefined) return 'Not available';
@@ -2156,9 +2170,32 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         .trim()
         .toLowerCase()
         .replace(/[\s_-]+/g, '');
-      return t === 'travelagency' ? TA_AGENCY_CODE : '';
+      if (t !== 'travelagency') return '';
+      const code =
+        typeof memberData.agencyCode === 'string' ? memberData.agencyCode.trim() : '';
+      // Prefer live agency_code; TA_AGENCY_CODE is figma preview fallback only.
+      return code || TA_AGENCY_CODE;
     })(),
   });
+
+  // When /auth/member/me refreshes agency_code after first paint, replace the
+  // figma-preview fallback (or empty) once — do not overwrite a user edit.
+  useEffect(() => {
+    if (!isTravelAgency) return;
+    const code =
+      typeof memberData.agencyCode === 'string' ? memberData.agencyCode.trim() : '';
+    if (!code) return;
+    setStep2Form((prev) => {
+      if (prev.billingReference === code) return prev;
+      if (
+        prev.billingReference !== '' &&
+        prev.billingReference !== TA_AGENCY_CODE
+      ) {
+        return prev;
+      }
+      return { ...prev, billingReference: code };
+    });
+  }, [isTravelAgency, memberData.agencyCode]);
 
   // totalVip is the count of VIP passenger info boxes to render. Each box
   // represents one VIP passenger — the suites themselves don't get a box.
@@ -2181,8 +2218,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // (HH:MM).
   // 2026-06-23 — For Arrival and Departure bookings, ALL visible step 1
   // fields are required (date, flight number, time, origin/destination,
-  // flight class, and company code for corporate/travel agency members).
-  // Transit keeps its existing leg 1 + leg 2 validation.
+  // flight class). Transit keeps its existing leg 1 + leg 2 validation.
   // 2026-06-08 (round 6.2.7): leg 2 flight time is now stored as the
   // time half of the combined `leg2ArrivalDate` (date+time were split
   // visually but kept as a single `YYYY-MM-DDTHH:MM` string so the
@@ -2221,8 +2257,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     form.flightType !== 'Departure' || form.destination.trim() !== '';
   const step1TimeValid =
     !isArrivalOrDeparture || leg1FlightTime !== '';
-  const step1CompanyValid =
-    !isArrivalOrDeparture || !isCompany || form.companyCode.trim() !== '';
   // 2026-06-30 (round ? — Sky) — date+time must be in the future.
   // The native `<input type="date" min={today}>` (line ~5422) only
   // blocks past DATES through the picker UI; it does NOT block (a)
@@ -2255,13 +2289,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1OriginValid &&
     step1DestinationValid &&
     step1TimeValid &&
-    step1CompanyValid &&
     leg1DateTimeInFuture &&
     leg2DateTimeInFuture;
   // 2026-06-28 (round 6.2.98): collect ALL step 1 validation failures
   // so the user sees every missing field at once. Order is stable
   // (leg 2 first for Transit, then leg 1, then common fields, then
-  // origin/destination/time/company). The empty array means "all
+  // origin/destination/time). The empty array means "all
   // required fields are present" — caller can render the list OR a
   // success state based on `step1FlightHints.length`.
   const step1FlightHints: string[] = [];
@@ -2313,9 +2346,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }
   if (!step1DestinationValid) {
     step1FlightHints.push('Please enter the destination');
-  }
-  if (!step1CompanyValid) {
-    step1FlightHints.push('Please enter the client company code');
   }
   // Keep the legacy `step1FlightHintMsg` derived for any callers that
   // still read the single-string form. The new `step1FlightHints` array
@@ -2742,12 +2772,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const fd = flightDatabase[upper] ?? null;
     setFlightDetails(fd);
     setForm((p) => ({ ...p, flightNumber: upper, origin: fd?.origin ?? p.origin }));
-  };
-
-  const handleCompanyCode = (v: string) => {
-    const upper = v.toUpperCase();
-    setForm((p) => ({ ...p, companyCode: upper }));
-    setCompanyName(companyDatabase[upper] ?? '');
   };
 
   const updateCount = (
@@ -3639,6 +3663,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       membershipDiscountTotal,
       promoDiscounts,
       promoDiscountTotal,
+      accountDiscounts,
+      accountDiscountTotal,
       ppHasLoaded,
       finalTotal,
     } = getPriceSectionPrices(pricePreview);
@@ -3742,6 +3768,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               ))}
             </div>
           )}
+          {accountDiscounts.length > 0 && (
+            <div className="space-y-1.5" data-testid="booking-summary-account-discounts">
+              {accountDiscounts.map((d, idx) => (
+                <div
+                  key={`${d.key}-${idx}`}
+                  className="flex items-center justify-between"
+                  data-testid="booking-summary-account-discount-row"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{d.label}</span>
+                  <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
+                    −HK${Math.abs(d.subtotal).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
           {hasAddonSection && (
             <div
               className="rounded-lg px-3 py-2.5 space-y-1.5"
@@ -3796,6 +3838,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   )}
                   {promoDiscountTotal < 0 && (
                     <> − Promo discount HK${Math.abs(promoDiscountTotal).toLocaleString()}</>
+                  )}
+                  {accountDiscountTotal < 0 && (
+                    <> − Account discount HK${Math.abs(accountDiscountTotal).toLocaleString()}</>
                   )}
                 </span>
               </div>
@@ -3902,7 +3947,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div className="text-xs space-y-1" style={textMuted}>
                 <div>• Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span></div>
-                <div>• Billing Ref: <span style={textPrimary}>{step2Form.billingReference || TA_AGENCY_CODE}</span></div>
+                <div>• Billing Ref: <span style={textPrimary}>{step2Form.billingReference || agencyBillingCode}</span></div>
                 <div>• Invoice will be sent to your registered agency email within 3 business days</div>
               </div>
             </div>
@@ -4435,7 +4480,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           >
             <ReviewGrid>
               <ReviewField label="Payment Method" value={TA_PAYMENT_METHOD} />
-              <ReviewField label="Agency Billing Reference" value={step2Form.billingReference || TA_AGENCY_CODE} />
+              <ReviewField label="Agency Billing Reference" value={step2Form.billingReference || agencyBillingCode} />
               <ReviewField label="Billing Arrangement" value="Invoice issued within 3 business days" />
               <ReviewField label="Credit Terms" value="Net 30 days from invoice date" />
             </ReviewGrid>
@@ -5303,7 +5348,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     onChange={(e) =>
                       setStep2Form((p) => ({ ...p, billingReference: e.target.value.toUpperCase() }))
                     }
-                    placeholder={TA_AGENCY_CODE}
+                    placeholder={agencyBillingCode || TA_AGENCY_CODE}
                     style={fieldStyle}
                     className={fieldClass + ' pl-10 uppercase'}
                   />
@@ -5542,7 +5587,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   label={form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
                   value={formatDate(form.date)}
                 />
-                {isCompany && <SummaryRow label="Client Company" value={companyName || '—'} />}
                 <SummaryRow label="Flight Class" value={form.flightClass} />
                 <SummaryRow label="Flight Type" value={form.flightType} />
                 {flightDetails && form.flightType !== 'Departure' && (
@@ -5836,7 +5880,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <input
                   type="date"
                   value={form.date}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={hktTodayYmd()}
                   onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
                   required
                   style={fieldStyle}
@@ -5950,7 +5994,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             )}
 
             {/* Flight Class */}
-            <div className={isCompany ? 'mb-4' : ''}>
+            <div>
               <label className={labelClass}>Flight Class of Main VIP Passenger *</label>
               <div className="relative">
                 <select
@@ -5967,31 +6011,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
-
-            {/* Company Code (Corporate / Travel Agency) */}
-            {isCompany && (
-              <div>
-                <label className={labelClass}>Client Company Code *</label>
-                <div className="relative">
-                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={form.companyCode}
-                    onChange={(e) => handleCompanyCode(e.target.value)}
-                    required={form.flightType === 'Arrival' || form.flightType === 'Departure'}
-                    placeholder="e.g. CATHAY01"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10 uppercase'}
-                  />
-                </div>
-                {companyName && (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-xs" style={{ color: flightFoundColorS1 }}>
-                    <CheckCircle className="w-3 h-3" />
-                    <span>{companyName}</span>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* 2026-06-08 — Transit 2nd leg block (I-T2, Q5B). Only visible
                 when flightType === 'Transit'. The 1st leg is the existing
@@ -6060,7 +6079,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <input
                       type="date"
                       value={leg2ArrivalDate?.split('T')[0] || ''}
-                      min={form.date ? form.date : new Date().toISOString().slice(0, 10)}
+                      min={form.date ? form.date : hktTodayYmd()}
                       onChange={(e) => {
                         const datePart = e.target.value;
                         const timePart = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';

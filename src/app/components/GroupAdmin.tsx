@@ -31,6 +31,30 @@ import { MembershipFlowModal } from './MembershipFlowModal';
 import { NationalityTypeahead } from '../../../../../components/NationalityTypeahead';
 import { isValidCountryCode } from '../../../../../utils/countries';
 
+// INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
+const hktTodayYmd = (d: Date = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
+function addCalendarDaysYmd(ymd: string, days: number): string {
+  const m = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return ymd;
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days, 12));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+function addCalendarYearsYmd(ymd: string, years: number): string {
+  const m = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return ymd;
+  const y = Number(m[1]) + years;
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d, 12));
+  if (dt.getUTCMonth() + 1 !== mo) {
+    const last = new Date(Date.UTC(y, mo, 0, 12));
+    return `${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, '0')}-${String(last.getUTCDate()).padStart(2, '0')}`;
+  }
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+
 // ── BookForMember payload ────────────────────────────────────────────────────
 
 export interface BookForMemberData {
@@ -440,8 +464,8 @@ export function GroupAdmin({
     const today = new Date();
     const nextYear = new Date(today);
     nextYear.setFullYear(today.getFullYear() + 1);
-    const activatedAt = today.toISOString().slice(0, 10);
-    const validUntil = nextYear.toISOString().slice(0, 10);
+    const activatedAt = hktTodayYmd(today);
+    const validUntil = hktTodayYmd(nextYear);
     const newPkg: MemberPackage = {
       id: `pkg-${Date.now()}`,
       tierId: tier.tierId,
@@ -652,8 +676,8 @@ export function GroupAdmin({
       id: Date.now(),
       ...payload,
       creditBalance: 0,
-      memberSince: new Date().toISOString().slice(0, 10),
-      lastActive: new Date().toISOString().slice(0, 10),
+      memberSince: hktTodayYmd(),
+      lastActive: hktTodayYmd(),
     };
     setInternalMembers(prev => [...prev, newMember]);
     setShowAddModal(false);

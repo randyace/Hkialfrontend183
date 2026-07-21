@@ -8,6 +8,30 @@ import {
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
+// INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
+const hktTodayYmd = (d: Date = new Date()): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
+function addCalendarDaysYmd(ymd: string, days: number): string {
+  const m = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return ymd;
+  const dt = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days, 12));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+}
+function addCalendarYearsYmd(ymd: string, years: number): string {
+  const m = String(ymd).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return ymd;
+  const y = Number(m[1]) + years;
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d, 12));
+  if (dt.getUTCMonth() + 1 !== mo) {
+    const last = new Date(Date.UTC(y, mo, 0, 12));
+    return `${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, '0')}-${String(last.getUTCDate()).padStart(2, '0')}`;
+  }
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+
 // ── Interfaces ─────────────────────────────────────────────────────────────────
 interface MyMembershipProps {
   memberData: {
@@ -274,15 +298,11 @@ function formatMonthYear(dateStr: string) {
 }
 
 function dayAfter(dateStr: string) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().split('T')[0];
+  return addCalendarDaysYmd(dateStr, 1);
 }
 
 function addOneYear(dateStr: string) {
-  const d = new Date(dateStr);
-  d.setFullYear(d.getFullYear() + 1);
-  return d.toISOString().split('T')[0];
+  return addCalendarYearsYmd(dateStr, 1);
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -431,14 +451,14 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
       upgradeSuiteCount: selectedAdjournPkg.upgradeSuiteCount,
       activatesOn,
       expiresOn,
-      purchasedOn: new Date().toISOString().split('T')[0],
+      purchasedOn: hktTodayYmd(),
       orderRef,
       isUpgrade: selectedAdjournPkg.tierLevel > currentTierLevel,
     };
 
     const newInvoice: Invoice = {
       ref: orderRef,
-      date: new Date().toISOString().split('T')[0],
+      date: hktTodayYmd(),
       amount: selectedAdjournPkg.price,
       status: 'Paid',
       desc: `${selectedAdjournPkg.name} Membership — Adjourned (starts ${formatMonthYear(activatesOn)})`,
