@@ -1977,6 +1977,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const [submitted, setSubmitted] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [promoCodeStatus, setPromoCodeStatus] = useState<'valid' | 'invalid' | 'used' | null>(null);
+  const [promoCodeMessage, setPromoCodeMessage] = useState<string | null>(null);
   const [acceptedTC, setAcceptedTC] = useState(false);
   const [bookingNumber, setBookingNumber] = useState('');
   const [noAddonRequired, setNoAddonRequired] = useState(false);
@@ -2568,6 +2569,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const code = step2Form.promotionCode.trim();
     if (!code) {
       setPromoCodeStatus(null);
+      setPromoCodeMessage(null);
       return;
     }
 
@@ -2577,10 +2579,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // working. Production always takes the backend path.
     if (USED_PROMO_CODES.includes(code)) {
       setPromoCodeStatus('used');
+      setPromoCodeMessage(null);
       return;
     }
     if (VALID_PROMO_CODES.includes(code)) {
       setPromoCodeStatus('valid');
+      setPromoCodeMessage(null);
       return;
     }
 
@@ -2600,15 +2604,23 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       .then((result) => {
         if (handle.cancelled) return;
         setPromoCodeStatus(result.status);
+        setPromoCodeMessage(
+          typeof result.message === 'string' && result.message.trim() !== ''
+            ? result.message
+            : null,
+        );
       })
       .catch(() => {
         if (handle.cancelled) return;
         setPromoCodeStatus('invalid');
+        setPromoCodeMessage(null);
       });
     return () => {
       handle.cancelled = true;
     };
-  }, [step2Form.promotionCode, pricePreview?.total]);
+    // Re-validate when LD count changes so a Free bookings code is
+    // rejected after the user switches to PS-only (and vice versa).
+  }, [step2Form.promotionCode, pricePreview?.total, form.vipPassengers]);
 
   // 2026-06-11 (round 6.2.36 — Sky ask: "ensure the 2nd leg time is at
   // least 6 hours apart from the 1st leg arrival"): recompute the
@@ -5440,7 +5452,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     }}
                   >
                     <X className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>Code <strong>{step2Form.promotionCode}</strong> is invalid. Please check and try again.</span>
+                    <span>
+                      {promoCodeMessage
+                        ? promoCodeMessage
+                        : <>Code <strong>{step2Form.promotionCode}</strong> is invalid. Please check and try again.</>}
+                    </span>
                   </div>
                 )}
 
