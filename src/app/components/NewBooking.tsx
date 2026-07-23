@@ -83,6 +83,8 @@ import {
   deriveBookingStartIso,
   isBookingStartWithin48Hours,
 } from '../../../../../utils/bookingShortNotice';
+import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
+import { formatAirportDisplay } from '../../../../../utils/airports';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -500,10 +502,9 @@ interface NewBookingProps {
   // onSubmit receives the view's complete internal form state so container can build the API payload
   // formData includes: { form, step2Form, vipData, nonFlyingGuestData, memberData, flightDetails }
   // flightDetails is the looked-up origin/destination from the flight
-  // database (e.g. { origin: 'Hong Kong (HKG)', destination: 'London
-  // Heathrow (LHR)' }). Optional because the figma code base's onSubmit
-  // signature doesn't include it; the parent's container ignores it
-  // when not provided.
+  // database (e.g. { origin: 'HKG', destination: 'LHR' }). Optional
+  // because the figma code base's onSubmit signature doesn't include it;
+  // the parent's container ignores it when not provided.
   onSubmit?: (formData: {
     form: Record<string, unknown>;
     step2Form: Record<string, unknown>;
@@ -673,14 +674,15 @@ interface NonFlyingGuest {
 }
 
 const flightDatabase: { [key: string]: { origin: string; destination: string; arrivalTime: string } } = {
-  'CX888': { origin: 'Hong Kong (HKG)', destination: 'London Heathrow (LHR)', arrivalTime: '06:30' },
-  'CX250': { origin: 'Tokyo Narita (NRT)', destination: 'Hong Kong (HKG)', arrivalTime: '14:15' },
-  'CX505': { origin: 'Singapore (SIN)', destination: 'Hong Kong (HKG)', arrivalTime: '21:45' },
-  'CX270': { origin: 'Seoul Incheon (ICN)', destination: 'Hong Kong (HKG)', arrivalTime: '08:30' },
-  'CX251': { origin: 'New York JFK (JFK)', destination: 'Hong Kong (HKG)', arrivalTime: '07:00' },
-  'CX872': { origin: 'San Francisco (SFO)', destination: 'Hong Kong (HKG)', arrivalTime: '16:25' },
-  'CX420': { origin: 'Bangkok (BKK)', destination: 'Hong Kong (HKG)', arrivalTime: '19:10' },
-  'CX715': { origin: 'Sydney (SYD)', destination: 'Hong Kong (HKG)', arrivalTime: '05:45' },
+  // Values are IATA codes (typeahead stores codes; labels come from airports.ts).
+  'CX888': { origin: 'HKG', destination: 'LHR', arrivalTime: '06:30' },
+  'CX250': { origin: 'NRT', destination: 'HKG', arrivalTime: '14:15' },
+  'CX505': { origin: 'SIN', destination: 'HKG', arrivalTime: '21:45' },
+  'CX270': { origin: 'ICN', destination: 'HKG', arrivalTime: '08:30' },
+  'CX251': { origin: 'JFK', destination: 'HKG', arrivalTime: '07:00' },
+  'CX872': { origin: 'SFO', destination: 'HKG', arrivalTime: '16:25' },
+  'CX420': { origin: 'BKK', destination: 'HKG', arrivalTime: '19:10' },
+  'CX715': { origin: 'SYD', destination: 'HKG', arrivalTime: '05:45' },
 };
 
 // ── Price breakdown helper (R6.2.104, 2026-07-04, Sky) ───────────────────────
@@ -1876,6 +1878,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 // ── Main component ───────────────────────────────────────────────────────────
 export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot }: NewBookingProps) {
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
+  const { glassStyle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const prefillMember = prefillMemberProp ?? (location.state?.prefillMember ?? null);
@@ -4109,7 +4112,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             />
             <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-              <ReviewField label="Origin" value={form.origin || '—'} />
+              <ReviewField label="Origin" value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
             )}
             <ReviewField label="Flight Class" value={form.flightClass} />
             <ReviewField label="Flight Type" value={form.flightType} />
@@ -4133,7 +4136,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
                 />
                 <ReviewField label="Flight Number" value={leg2FlightNo || '—'} />
-                <ReviewField label="Destination" value={leg2Destination || '—'} />
+                <ReviewField label="Destination" value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
                 <ReviewField label="Flight Class" value={leg2FlightClass || '—'} />
               </ReviewGrid>
             </div>
@@ -5268,7 +5271,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="font-medium" style={textPrimary}>Use free Lounge Deluxe entry on this booking</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
                     For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries
-                    (or Unlimited). Turn off to keep the free entry and pay the normal Lounge Deluxe price.
+                    (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit
+                    (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.
                     {!canUseFreeLd ? ' You have no free Lounge Deluxe entries left.' : ''}
                   </span>
                 </span>
@@ -5289,8 +5293,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="font-medium" style={textPrimary}>Use free Premiere Suite upgrade on this booking</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
                     For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry
-                    together. If you turn this off (or have no free upgrade left), you still get the membership reduced rate
-                    of about 40% off the Premiere Suite base price.
+                    together. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite
+                    base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry).
+                    If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.
                     {!canUseFreePs ? ' Free Premiere Suite upgrade is not available right now (no free upgrade and/or no free Lounge Deluxe entry left).' : ''}
                   </span>
                 </span>
@@ -5577,7 +5582,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     Arrival and Transit (the form's leg 1 = inbound to
                     HKG). Departure mode omits Origin (no inbound). */}
                 {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-                  <SummaryRow label="Origin" value={form.origin || '—'} />
+                  <SummaryRow label="Origin" value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
                 )}
                 {/* 2026-06-08 (round 6.2.7): mode-aware — "Departure Date"
                     when flightType === 'Departure', "Arrival Date" otherwise.
@@ -5609,7 +5614,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
                     />
                     <SummaryRow label="Leg 2 Flight Number" value={leg2FlightNo || '—'} />
-                    <SummaryRow label="Leg 2 Destination" value={leg2Destination || '—'} />
+                    <SummaryRow label="Leg 2 Destination" value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
                     <SummaryRow label="Leg 2 Flight Class" value={leg2FlightClass || '—'} />
                   </>
                 )}
@@ -5924,19 +5929,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 from HKG to a destination). */}
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
               <div className="mb-4">
-                <label className={labelClass}>Origin *</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={form.origin}
-                    onChange={(e) => setForm((p) => ({ ...p, origin: e.target.value }))}
-                    required={form.flightType === 'Arrival'}
-                    placeholder="e.g. Hong Kong (HKG)"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10'}
-                  />
-                </div>
+                <label className={labelClass} htmlFor="new-booking-origin">Origin *</label>
+                <AirportTypeahead
+                  id="new-booking-origin"
+                  name="origin"
+                  value={form.origin}
+                  onChange={(code) => {
+                    setForm((p) => ({ ...p, origin: code }));
+                    setFlightDetails((fd) => (fd ? { ...fd, origin: code } : fd));
+                  }}
+                  required={form.flightType === 'Arrival' || form.flightType === 'Transit'}
+                  placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                  style={fieldStyle}
+                  className={fieldClass + ' pl-10 pr-8'}
+                  listStyle={glassStyle}
+                  highlightClassName={isDark ? 'bg-white/10' : 'bg-black/5'}
+                  mutedClassName={isDark ? 'text-gray-400' : 'text-[rgb(160,159,148)]'}
+                  data-testid="new-booking-origin"
+                />
               </div>
             )}
 
@@ -5958,8 +5968,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div
                   className={`grid gap-1 text-xs ${form.flightType === 'Departure' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}
                 >
-                  <div><span style={textMuted}>Origin: </span><span style={textPrimary}>{flightDetails.origin}</span></div>
-                  <div><span style={textMuted}>Destination: </span><span style={textPrimary}>{flightDetails.destination}</span></div>
+                  <div><span style={textMuted}>Origin: </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.origin)}</span></div>
+                  <div><span style={textMuted}>Destination: </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.destination)}</span></div>
                   {form.flightType !== 'Departure' && (
                     <div>
                       <span style={textMuted}>Arrival Time: </span>
@@ -5977,19 +5987,24 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 its own Destination field for the outbound leg. */}
             {form.flightType === 'Departure' && (
               <div className="mb-4">
-                <label className={labelClass}>Destination *</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={form.destination}
-                    onChange={(e) => setForm((p) => ({ ...p, destination: e.target.value }))}
-                    required
-                    placeholder="e.g. London Heathrow (LHR)"
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10'}
-                  />
-                </div>
+                <label className={labelClass} htmlFor="new-booking-destination">Destination *</label>
+                <AirportTypeahead
+                  id="new-booking-destination"
+                  name="destination"
+                  value={form.destination}
+                  onChange={(code) => {
+                    setForm((p) => ({ ...p, destination: code }));
+                    setFlightDetails((fd) => (fd ? { ...fd, destination: code } : fd));
+                  }}
+                  required
+                  placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                  style={fieldStyle}
+                  className={fieldClass + ' pl-10 pr-8'}
+                  listStyle={glassStyle}
+                  highlightClassName={isDark ? 'bg-white/10' : 'bg-black/5'}
+                  mutedClassName={isDark ? 'text-gray-400' : 'text-[rgb(160,159,148)]'}
+                  data-testid="new-booking-destination"
+                />
               </div>
             )}
 
@@ -6165,19 +6180,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     field today — it is captured for display / future
                     pricing use. */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Destination <span>*</span></label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={leg2Destination}
-                      onChange={(e) => setLeg2Destination(e.target.value)}
-                      placeholder="e.g. London Heathrow (LHR)"
-                      style={fieldStyle}
-                      className={fieldClass + ' pl-10'}
-                      data-testid="leg2-destination"
-                    />
-                  </div>
+                  <label className={labelClass} htmlFor="leg2-destination">Leg 2 Destination <span>*</span></label>
+                  <AirportTypeahead
+                    id="leg2-destination"
+                    name="leg2Destination"
+                    value={leg2Destination}
+                    onChange={setLeg2Destination}
+                    required
+                    placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10 pr-8'}
+                    listStyle={glassStyle}
+                    highlightClassName={isDark ? 'bg-white/10' : 'bg-black/5'}
+                    mutedClassName={isDark ? 'text-gray-400' : 'text-[rgb(160,159,148)]'}
+                    data-testid="leg2-destination"
+                  />
                 </div>
 
                 {/* Leg 2 Flight Class — full width. */}
