@@ -85,6 +85,7 @@ import {
 } from '../../../../../utils/bookingShortNotice';
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
 import { formatAirportDisplay } from '../../../../../utils/airports';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -424,7 +425,7 @@ function Time5MinSelect({
       data-hkial-time-5min-select
     >
       <select
-        aria-label="Hour"
+        aria-label={m('Hour')}
         value={safeH}
         onChange={(e) => onChange(`${e.target.value}:${safeM || '00'}`)}
         required={required}
@@ -437,7 +438,7 @@ function Time5MinSelect({
       </select>
       <span className="opacity-60 text-sm select-none">:</span>
       <select
-        aria-label="Minute"
+        aria-label={m('Minute')}
         value={safeM}
         onChange={(e) => onChange(`${safeH || '00'}:${e.target.value}`)}
         required={required}
@@ -1126,7 +1127,7 @@ function ToggleCard({
           </div>
         </div>
         <div className="flex items-center gap-2 ml-4">
-          {checked && <span className="text-sm" style={textPrimary}>Yes</span>}
+          {checked && <span className="text-sm" style={textPrimary}>{m('Yes')}</span>}
           <button
             type="button"
             onClick={() => onChange(!checked)}
@@ -1325,7 +1326,7 @@ function ContactNoSplit({
           tabIndex={-1}
           onClick={() => setRegionOpen((o) => !o)}
           className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-          aria-label="Toggle region code list"
+          aria-label={m('Toggle region code list')}
         >
           <ChevronDown className={`w-4 h-4 transition-transform ${regionOpen ? 'rotate-180' : ''}`} />
         </button>
@@ -1336,7 +1337,7 @@ function ContactNoSplit({
             style={glassStyle}
           >
             {filteredRegions.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-gray-400">No matches</li>
+              <li className="px-3 py-2 text-sm text-gray-400">{m('No matches')}</li>
             ) : (
               filteredRegions.map((r: { code: string; name: string }, idx: number) => {
                 const selected = regionCode === r.code;
@@ -1492,14 +1493,14 @@ function GuestNationalityTypeahead({
         required={required && !isValidCountryCode(value)}
         style={fieldStyle}
         className={fieldClass + ' pl-10 pr-8'}
-        placeholder="Search nationality (e.g. Hong Kong)"
+        placeholder={m('Search nationality (e.g. Hong Kong)')}
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setOpen((o) => !o)}
         className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
-        aria-label="Toggle nationality list"
+        aria-label={m('Toggle nationality list')}
       >
         <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -1510,7 +1511,7 @@ function GuestNationalityTypeahead({
           style={glassStyle}
         >
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-gray-400">No matches</li>
+            <li className="px-3 py-2 text-sm text-gray-400">{m('No matches')}</li>
           ) : (
             filtered.map((c, idx) => {
               const selected = value?.toUpperCase() === c.code;
@@ -1679,8 +1680,8 @@ function QRScannerModal({
               <ScanLine className="w-4 h-4 text-yellow-400" />
             </div>
             <div>
-              <div className="text-white text-sm">Scan Coupon QR Code</div>
-              <div className="text-gray-400 text-xs">Point camera at your coupon</div>
+              <div className="text-white text-sm">{m('Scan Coupon QR Code')}</div>
+              <div className="text-gray-400 text-xs">{m('Point camera at your coupon')}</div>
             </div>
           </div>
           <button
@@ -1706,7 +1707,7 @@ function QRScannerModal({
             >
               <CheckCircle className="w-16 h-16" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
               <div>
-                <div className="text-sm mb-2" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>QR Code Detected!</div>
+                <div className="text-sm mb-2" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{m('QR Code Detected!')}</div>
                 <div
                   className="text-sm tracking-widest px-4 py-2 rounded-lg"
                   style={{ 
@@ -1717,7 +1718,7 @@ function QRScannerModal({
                 >
                   {detected}
                 </div>
-                <div className="text-xs mt-2" style={textMuted}>Filling in promotion code…</div>
+                <div className="text-xs mt-2" style={textMuted}>{m('Filling in promotion code…')}</div>
               </div>
             </div>
           ) : (
@@ -1765,7 +1766,7 @@ function QRScannerModal({
             style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
           >
             <p className="text-gray-500 text-xs">
-              Align the QR code within the frame — it will be detected automatically
+              {m('Align the QR code within the frame — it will be detected automatically')}
             </p>
           </div>
         )}
@@ -1805,10 +1806,10 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 2,
     nonFlyingGuests: 0,
     passengers: [
-      { title: 'Mr',  firstName: 'John',  lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
-      { title: 'Mrs', firstName: 'Jane',  lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' },
-      { title: 'Ms',  firstName: 'Emma',  lastName: 'Johnson', travelDoc: 'P11223344', membership: 'HKIAL003' },
-      { title: 'Mr',  firstName: 'David', lastName: 'Chen',  travelDoc: 'P55667788', membership: 'HKIAL004' },
+      { title: m('Mr'),  firstName: 'John',  lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
+      { title: m('Mrs'), firstName: 'Jane',  lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' },
+      { title: m('Ms'),  firstName: 'Emma',  lastName: 'Johnson', travelDoc: 'P11223344', membership: 'HKIAL003' },
+      { title: m('Mr'),  firstName: 'David', lastName: 'Chen',  travelDoc: 'P55667788', membership: 'HKIAL004' },
     ],
     contactPerson: { name: 'John Smith', email: 'john.smith@example.com', phone: '+852 9876 5432' },
   },
@@ -1828,8 +1829,8 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 2,
     nonFlyingGuests: 1,
     passengers: [
-      { title: 'Ms', firstName: 'Sarah', lastName: 'Chen',  travelDoc: 'P11223344', membership: 'HKIAL003' },
-      { title: 'Mr', firstName: 'David', lastName: 'Wong',  travelDoc: 'P99887766', membership: 'HKIAL004' },
+      { title: m('Ms'), firstName: 'Sarah', lastName: 'Chen',  travelDoc: 'P11223344', membership: 'HKIAL003' },
+      { title: m('Mr'), firstName: 'David', lastName: 'Wong',  travelDoc: 'P99887766', membership: 'HKIAL004' },
     ],
     contactPerson: { name: 'Sarah Chen', email: 'sarah.chen@example.com', phone: '+852 9123 4567' },
   },
@@ -1849,7 +1850,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 1,
     nonFlyingGuests: 2,
     passengers: [
-      { title: 'Mr', firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' },
+      { title: m('Mr'), firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' },
     ],
     contactPerson: { name: 'Michael Lee', email: 'michael.lee@example.com', phone: '+852 9222 3344' },
   },
@@ -1869,7 +1870,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 1,
     nonFlyingGuests: 0,
     passengers: [
-      { title: 'Mrs', firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' },
+      { title: m('Mrs'), firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' },
     ],
     contactPerson: { name: 'Emily Chan', email: 'emily.chan@example.com', phone: '+852 9555 6677' },
   },
@@ -1877,6 +1878,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 
 // ── Main component ───────────────────────────────────────────────────────────
 export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot }: NewBookingProps) {
+  const m = useMsg();
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const { glassStyle } = useTheme();
   const navigate = useNavigate();
@@ -3412,10 +3414,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold mb-1" style={textPrimary}>
-              Short-Notice Booking
+              {m('Short-Notice Booking')}
             </h3>
             <p className="text-sm" style={textSecondary}>
-              The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.
+              {m('The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.')}
             </p>
           </div>
         </div>
@@ -3426,7 +3428,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             className="py-2.5 px-4 rounded-xl text-sm transition-all hover:opacity-80"
             style={{ ...secondaryBtnStyle, color: colors.text }}
           >
-            Cancel
+            {m('Cancel')}
           </button>
           <button
             type="button"
@@ -3471,7 +3473,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             className="py-2.5 px-4 rounded-xl text-white text-sm transition-all hover:opacity-90"
             style={{ background: 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)' }}
           >
-            Confirm Anyway
+            {m('Confirm Anyway')}
           </button>
         </div>
       </div>
@@ -3500,12 +3502,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     };
 
     const STEPS = [
-      { label: 'Flight Info',      idx: 1 },
-      { label: 'Suite & Guests',   idx: 2 },
-      { label: 'Add-on Services',  idx: 3 },
-      { label: 'Other Info',       idx: 4 },
-      { label: 'Final Review',     idx: 5 },
-      { label: 'Confirmation',     idx: 6 },
+      { label: m('Flight Info'),      idx: 1 },
+      { label: m('Suite & Guests'),   idx: 2 },
+      { label: m('Add-on Services'),  idx: 3 },
+      { label: m('Other Info'),       idx: 4 },
+      { label: m('Final Review'),     idx: 5 },
+      { label: m('Confirmation'),     idx: 6 },
     ];
     const stepsLeft = Math.max(0, 6 - effectiveStep);
     const progressCaption = effectiveStep >= 6
@@ -3691,7 +3693,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
         <div className="px-5 py-3 flex items-center justify-between" style={summaryBoxGoldHeaderBg}>
-          <span className="text-sm" style={textPrimary}>Booking Summary</span>
+          <span className="text-sm" style={textPrimary}>{m('Booking Summary')}</span>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" style={{ color: accentColor }} />
             <span className="text-xs font-medium" style={{ color: accentColor }}>{totalGuests} guests</span>
@@ -3723,7 +3725,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between mt-2 pt-2"
                   style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m('Premiere Suite Subtotal')}</span>
                   <span className="text-xs font-medium" style={textPrimary}>HK${psSectionPrice.toLocaleString()}</span>
                 </div>
               )}
@@ -3732,13 +3734,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {hasLounge && (
             <div>
               {form.premiereSuites > 0 && (
-                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: sectionLabel }}>Lounge Deluxe</div>
+                <div className="text-xs uppercase tracking-wider mb-2" style={{ color: sectionLabel }}>{m('Lounge Deluxe')}</div>
               )}
               <div className="rounded-lg px-3 py-2.5 flex items-center justify-between" style={loungeTile}>
                 <div className="flex items-center gap-2">
                   <Hotel className="w-3.5 h-3.5" style={{ color: iconMuted }} />
                   <div>
-                    <div className="text-xs font-semibold" style={textPrimary}>Lounge Deluxe</div>
+                    <div className="text-xs font-semibold" style={textPrimary}>{m('Lounge Deluxe')}</div>
                     <div className="text-xs" style={{ color: colors.textMuted }}>{loungeLabel}</div>
                   </div>
                 </div>
@@ -3749,7 +3751,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between mt-2 pt-2"
                   style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.05)' }}
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m('Lounge Deluxe Subtotal')}</span>
                   <span className="text-xs font-medium" style={textPrimary}>HK${ldSectionPrice.toLocaleString()}</span>
                 </div>
               )}
@@ -3805,7 +3807,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
               data-testid="booking-summary-addon-services"
             >
-              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>Add-on Services</div>
+              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>{m('Add-on Services')}</div>
               {/* Render every price-preview addon line (Lane A + Lane B)
                   so the list matches Add-on Services Subtotal. */}
               {addonLines.map((line, idx) => (
@@ -3829,7 +3831,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 className="flex items-center justify-between pt-1.5 mt-1"
                 style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
               >
-                <span className="text-xs font-medium" style={textPrimary}>Add-on Services Subtotal</span>
+                <span className="text-xs font-medium" style={textPrimary}>{m('Add-on Services Subtotal')}</span>
                 <span className="text-sm font-semibold" style={textPrimary}>HK${addonsAmtFinal.toLocaleString()}</span>
               </div>
               {/* R6.2.100d (2026-07-02, Sky): TA "Agency saving"
@@ -3860,7 +3862,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 </span>
               </div>
               <div className="flex items-center justify-between pt-1">
-                <span className="text-sm font-semibold" style={textPrimary}>Total Charge</span>
+                <span className="text-sm font-semibold" style={textPrimary}>{m('Total Charge')}</span>
                 <span className="text-base font-semibold" style={textPrimary}>HK${finalTotal.toLocaleString()}</span>
               </div>
             </div>
@@ -3892,7 +3894,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] flex items-center justify-center">
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-3xl mb-4" style={textPrimary}>Booking Request Submitted</h2>
+          <h2 className="text-3xl mb-4" style={textPrimary}>{m('Booking Request Submitted')}</h2>
           
           {/* Booking Number Display */}
           <div 
@@ -3904,7 +3906,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               border: isDark ? '1px solid rgba(220, 181, 21, 0.4)' : '1px solid rgba(220, 181, 21, 0.5)',
             }}
           >
-            <div className="text-xs mb-1" style={textMuted}>Booking Reference</div>
+            <div className="text-xs mb-1" style={textMuted}>{m('Booking Reference')}</div>
             <div 
               className="text-2xl font-mono tracking-wider"
               style={{
@@ -3924,7 +3926,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </p>
           {step2Form.promotionCode && (
             <p className="text-yellow-400 text-sm mb-4">
-              Promotion / Redemption code <strong>{step2Form.promotionCode}</strong> applied.
+              {m('Promotion / Redemption code')} <strong>{step2Form.promotionCode}</strong> applied.
             </p>
           )}
           {/* 2026-06-08 (Q6C + Q7A-light) — Booking summary with guest counts.
@@ -3958,7 +3960,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             >
               <div className="flex items-center gap-2 mb-2">
                 <BadgeCheck className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                <span className="text-sm" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>Travel Agency Billing Confirmed</span>
+                <span className="text-sm" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{m('Travel Agency Billing Confirmed')}</span>
               </div>
               <div className="text-xs space-y-1" style={textMuted}>
                 <div>• Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span></div>
@@ -3967,7 +3969,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             </div>
           )}
-          <p className="text-sm" style={textMuted}>Redirecting to My Bookings…</p>
+          <p className="text-sm" style={textMuted}>{m('Redirecting to My Bookings…')}</p>
         </div>
       </div>
       {stepLoadingOverlay}
@@ -4057,10 +4059,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         {/* Header */}
         <div>
           <h1 className="text-xl" style={gradientText}>
-            Step 5: Final Review
+            {m('Step 5: Final Review')}
           </h1>
           <p className="text-xs mt-1" style={textMuted}>
-            Please review your booking details before confirmation
+            {m('Please review your booking details before confirmation')}
           </p>
         </div>
 
@@ -4095,7 +4097,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <ReviewSection
           icon={<Plane className="w-4 h-4 text-white" />}
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-          title="Flight Information"
+          title={m('Flight Information')}
         >
           {/* 2026-06-08 (round 6.2.7): labels are mode-aware. In
               Departure mode the relevant date/time is the outbound
@@ -4136,7 +4138,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {form.flightType === 'Transit' && (
             <div className="mt-4">
               <div className="mb-2 text-xs uppercase tracking-wider" style={{ color: sectionLabelColor }}>
-                Leg 2 (Outbound)
+                {m('Leg 2 (Outbound)')}
               </div>
               <ReviewGrid>
                 <ReviewField
@@ -4159,7 +4161,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <ReviewSection
           icon={<Building className="w-4 h-4 text-white" />}
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-          title="Accommodation"
+          title={m('Accommodation')}
         >
           <div className="space-y-4">
             {form.premiereSuites > 0 && (
@@ -4190,13 +4192,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {hasLoungeGuests && (
               <div>
                 {form.premiereSuites > 0 && (
-                  <div className="text-xs uppercase tracking-wider mb-2.5" style={{ color: sectionLabelColor }}>Lounge Deluxe</div>
+                  <div className="text-xs uppercase tracking-wider mb-2.5" style={{ color: sectionLabelColor }}>{m('Lounge Deluxe')}</div>
                 )}
                 <div className="rounded-lg p-3 flex items-center justify-between" style={loungeTileStyle}>
                   <div className="flex items-center gap-2.5">
                     <Hotel className="w-4 h-4" style={{ color: loungeIconColor }} />
                     <div>
-                      <div className="text-xs font-semibold" style={textPrimary}>Lounge Deluxe</div>
+                      <div className="text-xs font-semibold" style={textPrimary}>{m('Lounge Deluxe')}</div>
                       <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>{loungeOccupancyLabel}</div>
                     </div>
                   </div>
@@ -4304,7 +4306,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewSection
             icon={<Zap className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Add-on Services"
+            title={m('Add-on Services')}
           >
             <div className="space-y-3">
               {step2Form.loungeExtension > 0 && (
@@ -4316,7 +4318,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="flex items-start gap-2">
                       <Clock className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="text-xs" style={textMuted}>Extension of Stay in VIP Lounge</div>
+                        <div className="text-xs" style={textMuted}>{m('Extension of Stay in VIP Lounge')}</div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
                           {step2Form.loungeExtension} hour
                           {step2Form.loungeExtension !== 1 ? 's' : ''}
@@ -4344,7 +4346,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <Car className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <div className="text-xs" style={textMuted}>
-                          Airport Limousine Transfer Service
+                          {m('Airport Limousine Transfer Service')}
                         </div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
                           {step2Form.limousineService} vehicle
@@ -4364,13 +4366,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                             ))}
                             {form.flightType === 'Departure' && step2Form.limousinePickupTime && (
                               <div className="text-xs" style={textMuted}>
-                                <span style={textMuted}>Pick-up Time: </span>
+                                <span style={textMuted}>{m('Pick-up Time:')} </span>
                                 {step2Form.limousinePickupTime}
                               </div>
                             )}
                             {step2Form.limousineStops.length > 0 && (
                               <div className="mt-1.5 pt-1.5" style={{ borderTop: borderSubtle }}>
-                                <div className="text-xs mb-1" style={textMuted}>Additional Stops:</div>
+                                <div className="text-xs mb-1" style={textMuted}>{m('Additional Stops:')}</div>
                                 {step2Form.limousineStops.map((stop, idx) => (
                                   stop && (
                                     <div key={idx} className="text-xs" style={textMuted}>
@@ -4403,7 +4405,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="flex items-start gap-2">
                       <Accessibility className="w-4 h-4 text-pink-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="text-xs" style={textMuted}>Wheelchair Assistance</div>
+                        <div className="text-xs" style={textMuted}>{m('Wheelchair Assistance')}</div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
                           {step2Form.wheelchairService} wheelchair
                           {step2Form.wheelchairService !== 1 ? 's' : ''}
@@ -4463,7 +4465,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 style={addonTotalBg}
               >
                 <div className="flex-1">
-                  <span className="text-sm" style={textPrimary}>Total Add-on Services</span>
+                  <span className="text-sm" style={textPrimary}>{m('Total Add-on Services')}</span>
                   {isTravelAgency && addonSaving > 0 && (
                     <div className="text-xs text-green-400 mt-0.5">
                       You save HK${addonSaving.toLocaleString()} with TA pre-negotiated rates
@@ -4491,7 +4493,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewSection
             icon={<BadgeCheck className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Travel Agency Pricing & Payment"
+            title={m('Travel Agency Pricing & Payment')}
           >
             <ReviewGrid>
               <ReviewField label="Payment Method" value={TA_PAYMENT_METHOD} />
@@ -4507,7 +4509,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewSection
             icon={<CreditCard className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Payment Method"
+            title={m('Payment Method')}
           >
             <ReviewField label="Payment" value="Credit Card" />
           </ReviewSection>
@@ -4517,7 +4519,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <ReviewSection
           icon={<Package className="w-4 h-4 text-white" />}
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-          title="Other Information"
+          title={m('Other Information')}
         >
           <ReviewGrid>
             <ReviewField
@@ -4552,7 +4554,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewSection
             icon={<BadgeCheck className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Membership Benefits"
+            title={m('Membership Benefits')}
           >
             <ReviewGrid>
               <ReviewField
@@ -4572,7 +4574,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewSection
             icon={<Tag className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title="Promotion / Redemption Code"
+            title={m('Promotion / Redemption Code')}
           >
             <div className="text-sm" style={textPrimary}>{step2Form.promotionCode}</div>
           </ReviewSection>
@@ -4582,7 +4584,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         <ReviewSection
           icon={<Phone className="w-4 h-4 text-white" />}
           iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-          title="Contact Person"
+          title={m('Contact Person')}
         >
           <ReviewGrid>
             <ReviewField label="Name" value={step2Form.contactName || '—'} />
@@ -4591,7 +4593,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </ReviewGrid>
           {step2Form.bookingMemo && (
             <div className="mt-4 pt-4" style={{ borderTop: borderSubtle }}>
-              <div className="text-xs mb-0.5" style={textMuted}>Booking Memo</div>
+              <div className="text-xs mb-0.5" style={textMuted}>{m('Booking Memo')}</div>
               <div className="text-sm" style={{ lineHeight: '1.625', ...textPrimary }}>{step2Form.bookingMemo}</div>
             </div>
           )}
@@ -4600,7 +4602,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         {/* ── Booking Summary ────────────────────────────────────────────── */}
         <BookingSummaryCard />
         <p className="text-xs px-1" style={{ color: colors.textMuted }}>
-          Please review all information carefully before confirming your booking.
+          {m('Please review all information carefully before confirming your booking.')}
         </p>
 
         {/* ── Terms & Conditions ─────────────────────────────────────────── */}
@@ -4629,7 +4631,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             >
               <FileText className="w-4 h-4" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }} />
             </div>
-            <span className="text-sm font-medium" style={textPrimary}>Terms & Conditions</span>
+            <span className="text-sm font-medium" style={textPrimary}>{m('Terms & Conditions')}</span>
           </div>
           <div className="px-5 py-4">
             <div className="space-y-3 mb-4">
@@ -4639,7 +4641,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  Lounge reservation shall be made <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 48 hours in advance</span>.
+                  {m('Lounge reservation shall be made')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 48 hours in advance</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4648,7 +4650,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  Payment needs to be settled <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 12 hours prior to the flight time</span>, otherwise it will be treated as cancelled.
+                  {m('Payment needs to be settled')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 12 hours prior to the flight time</span>, otherwise it will be treated as cancelled.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4657,7 +4659,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>No ad-hoc amendment</span> of booking, and booking is <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>non-transferable</span>.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc amendment')}</span> of booking, and booking is <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>non-transferable</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4666,7 +4668,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>No refund</span> if cancellation is made <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>less than 48 hours</span>.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No refund')}</span> if cancellation is made <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>less than 48 hours</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4675,7 +4677,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>No ad-hoc guests</span> will be accepted.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc guests')}</span> will be accepted.
                 </p>
               </div>
             </div>
@@ -4713,7 +4715,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
                 <span className="text-sm leading-relaxed" style={textPrimary}>
-                  I have read and agree to the Terms & Conditions stated above
+                  {m('I have read and agree to the Terms & Conditions stated above')}
                 </span>
               </label>
             </div>
@@ -4730,7 +4732,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               style={backBtnStyle}
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Edit
+              {m('Back to Edit')}
             </button>
             <button
               type="button"
@@ -4742,12 +4744,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               {isSubmitting ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
+                  {m('Processing...')}
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Confirm Booking Request
+                  {m('Confirm Booking Request')}
                 </>
               )}
             </button>
@@ -4762,7 +4764,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             >
               <Info className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }} />
               <p className="text-xs text-center" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
-                Please accept the Terms & Conditions to proceed with your booking
+                {m('Please accept the Terms & Conditions to proceed with your booking')}
               </p>
             </div>
           )}
@@ -4794,10 +4796,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 backgroundClip: 'text',
               }}
             >
-              Step 3: Add-on Services
+              {m('Step 3: Add-on Services')}
             </h1>
             <p className="text-xs mt-1" style={textMuted}>
-              Enhance your lounge experience with optional services
+              {m('Enhance your lounge experience with optional services')}
             </p>
           </div>
 
@@ -4839,8 +4841,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {/* ── Add-on Services ─────────────────────────────────────────── */}
           <div className="p-5" style={card}>
             <SectionHeader
-              title="Add-on Services"
-              subtitle="Enhance your experience with optional services"
+              title={m('Add-on Services')}
+              subtitle={m('Enhance your experience with optional services')}
             />
 
             {/* Lounge Extension */}
@@ -4848,7 +4850,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <StepperCard
               icon={<Clock className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Lounge Extension"
+              title={m('Lounge Extension')}
               // R6.2.100c (2026-07-02) — show the per-product
               // breakdown for mixed bookings (1 PS + 1 LD
               // → "HK$4,000 per hour · HK$3,000 PS + HK$1,000 LD")
@@ -4875,7 +4877,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <StepperCard
               icon={<Car className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Limousine Service"
+              title={m('Limousine Service')}
               subtitle={'HK$1,500 per vehicle'}
               value={step2Form.limousineService}
               onDecrement={() => updateStep2Count('limousineService', -1)}
@@ -4908,7 +4910,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         value={address}
                         onChange={(e) => handleDestinationAddressChange(index, e.target.value)}
                         required
-                        placeholder="Enter destination or pick-up point"
+                        placeholder={m('Enter destination or pick-up point')}
                         style={fieldStyle}
                         className={fieldClass + ' pl-10'}
                       />
@@ -4917,7 +4919,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 ))}
                 {form.flightType === 'Departure' && (
                   <div>
-                    <label className={labelClass}>Pick-up Time *</label>
+                    <label className={labelClass}>{m('Pick-up Time *')}</label>
                     <div className="relative">
                       <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
@@ -4935,7 +4937,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div key={'stop-' + index}>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className={labelClass}>Additional Stop #{index + 1}</label>
-                      <button type="button" onClick={() => removeStop(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">Remove</button>
+                      <button type="button" onClick={() => removeStop(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">{m('Remove')}</button>
                     </div>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -4943,7 +4945,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         type="text"
                         value={stop}
                         onChange={(e) => handleStopChange(index, e.target.value)}
-                        placeholder="Enter stop address"
+                        placeholder={m('Enter stop address')}
                         style={fieldStyle}
                         className={fieldClass + ' pl-10'}
                       />
@@ -4961,7 +4963,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   }}
                 >
                   <Plus className="w-4 h-4" />
-                  Add Stop
+                  {m('Add Stop')}
                 </button>
               </div>
             )}
@@ -4971,7 +4973,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <StepperCard
               icon={<Accessibility className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Wheelchair Assistance"
+              title={m('Wheelchair Assistance')}
               subtitle={'HK$300 per service'}
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
@@ -5009,8 +5011,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <ToggleCard
               icon={<Shield className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Security Escort Service"
-              subtitle="Personal security personnel"
+              title={m('Security Escort Service')}
+              subtitle={m('Personal security personnel')}
               checked={step2Form.securityService}
               onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
             />
@@ -5040,14 +5042,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               style={backBtnStyle}
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              {m('Back')}
             </button>
             <button
               type="submit"
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              Next: Other Information
+              {m('Next: Other Information')}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -5091,10 +5093,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 backgroundClip: 'text',
               }}
             >
-              Step 4: Other Information &amp; Checkout
+              {m('Step 4: Other Information &amp; Checkout')}
             </h1>
             <p className="text-xs mt-1" style={textMuted}>
-              Add luggage info, membership vouchers, and contact details
+              {m('Add luggage info, membership vouchers, and contact details')}
             </p>
           </div>
 
@@ -5129,8 +5131,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {/* ── Other Information ───────────────────────────────────────── */}
           <div className="p-5" style={card}>
             <SectionHeader
-              title="Other Information"
-              subtitle="Additional travel details"
+              title={m('Other Information')}
+              subtitle={m('Additional travel details')}
             />
 
             {/* Luggage Count */}
@@ -5138,8 +5140,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <StepperCard
               icon={<Package className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Luggage Count"
-              subtitle="Number of luggage pieces"
+              title={m('Luggage Count')}
+              subtitle={m('Number of luggage pieces')}
               value={step2Form.luggageCount}
               onDecrement={() => updateStep2Count('luggageCount', -1)}
               onIncrement={() => updateStep2Count('luggageCount', 1)}
@@ -5150,8 +5152,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <StepperCard
               icon={<Car className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title="Private Transport"
-              subtitle="Arriving with own vehicle"
+              title={m('Private Transport')}
+              subtitle={m('Arriving with own vehicle')}
               value={step2Form.privateTransport}
               onDecrement={() => updateStep2Count('privateTransport', -1)}
               onIncrement={() => updateStep2Count('privateTransport', 1)}
@@ -5174,10 +5176,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       )}
                       {/* Driver Information */}
                       <div>
-                        <div className="text-xs mb-3" style={textPrimary}>Driver Information</div>
+                        <div className="text-xs mb-3" style={textPrimary}>{m('Driver Information')}</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
-                            <label className={labelClass}>Driver Name *</label>
+                            <label className={labelClass}>{m('Driver Name *')}</label>
                             <div className="relative">
                               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
@@ -5185,14 +5187,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 value={vehicle.driverName}
                                 onChange={(e) => updateVehicle('driverName', e.target.value)}
                                 required
-                                placeholder="Driver name"
+                                placeholder={m('Driver name')}
                                 style={fieldStyle}
                                 className={fieldClass + ' pl-10'}
                               />
                             </div>
                           </div>
                           <div>
-                            <label className={labelClass}>Driver Contact *</label>
+                            <label className={labelClass}>{m('Driver Contact *')}</label>
                             <div className="relative">
                               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
@@ -5200,7 +5202,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 value={vehicle.driverContact}
                                 onChange={(e) => updateVehicle('driverContact', e.target.value)}
                                 required
-                                placeholder="+852 XXXX XXXX"
+                                placeholder={m('+852 XXXX XXXX')}
                                 style={fieldStyle}
                                 className={fieldClass + ' pl-10'}
                               />
@@ -5210,10 +5212,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                       {/* Private Car */}
                       <div>
-                        <div className="text-xs mb-3" style={textPrimary}>Private Car</div>
+                        <div className="text-xs mb-3" style={textPrimary}>{m('Private Car')}</div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div>
-                            <label className={labelClass}>Car Plate No. *</label>
+                            <label className={labelClass}>{m('Car Plate No. *')}</label>
                             <div className="relative">
                               <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                               <input
@@ -5221,7 +5223,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 value={vehicle.carPlateNo}
                                 onChange={(e) => updateVehicle('carPlateNo', e.target.value)}
                                 required
-                                placeholder="e.g. HK1234"
+                                placeholder={m('e.g. HK1234')}
                                 style={fieldStyle}
                                 className={fieldClass + ' pl-10 uppercase'}
                               />
@@ -5245,7 +5247,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           >
             <div className="flex items-center gap-2 mb-1">
               <BadgeCheck className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
-              <span className="text-sm" style={textPrimary}>Your membership benefits for this booking</span>
+              <span className="text-sm" style={textPrimary}>{m('Your membership benefits for this booking')}</span>
             </div>
             <p className="text-xs mb-4" style={textMuted}>
               You can choose whether to use your free credits on this booking. Unchecking keeps the credit for later.
@@ -5254,13 +5256,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div className="rounded-lg px-3 py-2.5" style={{ background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.7)' }}>
-                <p className="text-xs mb-0.5" style={textMuted}>Free Lounge Deluxe entries</p>
+                <p className="text-xs mb-0.5" style={textMuted}>{m('Free Lounge Deluxe entries')}</p>
                 <p className="text-sm font-medium" style={textPrimary} data-testid="membership-ld-remaining">
                   {formatFreeCreditRemaining(freeLdRemaining)}
                 </p>
               </div>
               <div className="rounded-lg px-3 py-2.5" style={{ background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.7)' }}>
-                <p className="text-xs mb-0.5" style={textMuted}>Free Premiere Suite upgrades</p>
+                <p className="text-xs mb-0.5" style={textMuted}>{m('Free Premiere Suite upgrades')}</p>
                 <p className="text-sm font-medium" style={textPrimary} data-testid="membership-ps-remaining">
                   {formatFreeCreditRemaining(freePsRemaining)}
                 </p>
@@ -5280,7 +5282,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   onChange={(e) => setUseMembershipLdFree(e.target.checked)}
                 />
                 <span>
-                  <span className="font-medium" style={textPrimary}>Use free Lounge Deluxe entry on this booking</span>
+                  <span className="font-medium" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
                     For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries
                     (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit
@@ -5302,7 +5304,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   onChange={(e) => setUseMembershipPsFree(e.target.checked)}
                 />
                 <span>
-                  <span className="font-medium" style={textPrimary}>Use free Premiere Suite upgrade on this booking</span>
+                  <span className="font-medium" style={textPrimary}>{m('Use free Premiere Suite upgrade on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
                     For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry
                     together. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite
@@ -5327,15 +5329,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="p-5" style={card}>
               <div className="flex items-center gap-2 mb-1">
                 <Banknote className="w-4 h-4 text-green-400" />
-                <div className="text-sm" style={textPrimary}>Payment & Billing</div>
+                <div className="text-sm" style={textPrimary}>{m('Payment & Billing')}</div>
               </div>
               <div className="text-xs mb-4" style={textMuted}>
-                Pre-negotiated payment terms applied automatically for your agency account
+                {m('Pre-negotiated payment terms applied automatically for your agency account')}
               </div>
 
               {/* Payment Method – locked for TA */}
               <div className="mb-4">
-                <label className={labelClass}>Payment Method</label>
+                <label className={labelClass}>{m('Payment Method')}</label>
                 <div
                   className="flex items-center gap-3 px-4 py-3 rounded-lg"
                   style={{ 
@@ -5347,7 +5349,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="flex-1">
                     <div className="text-sm" style={textPrimary}>{TA_PAYMENT_METHOD}</div>
                     <div className="text-xs mt-0.5" style={textMuted}>
-                      Auto-applied · Invoice issued within 3 business days
+                      {m('Auto-applied · Invoice issued within 3 business days')}
                     </div>
                   </div>
                   <Shield className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
@@ -5356,7 +5358,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Billing Reference */}
               <div className="mb-4">
-                <label className={labelClass}>Agency Billing Reference</label>
+                <label className={labelClass}>{m('Agency Billing Reference')}</label>
                 <div className="relative">
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
@@ -5371,7 +5373,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   />
                 </div>
                 <div className="text-xs mt-1.5" style={textMuted}>
-                  Pre-filled from your agency profile. You may override if booking under a sub-account.
+                  {m('Pre-filled from your agency profile. You may override if booking under a sub-account.')}
                 </div>
               </div>
 
@@ -5382,10 +5384,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               >
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { label: 'Credit Terms', value: 'Net 30 days' },
-                    { label: 'Currency', value: 'HKD' },
-                    { label: 'Invoice Delivery', value: 'Email (auto)' },
-                    { label: 'GST / VAT', value: 'Exempt (B2B)' },
+                    { label: m('Credit Terms'), value: 'Net 30 days' },
+                    { label: m('Currency'), value: 'HKD' },
+                    { label: m('Invoice Delivery'), value: 'Email (auto)' },
+                    { label: m('GST / VAT'), value: 'Exempt (B2B)' },
                   ].map((row) => (
                     <div key={row.label}>
                       <div className="text-xs" style={textMuted}>{row.label}</div>
@@ -5397,10 +5399,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
           ) : (
             <div className="p-5" style={card}>
-              <div className="text-sm mb-1" style={textPrimary}>Promotion / Redemption Code</div>
-              <div className="text-xs mb-4" style={textMuted}>Apply a promo code for discounts</div>
+              <div className="text-sm mb-1" style={textPrimary}>{m('Promotion / Redemption Code')}</div>
+              <div className="text-xs mb-4" style={textMuted}>{m('Apply a promo code for discounts')}</div>
               <div>
-                <label className={labelClass}>Promotion / Redemption Code (Optional)</label>
+                <label className={labelClass}>{m('Promotion / Redemption Code (Optional)')}</label>
                 <div className="relative">
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
@@ -5409,7 +5411,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     onChange={(e) =>
                       setStep2Form((p) => ({ ...p, promotionCode: e.target.value.toUpperCase() }))
                     }
-                    placeholder="e.g. HKIAL2024"
+                    placeholder={m('e.g. HKIAL2024')}
                     style={fieldStyle}
                     className={fieldClass + ' pl-10 pr-12 uppercase'}
                   />
@@ -5421,7 +5423,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       background: 'rgba(220,181,21,0.18)',
                       border: '1px solid rgba(220,181,21,0.45)',
                     }}
-                    title="Scan coupon QR code with camera"
+                    title={m('Scan coupon QR code with camera')}
                   >
                     <Camera className="w-3.5 h-3.5 text-yellow-400" />
                   </button>
@@ -5438,7 +5440,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     }}
                   >
                     <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>Code <strong>{step2Form.promotionCode}</strong> is valid and will be applied to your booking.</span>
+                    <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> is valid and will be applied to your booking.</span>
                   </div>
                 )}
 
@@ -5455,7 +5457,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <span>
                       {promoCodeMessage
                         ? promoCodeMessage
-                        : <>Code <strong>{step2Form.promotionCode}</strong> is invalid. Please check and try again.</>}
+                        : <>{m('Code')} <strong>{step2Form.promotionCode}</strong> is invalid. Please check and try again.</>}
                     </span>
                   </div>
                 )}
@@ -5469,14 +5471,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       color: isDark ? 'rgba(220, 181, 21, 1)' : 'rgba(180, 145, 17, 1)',
                     }}
                   >
-                    ⚠️ <span>Code <strong>{step2Form.promotionCode}</strong> has already been used or expired.</span>
+                    ⚠️ <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> has already been used or expired.</span>
                   </div>
                 )}
 
                 <div className="flex items-center gap-1.5 mt-2">
                   <Camera className={`w-3 h-3 ${iconMutedClass}`} />
                   <span className="text-xs" style={textMuted}>
-                    Tap the camera icon to scan your coupon QR code
+                    {m('Tap the camera icon to scan your coupon QR code')}
                   </span>
                 </div>
               </div>
@@ -5485,12 +5487,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
           {/* ── Contact Person ──────────────────────────────────────────── */}
           <div className="p-5" style={card}>
-            <div className="text-sm mb-1" style={textPrimary}>Contact Person of this Booking</div>
-            <div className="text-xs mb-4" style={textMuted}>Primary contact for this reservation</div>
+            <div className="text-sm mb-1" style={textPrimary}>{m('Contact Person of this Booking')}</div>
+            <div className="text-xs mb-4" style={textMuted}>{m('Primary contact for this reservation')}</div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className={labelClass}>Name *</label>
+                <label className={labelClass}>{m('Name *')}</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
@@ -5500,14 +5502,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       setStep2Form((p) => ({ ...p, contactName: e.target.value }))
                     }
                     required
-                    placeholder="Full name"
+                    placeholder={m('Full name')}
                     style={fieldStyle}
                     className={fieldClass + ' pl-10'}
                   />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Contact Email *</label>
+                <label className={labelClass}>{m('Contact Email *')}</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   <input
@@ -5517,14 +5519,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       setStep2Form((p) => ({ ...p, contactEmail: e.target.value }))
                     }
                     required
-                    placeholder="email@example.com"
+                    placeholder={m('email@example.com')}
                     style={fieldStyle}
                     className={fieldClass + ' pl-10'}
                   />
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Contact No. *</label>
+                <label className={labelClass}>{m('Contact No. *')}</label>
                 {/* 2026-06-24 (Sky) — split the contact number into a
                     type-ahead region code combobox + a digits/dash
                     number input. The combined value is kept in sync
@@ -5556,7 +5558,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
 
             <div>
-              <label className={labelClass}>Booking Memo</label>
+              <label className={labelClass}>{m('Booking Memo')}</label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3.5 w-4 h-4 text-gray-400 pointer-events-none" />
                 <textarea
@@ -5565,7 +5567,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     setStep2Form((p) => ({ ...p, bookingMemo: e.target.value }))
                   }
                   rows={4}
-                  placeholder="Any special requests or notes for this booking…"
+                  placeholder={m('Any special requests or notes for this booking…')}
                   style={fieldStyle}
                   className={fieldClass + ' pl-10 resize-none'}
                 />
@@ -5589,7 +5591,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 borderBottom: borderMedium,
               }}
             >
-              <div className="text-sm" style={textPrimary}>Complete Booking Summary</div>
+              <div className="text-sm" style={textPrimary}>{m('Complete Booking Summary')}</div>
             </div>
             <div className="p-5">
               <div className={`divide-y ${dividerClass}`}>
@@ -5727,14 +5729,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               style={backBtnStyle}
             >
               <ArrowLeft className="w-4 h-4" />
-              Back
+              {m('Back')}
             </button>
             <button
               type="submit"
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              Final Review
+              {m('Final Review')}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -5794,9 +5796,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {/* Header row */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-xl" style={gradientTextS1}>Step 1: Flight Information</h1>
+              <h1 className="text-xl" style={gradientTextS1}>{m('Step 1: Flight Information')}</h1>
               <p className="text-xs mt-1" style={textMuted}>
-                Reserve your lounge experience at Hong Kong International Airport
+                {m('Reserve your lounge experience at Hong Kong International Airport')}
               </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -5806,7 +5808,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: taBadgeBgS1, border: taBadgeBorderS1 }}
                 >
                   <BadgeCheck className="w-3.5 h-3.5" style={{ color: isDark ? '#34d399' : 'rgb(5, 150, 105)' }} />
-                  <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>TA Rates Active</span>
+                  <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{m('TA Rates Active')}</span>
                 </div>
               )}
             </div>
@@ -5841,11 +5843,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
           {/* Flight Information card */}
           <div className="p-5" style={card}>
-            <SectionHeader title="Flight Information" />
+            <SectionHeader title={m('Flight Information')} />
 
             {/* Flight Type toggle */}
             <div className="mb-4">
-              <label className={labelClass}>Flight Type *</label>
+              <label className={labelClass}>{m('Flight Type *')}</label>
               <div className="grid grid-cols-2 gap-3">
                 {(['Arrival', 'Departure'] as const).map((type) => {
                   const active = form.flightType === type;
@@ -5874,7 +5876,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 user wanted Flight Number to be the first field the user
                 sees / fills, so it sits above date/time/origin. */}
             <div className="mb-4">
-              <label className={labelClass}>Flight Number *</label>
+              <label className={labelClass}>{m('Flight Number *')}</label>
               <div className="relative">
                 <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
@@ -5882,7 +5884,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   value={form.flightNumber}
                   onChange={(e) => handleFlightNumber(e.target.value)}
                   required
-                  placeholder="e.g. CX888"
+                  placeholder={m('e.g. CX888')}
                   style={fieldStyle}
                   className={fieldClass + ' pl-10 uppercase'}
                 />
@@ -5945,7 +5947,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 from HKG to a destination). */}
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
               <div className="mb-4">
-                <label className={labelClass} htmlFor="new-booking-origin">Origin *</label>
+                <label className={labelClass} htmlFor="new-booking-origin">{m('Origin *')}</label>
                 <AirportTypeahead
                   id="new-booking-origin"
                   name="origin"
@@ -5955,7 +5957,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     setFlightDetails((fd) => (fd ? { ...fd, origin: code } : fd));
                   }}
                   required={form.flightType === 'Arrival' || form.flightType === 'Transit'}
-                  placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                  placeholder={m('Search IATA or city (e.g. LHR, Tokyo)')}
                   style={fieldStyle}
                   className={fieldClass + ' pl-10 pr-8'}
                   listStyle={glassStyle}
@@ -5979,16 +5981,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               >
                 <div className="flex items-center gap-1.5 text-xs mb-2" style={{ color: flightFoundColorS1 }}>
                   <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Flight Information Found</span>
+                  <span>{m('Flight Information Found')}</span>
                 </div>
                 <div
                   className={`grid gap-1 text-xs ${form.flightType === 'Departure' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}
                 >
-                  <div><span style={textMuted}>Origin: </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.origin)}</span></div>
-                  <div><span style={textMuted}>Destination: </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.destination)}</span></div>
+                  <div><span style={textMuted}>{m('Origin:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.origin)}</span></div>
+                  <div><span style={textMuted}>{m('Destination:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.destination)}</span></div>
                   {form.flightType !== 'Departure' && (
                     <div>
-                      <span style={textMuted}>Arrival Time: </span>
+                      <span style={textMuted}>{m('Arrival Time:')} </span>
                       <span style={{ color: flightFoundTimeColorS1 }}>{flightDetails.arrivalTime}</span>
                     </div>
                   )}
@@ -6003,7 +6005,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 its own Destination field for the outbound leg. */}
             {form.flightType === 'Departure' && (
               <div className="mb-4">
-                <label className={labelClass} htmlFor="new-booking-destination">Destination *</label>
+                <label className={labelClass} htmlFor="new-booking-destination">{m('Destination *')}</label>
                 <AirportTypeahead
                   id="new-booking-destination"
                   name="destination"
@@ -6013,7 +6015,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     setFlightDetails((fd) => (fd ? { ...fd, destination: code } : fd));
                   }}
                   required
-                  placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                  placeholder={m('Search IATA or city (e.g. LHR, Tokyo)')}
                   style={fieldStyle}
                   className={fieldClass + ' pl-10 pr-8'}
                   listStyle={glassStyle}
@@ -6026,7 +6028,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             {/* Flight Class */}
             <div>
-              <label className={labelClass}>Flight Class of Main VIP Passenger *</label>
+              <label className={labelClass}>{m('Flight Class of Main VIP Passenger *')}</label>
               <div className="relative">
                 <select
                   value={form.flightClass}
@@ -6035,9 +6037,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={fieldStyle}
                   className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
                 >
-                  <option value="Economy Class" className={optionBg}>Economy Class</option>
-                  <option value="Business Class" className={optionBg}>Business Class</option>
-                  <option value="First Class" className={optionBg}>First Class</option>
+                  <option value="Economy Class" className={optionBg}>{m('Economy Class')}</option>
+                  <option value="Business Class" className={optionBg}>{m('Business Class')}</option>
+                  <option value="First Class" className={optionBg}>{m('First Class')}</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
@@ -6084,14 +6086,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {/* Leg 2 Flight Number — full width, top of section
                     (round 6.2.8 reorder per Sky). */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Flight Number <span>*</span></label>
+                  <label className={labelClass}>{m('Leg 2 Flight Number')} <span>*</span></label>
                   <div className="relative">
                     <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
                       value={leg2FlightNo}
                       onChange={(e) => setLeg2FlightNo(e.target.value.toUpperCase())}
-                      placeholder="e.g. CX889"
+                      placeholder={m('e.g. CX889')}
                       style={fieldStyle}
                       className={fieldClass + ' pl-10 uppercase'}
                       data-testid="leg2-flightNo"
@@ -6105,7 +6107,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     2026-06-28 (round 6.2.98): inline gap check flipped
                     from MIN 6h to MAX 6h — error fires when gap > 6h. */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Departure Date <span>*</span></label>
+                  <label className={labelClass}>{m('Leg 2 Departure Date')} <span>*</span></label>
                   <div className="relative">
                     <input
                       type="date"
@@ -6154,7 +6156,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     2026-06-28 (round 6.2.98): inline gap check flipped
                     from MIN 6h to MAX 6h — error fires when gap > 6h. */}
                 <div className="mb-4">
-                  <label className={labelClass}>Leg 2 Departure Time <span>*</span></label>
+                  <label className={labelClass}>{m('Leg 2 Departure Time')} <span>*</span></label>
                   <Time5MinSelect
                     value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || ''}
                     onChange={(timePart) => {
@@ -6196,14 +6198,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     field today — it is captured for display / future
                     pricing use. */}
                 <div className="mb-4">
-                  <label className={labelClass} htmlFor="leg2-destination">Leg 2 Destination <span>*</span></label>
+                  <label className={labelClass} htmlFor="leg2-destination">{m('Leg 2 Destination')} <span>*</span></label>
                   <AirportTypeahead
                     id="leg2-destination"
                     name="leg2Destination"
                     value={leg2Destination}
                     onChange={setLeg2Destination}
                     required
-                    placeholder="Search IATA or city (e.g. LHR, Tokyo)"
+                    placeholder={m('Search IATA or city (e.g. LHR, Tokyo)')}
                     style={fieldStyle}
                     className={fieldClass + ' pl-10 pr-8'}
                     listStyle={glassStyle}
@@ -6215,7 +6217,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Leg 2 Flight Class — full width. */}
                 <div>
-                  <label className={labelClass}>Leg 2 Flight Class <span>*</span></label>
+                  <label className={labelClass}>{m('Leg 2 Flight Class')} <span>*</span></label>
                   <div className="relative">
                     <select
                       value={leg2FlightClass}
@@ -6224,10 +6226,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
                       data-testid="leg2-flightClass"
                     >
-                      <option value="" className={optionBg}>Select class</option>
-                      <option value="Economy Class" className={optionBg}>Economy Class</option>
-                      <option value="Business Class" className={optionBg}>Business Class</option>
-                      <option value="First Class" className={optionBg}>First Class</option>
+                      <option value="" className={optionBg}>{m('Select class')}</option>
+                      <option value="Economy Class" className={optionBg}>{m('Economy Class')}</option>
+                      <option value="Business Class" className={optionBg}>{m('Business Class')}</option>
+                      <option value="First Class" className={optionBg}>{m('First Class')}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -6256,7 +6258,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               className="py-3 px-6 rounded-xl text-sm transition-all hover:opacity-80"
               style={{ ...secondaryBtnStyle, color: colors.text }}
             >
-              Cancel
+              {m('Cancel')}
             </button>
             <button
               type="submit"
@@ -6264,7 +6266,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
-              Next: Guest Selection
+              {m('Next: Guest Selection')}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -6277,7 +6279,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: hintColorS1 }} />
               <div className="flex-1">
                 <p className="text-xs font-medium mb-1" style={{ color: hintColorS1 }}>
-                  Please address the following before continuing:
+                  {m('Please address the following before continuing:')}
                 </p>
                 <ul className="text-xs space-y-0.5 list-disc list-inside" style={{ color: hintColorS1 }}>
                   {step1FlightHints.map((hint, idx) => (
@@ -6369,9 +6371,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         {/* Step 2 header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-xl" style={gradientTextS2}>Step 2: Suite &amp; Guest Selection</h1>
+            <h1 className="text-xl" style={gradientTextS2}>{m('Step 2: Suite &amp; Guest Selection')}</h1>
             <p className="text-xs mt-1" style={textMuted}>
-              Select lounge areas, add VIP passengers and non-flying guests
+              {m('Select lounge areas, add VIP passengers and non-flying guests')}
             </p>
           </div>
           {/* 2026-06-16 (round ?) — moved from step 1 to step 2 (per
@@ -6389,8 +6391,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               style={{ background: histBtnBgS2, border: histBtnBorderS2, color: histBtnColorS2 }}
             >
               <History className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Use History as New Booking</span>
-              <span className="sm:hidden">Use History</span>
+              <span className="hidden sm:inline">{m('Use History as New Booking')}</span>
+              <span className="sm:hidden">{m('Use History')}</span>
             </button>
           </div>
         </div>
@@ -6453,7 +6455,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)',
               }}
             >
-              Edit
+              {m('Edit')}
             </button>
           </div>
         )}
@@ -6481,7 +6483,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.5)',
               }}
             >
-              Edit
+              {m('Edit')}
             </button>
           </div>
         )}
@@ -6492,17 +6494,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {/* Premiere Suite */}
           <div className="p-5" style={card}>
             <SectionHeader
-              title="Premiere Suite"
-              subtitle="Includes stays equivalent to exclusive benefits"
+              title={m('Premiere Suite')}
+              subtitle={m('Includes stays equivalent to exclusive benefits')}
             />
 
             <div className="mb-4">
-              <label className={labelClass}>Number of Premiere Suite</label>
+              <label className={labelClass}>{m('Number of Premiere Suite')}</label>
               <StepperCard
                 icon={<Building className="w-5 h-5 text-white" />}
                 iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                title="Premiere Suite"
-                subtitle="Private suite with exclusive benefits"
+                title={m('Premiere Suite')}
+                subtitle={m('Private suite with exclusive benefits')}
                 value={form.premiereSuites}
                 onDecrement={() => updateCount('premiereSuites', -1)}
                 onIncrement={() => updateCount('premiereSuites', 1)}
@@ -6511,12 +6513,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
 
             <div className="mb-4">
-              <label className={labelClass}>Number of VIP Passengers in Premiere Suite</label>
+              <label className={labelClass}>{m('Number of VIP Passengers in Premiere Suite')}</label>
               <StepperCard
                 icon={<Users className="w-5 h-5 text-white" />}
                 iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                title="VIP Passengers"
-                subtitle="Select your VIP Passengers"
+                title={m('VIP Passengers')}
+                subtitle={m('Select your VIP Passengers')}
                 value={form.premiereVipPassengers}
                 onDecrement={() => updateCount('premiereVipPassengers', -1)}
                 onIncrement={() => updateCount('premiereVipPassengers', 1)}
@@ -6529,12 +6531,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
 
             <div>
-              <label className={labelClass}>Number of Non Flying Guests in Premiere Suite</label>
+              <label className={labelClass}>{m('Number of Non Flying Guests in Premiere Suite')}</label>
               <StepperCard
                 icon={<User className="w-5 h-5 text-white" />}
                 iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                title="Non-Flying Guests"
-                subtitle="Select non-flying Guests"
+                title={m('Non-Flying Guests')}
+                subtitle={m('Select non-flying Guests')}
                 value={form.premiereNonFlyingGuests}
                 onDecrement={() => updateCount('premiereNonFlyingGuests', -1)}
                 onIncrement={() => updateCount('premiereNonFlyingGuests', 1)}
@@ -6560,7 +6562,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ borderTop: borderSubtle }}
                   data-hkial-ps-subtotal="1"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Premiere Suite Subtotal</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m('Premiere Suite Subtotal')}</span>
                   <span className="text-sm font-semibold" style={textPrimary}>HK${psAmt.toLocaleString()}</span>
                 </div>
               ) : null;
@@ -6570,17 +6572,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {/* Lounge Deluxe */}
           <div className="p-5" style={card}>
             <SectionHeader
-              title="Lounge Deluxe"
-              subtitle="Exclusive lounge for VIP passengers and guests"
+              title={m('Lounge Deluxe')}
+              subtitle={m('Exclusive lounge for VIP passengers and guests')}
             />
 
             <div className="mb-4">
-              <label className={labelClass}>Number of VIP Passengers in Lounge Deluxe</label>
+              <label className={labelClass}>{m('Number of VIP Passengers in Lounge Deluxe')}</label>
               <StepperCard
                 icon={<Users className="w-5 h-5 text-white" />}
                 iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                title="VIP Passengers"
-                subtitle="Select your VIP Passengers"
+                title={m('VIP Passengers')}
+                subtitle={m('Select your VIP Passengers')}
                 value={form.vipPassengers}
                 onDecrement={() => updateCount('vipPassengers', -1)}
                 onIncrement={() => updateCount('vipPassengers', 1)}
@@ -6589,12 +6591,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
 
             <div>
-              <label className={labelClass}>Number of Non Flying Guests in Lounge Deluxe</label>
+              <label className={labelClass}>{m('Number of Non Flying Guests in Lounge Deluxe')}</label>
               <StepperCard
                 icon={<User className="w-5 h-5 text-white" />}
                 iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                title="Non-Flying Guests"
-                subtitle="Select non-flying Guests"
+                title={m('Non-Flying Guests')}
+                subtitle={m('Select non-flying Guests')}
                 value={form.nonFlyingGuests}
                 onDecrement={() => updateCount('nonFlyingGuests', -1)}
                 onIncrement={() => updateCount('nonFlyingGuests', 1)}
@@ -6615,7 +6617,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ borderTop: borderSubtle }}
                   data-hkial-ld-subtotal="1"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>Lounge Deluxe Subtotal</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m('Lounge Deluxe Subtotal')}</span>
                   <span className="text-sm font-semibold" style={textPrimary}>HK${ldAmt.toLocaleString()}</span>
                 </div>
               ) : null;
@@ -6675,7 +6677,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {/* Title */}
                 <div>
-                  <label className={labelClass}>Title *</label>
+                  <label className={labelClass}>{m('Title *')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
@@ -6697,13 +6699,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* First Name */}
                 <div>
-                  <label className={labelClass}>First Name *</label>
+                  <label className={labelClass}>{m('First Name *')}</label>
                   <input
                     type="text"
                     value={passenger.vipFirstName}
                     onChange={(e) => handleVipChange(index, 'vipFirstName', e.target.value)}
                     required
-                    placeholder="Enter first name"
+                    placeholder={m('Enter first name')}
                     style={fieldStyle}
                     className={fieldClass}
                   />
@@ -6711,13 +6713,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Last Name */}
                 <div>
-                  <label className={labelClass}>Last Name *</label>
+                  <label className={labelClass}>{m('Last Name *')}</label>
                   <input
                     type="text"
                     value={passenger.vipLastName}
                     onChange={(e) => handleVipChange(index, 'vipLastName', e.target.value)}
                     required
-                    placeholder="Enter last name"
+                    placeholder={m('Enter last name')}
                     style={fieldStyle}
                     className={fieldClass}
                   />
@@ -6725,14 +6727,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Travel Doc */}
                 <div>
-                  <label className={labelClass}>Travel Document No. (Travel or Indent)</label>
+                  <label className={labelClass}>{m('Travel Document No. (Travel or Indent)')}</label>
                   <input
                     type="text"
                     value={passenger.vipTravelDocNo}
                     onChange={(e) =>
                       handleVipChange(index, 'vipTravelDocNo', e.target.value.toUpperCase())
                     }
-                    placeholder="e.g. P12345678 (Optional)"
+                    placeholder={m('e.g. P12345678 (Optional)')}
                     style={fieldStyle}
                     className={fieldClass + ' uppercase'}
                   />
@@ -6740,7 +6742,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Age Group */}
                 <div>
-                  <label className={labelClass}>Age Group <span>*</span></label>
+                  <label className={labelClass}>{m('Age Group')} <span>*</span></label>
                   <div className="relative">
                     <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
@@ -6750,10 +6752,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       style={fieldStyle}
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
-                      <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adults (aged 12 and above)" className={optionBg}>Adults (aged 12 and above)</option>
-                      <option value="Children (aged 2-11)" className={optionBg}>Children (aged 2 to 11)</option>
-                      <option value="Infants (under 2 years old)" className={optionBg}>Infants (under 2 years old)</option>
+                      <option value="" disabled className={optionBg}>{m('Select age group')}</option>
+                      <option value="Adults (aged 12 and above)" className={optionBg}>{m('Adults (aged 12 and above)')}</option>
+                      <option value="Children (aged 2-11)" className={optionBg}>{m('Children (aged 2 to 11)')}</option>
+                      <option value="Infants (under 2 years old)" className={optionBg}>{m('Infants (under 2 years old)')}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -6761,7 +6763,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Nationality */}
                 <div>
-                  <label className={labelClass}>Nationality *</label>
+                  <label className={labelClass}>{m('Nationality *')}</label>
                   <GuestNationalityTypeahead
                     value={passenger.nationality}
                     onChange={(code) => handleVipChange(index, 'nationality', code)}
@@ -6774,7 +6776,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Birthday */}
                 <div>
-                  <label className={labelClass}>Birthday (Date / Month / Year)</label>
+                  <label className={labelClass}>{m('Birthday (Date / Month / Year)')}</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
@@ -6791,12 +6793,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Food Allergies */}
               <div className="mt-4">
-                <label className={labelClass}>Food Allergies <span className="text-xs opacity-60">(optional)</span></label>
+                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">(optional)</span></label>
                 <input
                   type="text"
                   value={passenger.foodAllergies}
                   onChange={(e) => handleVipChange(index, 'foodAllergies', e.target.value)}
-                  placeholder="e.g. Peanuts, Shellfish, Gluten (leave blank if none)"
+                  placeholder={m('e.g. Peanuts, Shellfish, Gluten (leave blank if none)')}
                   style={fieldStyle}
                   className={fieldClass}
                 />
@@ -6850,7 +6852,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {/* Title */}
                 <div>
-                  <label className={labelClass}>Title *</label>
+                  <label className={labelClass}>{m('Title *')}</label>
                   <div className="relative">
                     <select
                       value={guest.guestTitle}
@@ -6859,12 +6861,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       style={fieldStyle}
                       className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
                     >
-                      <option value="Mr" className={optionBg}>Mr</option>
-                      <option value="Mrs" className={optionBg}>Mrs</option>
-                      <option value="Ms" className={optionBg}>Ms</option>
-                      <option value="Miss" className={optionBg}>Miss</option>
-                      <option value="Dr" className={optionBg}>Dr</option>
-                      <option value="Prof" className={optionBg}>Prof</option>
+                      <option value="Mr" className={optionBg}>{m('Mr')}</option>
+                      <option value="Mrs" className={optionBg}>{m('Mrs')}</option>
+                      <option value="Ms" className={optionBg}>{m('Ms')}</option>
+                      <option value="Miss" className={optionBg}>{m('Miss')}</option>
+                      <option value="Dr" className={optionBg}>{m('Dr')}</option>
+                      <option value="Prof" className={optionBg}>{m('Prof')}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -6872,7 +6874,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* First Name */}
                 <div>
-                  <label className={labelClass}>First Name *</label>
+                  <label className={labelClass}>{m('First Name *')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
@@ -6880,7 +6882,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       value={guest.guestFirstName}
                       onChange={(e) => handleNonFlyingGuestChange(index, 'guestFirstName', e.target.value)}
                       required
-                      placeholder="e.g. John"
+                      placeholder={m('e.g. John')}
                       style={fieldStyle}
                       className={fieldClass + ' pl-10'}
                     />
@@ -6889,7 +6891,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Last Name */}
                 <div>
-                  <label className={labelClass}>Last Name *</label>
+                  <label className={labelClass}>{m('Last Name *')}</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
@@ -6897,7 +6899,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       value={guest.guestLastName}
                       onChange={(e) => handleNonFlyingGuestChange(index, 'guestLastName', e.target.value)}
                       required
-                      placeholder="e.g. Smith"
+                      placeholder={m('e.g. Smith')}
                       style={fieldStyle}
                       className={fieldClass + ' pl-10'}
                     />
@@ -6906,7 +6908,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Age Group */}
                 <div>
-                  <label className={labelClass}>Age Group <span>*</span></label>
+                  <label className={labelClass}>{m('Age Group')} <span>*</span></label>
                   <div className="relative">
                     <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <select
@@ -6916,10 +6918,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       style={fieldStyle}
                       className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
                     >
-                      <option value="" disabled className={optionBg}>Select age group</option>
-                      <option value="Adults (aged 12 and above)" className={optionBg}>Adults (aged 12 and above)</option>
-                      <option value="Children (aged 2-11)" className={optionBg}>Children (aged 2 to 11)</option>
-                      <option value="Infants (under 2 years old)" className={optionBg}>Infants (under 2 years old)</option>
+                      <option value="" disabled className={optionBg}>{m('Select age group')}</option>
+                      <option value="Adults (aged 12 and above)" className={optionBg}>{m('Adults (aged 12 and above)')}</option>
+                      <option value="Children (aged 2-11)" className={optionBg}>{m('Children (aged 2 to 11)')}</option>
+                      <option value="Infants (under 2 years old)" className={optionBg}>{m('Infants (under 2 years old)')}</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
@@ -6927,7 +6929,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Nationality */}
                 <div>
-                  <label className={labelClass}>Nationality *</label>
+                  <label className={labelClass}>{m('Nationality *')}</label>
                   <GuestNationalityTypeahead
                     value={guest.nationality}
                     onChange={(code) => handleNonFlyingGuestChange(index, 'nationality', code)}
@@ -6941,12 +6943,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Food Allergies */}
               <div className="mt-4">
-                <label className={labelClass}>Food Allergies <span className="text-xs opacity-60">(optional)</span></label>
+                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">(optional)</span></label>
                 <input
                   type="text"
                   value={guest.foodAllergies}
                   onChange={(e) => handleNonFlyingGuestChange(index, 'foodAllergies', e.target.value)}
-                  placeholder="e.g. Peanuts, Shellfish, Gluten (leave blank if none)"
+                  placeholder={m('e.g. Peanuts, Shellfish, Gluten (leave blank if none)')}
                   style={fieldStyle}
                   className={fieldClass}
                 />
@@ -6965,8 +6967,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           }}
         >
           <div>
-            <div className="text-sm" style={textPrimary}>No add-on service required</div>
-            <div className="text-xs mt-0.5" style={textMuted}>Skip optional add-ons and proceed directly to the next step</div>
+            <div className="text-sm" style={textPrimary}>{m('No add-on service required')}</div>
+            <div className="text-xs mt-0.5" style={textMuted}>{m('Skip optional add-ons and proceed directly to the next step')}</div>
           </div>
           <button
             type="button"
@@ -6993,7 +6995,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             style={{ ...backBtnStyle, color: colors.text }}
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Previous Page
+            {m('Back to Previous Page')}
           </button>
           <button
             type="submit"
@@ -7001,7 +7003,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
           >
-            Next Step
+            {m('Next Step')}
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -7017,7 +7019,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }} />
             <div className="flex-1">
               <p className="text-xs font-medium mb-1" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
-                Please address the following before continuing:
+                {m('Please address the following before continuing:')}
               </p>
               <ul className="text-xs space-y-0.5 list-disc list-inside" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
                 {step1Hints.map((hint, idx) => (
@@ -7095,7 +7097,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className="px-4 py-2 rounded-lg text-sm text-white transition-all hover:opacity-80"
                       style={{ background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' }}
                     >
-                      Remove
+                      {m('Remove')}
                     </button>
                   </div>
                 );
@@ -7108,7 +7110,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               className="w-full py-3 rounded-xl text-sm transition-all hover:opacity-80"
               style={{ ...secondaryBtnStyle, color: colors.text }}
             >
-              Cancel
+              {m('Cancel')}
             </button>
           </div>
         </div>
@@ -7178,7 +7180,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       className="px-4 py-2 rounded-lg text-sm text-white transition-all hover:opacity-80"
                       style={{ background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)' }}
                     >
-                      Remove
+                      {m('Remove')}
                     </button>
                   </div>
                 );
@@ -7191,7 +7193,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               className="w-full py-3 rounded-xl text-sm transition-all hover:opacity-80"
               style={{ ...secondaryBtnStyle, color: colors.text }}
             >
-              Cancel
+              {m('Cancel')}
             </button>
           </div>
         </div>
@@ -7232,8 +7234,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <History className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                 </div>
                 <div>
-                  <div className="text-sm" style={textPrimary}>Use History as New Booking</div>
-                  <div className="text-xs mt-0.5" style={textMuted}>Select a past booking to pre-fill the form</div>
+                  <div className="text-sm" style={textPrimary}>{m('Use History as New Booking')}</div>
+                  <div className="text-xs mt-0.5" style={textMuted}>{m('Select a past booking to pre-fill the form')}</div>
                 </div>
               </div>
               <button
@@ -7259,7 +7261,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="history-dialog-loading"
                 >
                   <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'rgb(220,181,21)' }} />
-                  <div className="text-xs" style={textMuted}>Loading your past bookings…</div>
+                  <div className="text-xs" style={textMuted}>{m('Loading your past bookings…')}</div>
                 </div>
               ) : historyBookings.length === 0 ? (
                 <div
@@ -7267,9 +7269,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="history-dialog-empty"
                 >
                   <Inbox className="w-7 h-7" style={{ color: colors.textMuted }} />
-                  <div className="text-sm" style={textPrimary}>No past bookings yet</div>
+                  <div className="text-sm" style={textPrimary}>{m('No past bookings yet')}</div>
                   <div className="text-xs text-center max-w-xs" style={textMuted}>
-                    Completed and confirmed bookings will appear here so you can quickly clone their setup.
+                    {m('Completed and confirmed bookings will appear here so you can quickly clone their setup.')}
                   </div>
                   {/* 2026-06-16 (round ?): if the container received
                       bookings but all were rejected by the shape
@@ -7297,7 +7299,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         match the expected shape{historyDiagnostics.sampleReason ? ` (first: ${historyDiagnostics.sampleReason})` : ''}.
                       </div>
                       <div className="mt-1" style={{ opacity: 0.75 }}>
-                        Open the browser console for full per-row details.
+                        {m('Open the browser console for full per-row details.')}
                       </div>
                     </div>
                   )}
@@ -7408,7 +7410,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs text-white transition-all hover:opacity-90"
                           style={{ background: 'linear-gradient(90deg,rgb(220,181,21) 0%,rgb(180,140,10) 100%)' }}
                         >
-                          Select
+                          {m('Select')}
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -7429,7 +7431,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 className="w-full py-2.5 rounded-xl text-sm transition-all hover:opacity-80"
                 style={{ ...secondaryBtnStyle, color: colors.text }}
               >
-                Cancel
+                {m('Cancel')}
               </button>
             </div>
           </div>

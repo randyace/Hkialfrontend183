@@ -25,8 +25,10 @@ import {
   BarChart3,
 } from "lucide-react";
 import { useTheme } from "./ThemeContext";
+import { useMsg } from '../../../../../i18n/useMsg';
 
 export function VisitHistory() {
+  const m = useMsg();
   const { colors, glassStyle, mode } = useTheme();
   const isDark = mode === "dark";
   const [searchTerm, setSearchTerm] = useState("");
@@ -226,13 +228,13 @@ export function VisitHistory() {
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent">
-            Visit History
+            {m('Visit History')}
           </h1>
           <p
             className="mt-1"
             style={{ color: colors.textSecondary }}
           >
-            Track your lounge visits and earned rewards.
+            {m('Track your lounge visits and earned rewards.')}
           </p>
         </div>
         <button
@@ -246,7 +248,7 @@ export function VisitHistory() {
           }}
         >
           <Download className="w-5 h-5" />
-          Export History
+          {m('Export History')}
         </button>
       </div>
 
@@ -257,29 +259,29 @@ export function VisitHistory() {
             icon: (
               <Calendar className="w-5 h-5 text-purple-500" />
             ),
-            label: "Total Visits",
+            label: m('Total Visits'),
             value: stats.totalVisits,
           },
           {
             icon: <Clock className="w-5 h-5 text-teal-500" />,
-            label: "Total Hours",
+            label: m('Total Hours'),
             value: stats.totalHours.toFixed(0),
           },
           {
             icon: <Award className="w-5 h-5 text-blue-500" />,
-            label: "Points Earned",
+            label: m('Points Earned'),
             value: stats.totalPoints,
           },
           {
             icon: <Star className="w-5 h-5 text-yellow-500" />,
-            label: "Avg. Rating",
+            label: m('Avg. Rating'),
             value: stats.avgRating,
           },
           {
             icon: (
               <MapPin className="w-5 h-5 text-purple-500" />
             ),
-            label: "Favorite",
+            label: m('Favorite'),
             value: "The Wing",
             small: true,
           },
@@ -321,7 +323,7 @@ export function VisitHistory() {
             style={{ color: colors.text }}
           >
             <TrendingUp className="w-5 h-5 text-purple-500" />
-            Monthly Visit Trend
+            {m('Monthly Visit Trend')}
           </h2>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={monthlyVisits}>
@@ -349,7 +351,7 @@ export function VisitHistory() {
             style={{ color: colors.text }}
           >
             <BarChart3 className="w-5 h-5 text-teal-500" />
-            Lounge Preferences
+            {m('Lounge Preferences')}
           </h2>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
@@ -385,7 +387,7 @@ export function VisitHistory() {
             />
             <input
               type="text"
-              placeholder="Search by lounge or flight..."
+              placeholder={m('Search by lounge or flight...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
@@ -398,7 +400,7 @@ export function VisitHistory() {
             className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             style={inputStyle}
           >
-            <option value="all">All Years</option>
+            <option value="all">{m('All Years')}</option>
             <option value="2026">2026</option>
             <option value="2025">2025</option>
             <option value="2024">2024</option>
@@ -453,7 +455,7 @@ export function VisitHistory() {
                         className="text-xs"
                         style={{ color: colors.textMuted }}
                       >
-                        Date
+                        {m('Date')}
                       </p>
                       <p className="text-sm font-medium">
                         {new Date(
@@ -473,7 +475,7 @@ export function VisitHistory() {
                         className="text-xs"
                         style={{ color: colors.textMuted }}
                       >
-                        Duration
+                        {m('Duration')}
                       </p>
                       <p className="text-sm font-medium">
                         {visit.duration}
@@ -491,7 +493,7 @@ export function VisitHistory() {
                         className="text-xs"
                         style={{ color: colors.textMuted }}
                       >
-                        Flight
+                        {m('Flight')}
                       </p>
                       <p className="text-sm font-medium">
                         {visit.flight.split(" ")[0]}
@@ -509,7 +511,7 @@ export function VisitHistory() {
                         className="text-xs"
                         style={{ color: colors.textMuted }}
                       >
-                        Points
+                        {m('Points')}
                       </p>
                       <p className="text-sm font-medium text-green-500">
                         +{visit.pointsEarned}
@@ -556,10 +558,10 @@ export function VisitHistory() {
             className="text-xl mb-2"
             style={{ color: colors.text }}
           >
-            No visits found
+            {m('No visits found')}
           </h3>
           <p style={{ color: colors.textSecondary }}>
-            Try adjusting your search or filter criteria
+            {m('Try adjusting your search or filter criteria')}
           </p>
         </div>
       )}

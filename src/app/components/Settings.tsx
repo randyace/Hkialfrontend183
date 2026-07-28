@@ -14,9 +14,17 @@ import {
   Check,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "./ThemeContext";
 import { NationalityTypeahead } from "../../../../../components/NationalityTypeahead";
 import { isValidCountryCode } from "../../../../../utils/countries";
+import {
+  LOCALE_LABELS,
+  SUPPORTED_LOCALES,
+  normalizeLocale,
+  type AppLocale,
+} from "../../../../../i18n";
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Props interface ─────────────────────────────────────────────────────────
 export interface SettingsProps {
@@ -63,13 +71,15 @@ export interface SettingsProps {
     value: string,
   ) => void;
   onThemeChange?: (theme: "light" | "dark" | "system") => void;
+  /** RFQ 3.3 language switch — parent wires i18n.changeLanguage */
+  onLanguageChange?: (locale: string) => void;
   onSave?: () => void;
 }
 
 // ── Mock data for Figma preview (used when no real props are provided) ───────
 const MOCK_SETTINGS = {
   profile: {
-    title: "Mr",
+    title: m('Mr'),
     firstName: "John",
     lastName: "Doe",
     email: "john.doe@example.com",
@@ -97,8 +107,11 @@ export function Settings({
   onSettingChange,
   onPasswordChange,
   onThemeChange,
+  onLanguageChange,
   onSave,
 }: SettingsProps) {
+  const m = useMsg();
+  const { t, i18n } = useTranslation();
   const { mode, colors, setTheme, glassStyle } = useTheme();
   const isDark = mode === "dark";
 
@@ -207,9 +220,21 @@ export function Settings({
   };
 
   const sections = [
-    { id: "profile", label: "Profile", icon: User },
-    { id: "appearance", label: "Appearance", icon: Palette },
+    { id: "profile", label: t("settings.profile"), icon: User },
+    { id: "appearance", label: t("settings.appearance"), icon: Palette },
   ];
+
+  const currentLanguage: AppLocale = normalizeLocale(
+    appearance.language ?? i18n.language ?? "en",
+  );
+
+  const handleLanguageSelect = (value: string) => {
+    if (onLanguageChange) {
+      onLanguageChange(value);
+      return;
+    }
+    updateSetting("appearance", "language", value);
+  };
 
   const handlePassportChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -262,16 +287,16 @@ export function Settings({
     return "rgb(34, 197, 94)";
   };
   const getStrengthText = (strength: number) => {
-    if (strength < 40) return "Weak";
-    if (strength < 70) return "Medium";
-    return "Strong";
+    if (strength < 40) return t("auth.passwordStrengthWeak");
+    if (strength < 70) return t("auth.passwordStrengthMedium");
+    return t("auth.passwordStrengthStrong");
   };
 
   const passwordRequirements = [
-    { met: newPasswordValue.length >= 8, text: "At least 8 characters" },
-    { met: /[a-z]/.test(newPasswordValue) && /[A-Z]/.test(newPasswordValue), text: "Upper and lowercase letters" },
-    { met: /\d/.test(newPasswordValue), text: "At least one number" },
-    { met: /[!@#$%^&*(),.?":{}|<>]/.test(newPasswordValue), text: "At least one special character" },
+    { met: newPasswordValue.length >= 8, text: t("auth.reqMin8") },
+    { met: /[a-z]/.test(newPasswordValue) && /[A-Z]/.test(newPasswordValue), text: t("auth.reqUpperLower") },
+    { met: /\d/.test(newPasswordValue), text: t("auth.reqNumber") },
+    { met: /[!@#$%^&*(),.?":{}|<>]/.test(newPasswordValue), text: t("auth.reqSpecial") },
   ];
 
   const passwordsMatch =
@@ -290,14 +315,13 @@ export function Settings({
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent">
-            Settings
+            {t("settings.title")}
           </h1>
           <p
             className="mt-1"
             style={{ color: colors.textSecondary }}
           >
-            Manage your account preferences and application
-            settings.
+            {t("settings.subtitle")}
           </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -348,7 +372,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Title
+            {t("auth.title")}
           </label>
           <div className="relative">
             <User
@@ -367,11 +391,11 @@ export function Settings({
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
               style={inputStyle}
             >
-              <option value="Mr">Mr</option>
-              <option value="Miss">Miss</option>
-              <option value="Mrs">Mrs</option>
-              <option value="Ms">Ms</option>
-              <option value="Dr">Dr</option>
+              <option value="Mr">{m('Mr')}</option>
+              <option value="Miss">{m('Miss')}</option>
+              <option value="Mrs">{m('Mrs')}</option>
+              <option value="Ms">{m('Ms')}</option>
+              <option value="Dr">{m('Dr')}</option>
             </select>
           </div>
         </div>
@@ -382,7 +406,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            First Name
+            {t("auth.firstName")}
           </label>
           <div className="relative">
             <User
@@ -411,7 +435,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Last Name
+            {t("auth.lastName")}
           </label>
           <div className="relative">
             <User
@@ -442,12 +466,12 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Email Address{" "}
+            {t("auth.email")}{" "}
             <span
               className="text-xs"
               style={{ color: colors.textMuted }}
             >
-              (read-only)
+              ({t("settings.emailReadOnly")})
             </span>
           </label>
           <div className="relative">
@@ -473,7 +497,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Phone Number
+            {t("auth.phone")}
           </label>
           <div className="relative">
             <Phone
@@ -502,7 +526,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            Nationality{" "}
+            {t("auth.nationality")}{" "}
             <span style={{ color: "rgb(220,181,21)" }}>*</span>
           </label>
           <NationalityTypeahead
@@ -522,7 +546,7 @@ export function Settings({
           />
           {profile.nationality && !isValidCountryCode(profile.nationality) && (
             <p className="mt-1 text-xs text-red-500">
-              Select a nationality from the list (ISO country code).
+              {m('Select a nationality from the list (ISO country code).')}
             </p>
           )}
         </div>
@@ -533,9 +557,9 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            First 4 Digits of Passport Number{" "}
+            {t("settings.passportPrefix")}{" "}
             <span style={{ color: colors.textMuted }}>
-              (Optional)
+              ({t("common.optional")})
             </span>
           </label>
           <div className="relative">
@@ -562,7 +586,7 @@ export function Settings({
           className="block text-sm mb-2"
           style={{ color: colors.textSecondary }}
         >
-          Current Password
+          {t("settings.currentPassword")}
         </label>
         <div className="relative">
           <input
@@ -576,7 +600,7 @@ export function Settings({
                 e.target.value,
               )
             }
-            placeholder="Enter current password"
+            placeholder={m('Enter current password')}
             className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             style={inputStyle}
           />
@@ -608,7 +632,7 @@ export function Settings({
           className="block text-sm mb-2"
           style={{ color: colors.textSecondary }}
         >
-          New Password
+          {t("settings.newPassword")}
         </label>
         <div className="relative">
           <input
@@ -620,7 +644,7 @@ export function Settings({
                 e.target.value,
               )
             }
-            placeholder="Enter new password"
+            placeholder={m('Enter new password')}
             className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             style={inputStyle}
           />
@@ -648,7 +672,7 @@ export function Settings({
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
               <span className={`text-xs ${mutedColor}`}>
-                Password Strength:
+                {t("auth.password")}:
               </span>
               <span
                 className="text-xs"
@@ -683,7 +707,7 @@ export function Settings({
           className="block text-sm mb-2"
           style={{ color: colors.textSecondary }}
         >
-          Confirm New Password
+          {t("settings.confirmNewPassword")}
         </label>
         <div className="relative">
           <input
@@ -697,7 +721,7 @@ export function Settings({
                 e.target.value,
               )
             }
-            placeholder="Confirm new password"
+            placeholder={t("settings.confirmNewPassword")}
             className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             style={inputStyle}
           />
@@ -721,7 +745,7 @@ export function Settings({
                 style={{ color: "rgb(34, 197, 94)" }}
               >
                 <Check className="w-4 h-4" />
-                <span>Passwords match</span>
+                <span>{t("auth.passwordsMatch")}</span>
               </div>
             ) : passwordsDontMatch ? (
               <div
@@ -729,7 +753,7 @@ export function Settings({
                 style={{ color: "rgb(239, 68, 68)" }}
               >
                 <X className="w-4 h-4" />
-                <span>Passwords do not match</span>
+                <span>{t("auth.passwordsDontMatch")}</span>
               </div>
             ) : null}
           </div>
@@ -741,7 +765,7 @@ export function Settings({
           className={`text-xs ${mutedColor}`}
           style={{ color: colors.textSecondary }}
         >
-          Password must contain:
+          {t("settings.changePassword")}:
         </p>
         {passwordRequirements.map((req, index) => {
           const reqColorClass = req.met
@@ -785,13 +809,13 @@ export function Settings({
         }}
       >
         <h4 className="mb-1" style={{ color: colors.text }}>
-          Theme
+          {t("settings.theme")}
         </h4>
         <p
           className="text-sm mb-4"
           style={{ color: colors.textSecondary }}
         >
-          Switch between dark and light mode
+          {t("settings.lightMode")} / {t("settings.darkMode")}
         </p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -807,7 +831,7 @@ export function Settings({
               />
             )}
             <span style={{ color: colors.text }}>
-              {isDark ? "Dark Mode" : "Light Mode"}
+              {isDark ? t("settings.darkMode") : t("settings.lightMode")}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -855,25 +879,27 @@ export function Settings({
           border: `1px solid ${colors.glassBorder}`,
         }}
       >
-        <h4 className="mb-3" style={{ color: colors.text }}>
-          Language
+        <h4 className="mb-1" style={{ color: colors.text }}>
+          {t("settings.language")}
         </h4>
+        <p
+          className="text-sm mb-4"
+          style={{ color: colors.textSecondary }}
+        >
+          {t("settings.languageHint")}
+        </p>
         <select
-          value={appearance.language ?? "en"}
-          onChange={(e) =>
-            updateSetting(
-              "appearance",
-              "language",
-              e.target.value,
-            )
-          }
+          value={currentLanguage}
+          onChange={(e) => handleLanguageSelect(e.target.value)}
           className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
           style={inputStyle}
+          aria-label={t("settings.language")}
         >
-          <option value="en">English</option>
-          <option value="es">Español</option>
-          <option value="fr">Français</option>
-          <option value="de">Deutsch</option>
+          {SUPPORTED_LOCALES.map((locale) => (
+            <option key={locale} value={locale}>
+              {LOCALE_LABELS[locale]}
+            </option>
+          ))}
         </select>
       </div>
     </div>
@@ -895,14 +921,13 @@ export function Settings({
       {/* Header */}
       <div>
         <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent">
-          Settings
+          {t("settings.title")}
         </h1>
         <p
           className="mt-1"
           style={{ color: colors.textSecondary }}
         >
-          Manage your account preferences and application
-          settings.
+          {t("settings.subtitle")}
         </p>
       </div>
 
@@ -972,8 +997,10 @@ export function Settings({
                     className="text-sm"
                     style={{
                       color:
+                        saveMessage === t("settings.saved") ||
                         saveMessage.includes("success") ||
-                        saveMessage.includes("updated")
+                        saveMessage.includes("updated") ||
+                        saveMessage.includes("成功")
                           ? "#22c55e"
                           : "#ef4444",
                     }}
@@ -991,7 +1018,7 @@ export function Settings({
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {isSaving ? t("settings.saving") : t("settings.saveChanges")}
                 </button>
               </div>
             </div>

@@ -6,6 +6,7 @@ import {
   UserCheck, Zap,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -210,9 +211,9 @@ const CORPORATE_TIERS: TierData[] = [
 
 // Shared "other benefits" row data
 const OTHER_BENEFITS = [
-  { Icon: UserCheck, label: 'Flying Guest', value: '40% off the original price' },
-  { Icon: Users, label: 'Non-flying Guest', value: '40% off the original price' },
-  { Icon: Car, label: 'In-town Limousine Transfer', value: '40% off the original price for 1 limousine' },
+  { Icon: UserCheck, label: m('Flying Guest'), value: '40% off the original price' },
+  { Icon: Users, label: m('Non-flying Guest'), value: '40% off the original price' },
+  { Icon: Car, label: m('In-town Limousine Transfer'), value: '40% off the original price for 1 limousine' },
 ];
 
 const faqItems = [
@@ -236,43 +237,43 @@ const faqItems = [
 
 const termsAndConditions = [
   {
-    title: '1. Membership Eligibility',
+    title: m('1. Membership Eligibility'),
     body: 'Membership is open to individuals aged 18 years or above and to registered corporate entities. By purchasing a membership, you confirm that all information provided is accurate, complete, and up to date. HKIA Lounge reserves the right to verify eligibility and to decline or cancel any membership application that does not meet the stated criteria.',
   },
   {
-    title: '2. Membership Benefits',
+    title: m('2. Membership Benefits'),
     body: 'Benefits are as described in the membership package selected at the time of purchase. HKIA Lounge reserves the right to modify, substitute, or withdraw any benefit with 30 days\' written notice. Lounge access is subject to capacity and operational availability. Complimentary guest entitlements may not be exchanged for cash or transferred.',
   },
   {
-    title: '3. Membership Period & Renewal',
+    title: m('3. Membership Period & Renewal'),
     body: 'All memberships are valid for one (1) calendar year from the activation date. Memberships do not automatically renew. Members will receive a renewal reminder 30 days before expiry. Unused lounge visits and vouchers expire at the end of the membership year and cannot be carried forward or refunded.',
   },
   {
-    title: '4. Payment & Fees',
+    title: m('4. Payment & Fees'),
     body: 'All fees are quoted in Hong Kong Dollars (HKD) and are inclusive of any applicable taxes. Payment must be made in full at the time of purchase. HKIA Lounge accepts major credit and debit cards. Membership activation is conditional upon successful payment clearance.',
   },
   {
-    title: '5. Refund & Cancellation Policy',
+    title: m('5. Refund & Cancellation Policy'),
     body: 'A 14-day satisfaction guarantee applies to new memberships. Refund requests submitted within 14 days of the activation date will be processed in full, provided fewer than two (2) lounge visits have been made. After the 14-day period, no refunds will be issued. Membership upgrades are subject to a pro-rated adjustment and are non-refundable once processed.',
   },
   {
-    title: '6. Lounge Access & Conduct',
+    title: m('6. Lounge Access & Conduct'),
     body: 'Members and their guests must present a valid digital or physical membership card and a same-day boarding pass to gain lounge access. HKIA Lounge reserves the right to refuse entry or remove any member or guest who is in violation of lounge rules or whose behaviour is deemed disruptive or inappropriate. Minors under the age of 12 must be accompanied by an adult member at all times.',
   },
   {
-    title: '7. Corporate Nominee Verification',
+    title: m('7. Corporate Nominee Verification'),
     body: 'For Corporate memberships, the account holder must provide the names of all Executive Nominees. HKIA Lounge staff will verify the identity of these personnel upon booking submission. Any changes to nominated personnel must be submitted in writing to the membership team and will be effective within 5 business days.',
   },
   {
-    title: '8. Privacy & Data Protection',
+    title: m('8. Privacy & Data Protection'),
     body: 'Personal data collected during the membership application and throughout the membership period will be used solely for the purpose of administering your membership and improving our services. Data will be handled in accordance with the Personal Data (Privacy) Ordinance (Cap. 486) of Hong Kong. We will not sell or share your personal data with third parties without your explicit consent, except as required by law.',
   },
   {
-    title: '9. Amendments to Terms',
+    title: m('9. Amendments to Terms'),
     body: 'HKIA Lounge reserves the right to amend these Terms & Conditions at any time. Members will be notified of material changes via the registered email address at least 14 days in advance. Continued use of the membership after the effective date of any amendment constitutes acceptance of the revised terms.',
   },
   {
-    title: '10. Governing Law',
+    title: m('10. Governing Law'),
     body: 'These Terms & Conditions are governed by and construed in accordance with the laws of the Hong Kong Special Administrative Region. Any disputes arising in connection with these terms shall be subject to the exclusive jurisdiction of the courts of Hong Kong.',
   },
 ];
@@ -329,6 +330,7 @@ export function MembershipPackages({
   onConfirmPurchase,
   hideCorporate = false,
 }: MembershipPackagesProps = {}) {
+  const m = useMsg();
   const { colors, mode } = useTheme();
   const [activeTab, setActiveTab] = useState<MemberTab>('Individual');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -431,7 +433,7 @@ export function MembershipPackages({
           <Check className="w-12 h-12 text-white" strokeWidth={2.5} />
         </div>
 
-        <p className="text-2xl mb-2" style={{ color: pageText }}>Payment Successful!</p>
+        <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Payment Successful!')}</p>
         <p className="text-sm mb-8 max-w-xs" style={{ color: subText }}>
           Your{' '}
           <strong style={{ color: 'rgb(220,181,21)' }}>{selectedTier.name} {selectedTier.memberType} Membership</strong>{' '}
@@ -451,10 +453,10 @@ export function MembershipPackages({
               </div>
             </div>
             {[
-              { label: 'Order Reference', value: `MBR-${Date.now().toString().slice(-8)}` },
-              { label: 'Amount Paid', value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-              { label: 'Valid Until', value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
-              { label: 'Status', value: 'Active' },
+              { label: m('Order Reference'), value: `MBR-${Date.now().toString().slice(-8)}` },
+              { label: m('Amount Paid'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
+              { label: m('Valid Until'), value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
+              { label: m('Status'), value: 'Active' },
             ].map((row) => {
               const valueColor = row.label === 'Status' ? 'rgb(52,199,89)' : row.label === 'Amount Paid' ? 'rgb(220,181,21)' : pageText;
               const rowTopBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)';
@@ -473,7 +475,7 @@ export function MembershipPackages({
           className="w-full py-3.5 rounded-xl text-sm text-white transition-all hover:opacity-90 active:scale-[0.98]"
           style={{ background: 'linear-gradient(135deg, rgb(220,181,21) 0%, rgb(160,128,8) 100%)', boxShadow: '0 8px 24px rgba(220,181,21,0.35)' }}
         >
-          Back to Membership Packages
+          {m('Back to Membership Packages')}
         </button>
       </div>
     );
@@ -491,7 +493,7 @@ export function MembershipPackages({
           style={{ color: subText }}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to Packages</span>
+          <span className="text-sm">{m('Back to Packages')}</span>
         </button>
 
         <div className="mb-8">
@@ -499,7 +501,7 @@ export function MembershipPackages({
             <CreditCard className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
             <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Checkout</span>
           </div>
-          <h1 className="text-2xl" style={{ color: pageText }}>Complete Your Purchase</h1>
+          <h1 className="text-2xl" style={{ color: pageText }}>{m('Complete Your Purchase')}</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -511,8 +513,8 @@ export function MembershipPackages({
                   <FileText className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                 </div>
                 <div>
-                  <p className="text-sm" style={{ color: pageText }}>Terms &amp; Conditions</p>
-                  <p className="text-xs" style={{ color: subText }}>Please read carefully before proceeding</p>
+                  <p className="text-sm" style={{ color: pageText }}>{m('Terms &amp; Conditions')}</p>
+                  <p className="text-xs" style={{ color: subText }}>{m('Please read carefully before proceeding')}</p>
                 </div>
               </div>
             </div>
@@ -551,7 +553,7 @@ export function MembershipPackages({
             <div className="rounded-2xl overflow-hidden" style={{ background: sectionBg, border: sectionBorder }}>
               <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, rgb(220,181,21), rgb(160,128,8))' }} />
               <div className="p-5">
-                <p className="text-xs mb-4" style={{ color: subText }}>Order Summary</p>
+                <p className="text-xs mb-4" style={{ color: subText }}>{m('Order Summary')}</p>
 
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgb(220,181,21), rgb(160,128,8))' }}>
@@ -577,9 +579,9 @@ export function MembershipPackages({
 
                 <div className="space-y-2 mb-4">
                   {[
-                    { label: 'Plan Price', value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-                    { label: 'Duration', value: '1 year' },
-                    { label: 'Processing Fee', value: 'Waived', green: true },
+                    { label: m('Plan Price'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
+                    { label: m('Duration'), value: '1 year' },
+                    { label: m('Processing Fee'), value: 'Waived', green: true },
                   ].map((row) => {
                     const valColor = row.green ? 'rgb(52,199,89)' : pageText;
                     return (
@@ -592,7 +594,7 @@ export function MembershipPackages({
                 </div>
 
                 <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-5" style={{ background: 'rgba(220,181,21,0.1)', border: '1px solid rgba(220,181,21,0.3)' }}>
-                  <span className="text-sm" style={{ color: pageText }}>Total Due</span>
+                  <span className="text-sm" style={{ color: pageText }}>{m('Total Due')}</span>
                   <span className="text-sm" style={{ color: 'rgb(220,181,21)' }}>
                     {selectedTier.currency} {selectedTier.price.toLocaleString()}
                   </span>
@@ -621,7 +623,7 @@ export function MembershipPackages({
 
                 {!agreedToTerms && (
                   <p className="text-xs text-center mt-3" style={{ color: subText }}>
-                    Please agree to the Terms &amp; Conditions to proceed.
+                    {m('Please agree to the Terms &amp; Conditions to proceed.')}
                   </p>
                 )}
               </div>
@@ -629,7 +631,7 @@ export function MembershipPackages({
 
             <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: sectionBg, border: sectionBorder }}>
               <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(52,199,89)' }} />
-              <p className="text-xs" style={{ color: subText }}>Your payment is secured with Adyen (card / FPS / wallets).</p>
+              <p className="text-xs" style={{ color: subText }}>{m('Your payment is secured with Adyen (card / FPS / wallets).')}</p>
             </div>
           </div>
         </div>
@@ -646,9 +648,9 @@ export function MembershipPackages({
           <Sparkles className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
           <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Membership Packages</span>
         </div>
-        <h1 className="text-3xl mb-3" style={{ color: pageText }}>Choose Your Membership</h1>
+        <h1 className="text-3xl mb-3" style={{ color: pageText }}>{m('Choose Your Membership')}</h1>
         <p className="text-sm max-w-xl mx-auto" style={{ color: subText }}>
-          Enjoy exclusive access to the HKIA Lounge. Select the membership type and tier that best fits your travel lifestyle.
+          {m('Enjoy exclusive access to the HKIA Lounge. Select the membership type and tier that best fits your travel lifestyle.')}
         </p>
       </div>
 
@@ -665,7 +667,7 @@ export function MembershipPackages({
             }}
           >
             <Medal className="w-4 h-4" />
-            Individual Membership
+            {m('Individual Membership')}
             <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: activeTab === 'Individual' ? 'rgba(220,181,21,0.2)' : 'rgba(255,255,255,0.08)' }}>
               {displayTiers.length}-tier
             </span>
@@ -683,7 +685,7 @@ export function MembershipPackages({
             }}
           >
             <Medal className="w-4 h-4" />
-            Individual Membership
+            {m('Individual Membership')}
             <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(220,181,21,0.2)' }}>
               {liveIndividual.length} packages
             </span>
@@ -692,7 +694,7 @@ export function MembershipPackages({
       )}
 
       {isLoading && (
-        <p className="text-center text-sm mb-6" style={{ color: subText }}>Loading packages…</p>
+        <p className="text-center text-sm mb-6" style={{ color: subText }}>{m('Loading packages…')}</p>
       )}
       {error && (
         <p className="text-center text-sm mb-6" style={{ color: 'rgb(239,68,68)' }}>{error}</p>
@@ -787,7 +789,7 @@ export function MembershipPackages({
                   {tier.hasNonFlyingGuest && (
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(231,230,221,0.35)', border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)' }}>
                       <Users className="w-3.5 h-3.5 shrink-0" style={{ color: tier.accentColor }} />
-                      <span className="text-xs" style={{ color: featureTextColor }}>Free 1 non-flying guest per entry</span>
+                      <span className="text-xs" style={{ color: featureTextColor }}>{m('Free 1 non-flying guest per entry')}</span>
                     </div>
                   )}
                 </div>
@@ -810,7 +812,7 @@ export function MembershipPackages({
                   className="w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
                   style={ctaStyle}
                 >
-                  Select Plan
+                  {m('Select Plan')}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -839,7 +841,7 @@ export function MembershipPackages({
           <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>Voucher Eligibility Policy</p>
           <p className="text-xs leading-relaxed" style={{ color: subText }}>
             Complimentary booking vouchers and free Premiere Suite upgrade vouchers are exclusively for use by the{' '}
-            <strong style={{ color: pageText }}>account holder and their registered spouse</strong>. These vouchers may not be applied to guest bookings, transferred to nominees, gifted, or redeemed by any third party.
+            <strong style={{ color: pageText }}>{m('account holder and their registered spouse')}</strong>. These vouchers may not be applied to guest bookings, transferred to nominees, gifted, or redeemed by any third party.
           </p>
         </div>
       </div>
@@ -848,7 +850,7 @@ export function MembershipPackages({
       <div className="rounded-2xl overflow-hidden mb-10" style={{ background: otherBenefitsBg, border: otherBenefitsBorder }}>
         <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(220,181,21,0.2)' }}>
           <p className="text-sm text-center" style={{ color: 'rgb(220,181,21)' }}>
-            Other Membership Benefits — Applicable to Both Types &amp; All Tiers
+            {m('Other Membership Benefits — Applicable to Both Types &amp; All Tiers')}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: 'rgba(220,181,21,0.15)' }}>
@@ -869,7 +871,7 @@ export function MembershipPackages({
 
       {/* FAQ */}
       <div className="mb-2">
-        <h2 className="text-lg mb-5 text-center" style={{ color: pageText }}>Frequently Asked Questions</h2>
+        <h2 className="text-lg mb-5 text-center" style={{ color: pageText }}>{m('Frequently Asked Questions')}</h2>
         <div className="space-y-3 max-w-2xl mx-auto">
           {faqItems.map((item, idx) => {
             const isOpen = openFaq === idx;

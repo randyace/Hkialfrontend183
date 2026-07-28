@@ -28,10 +28,13 @@ import {
   Ban,
   FileDown,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner@2.0.3';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { useTheme } from './ThemeContext';
+import { translateStatus } from '../../../../../i18n';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
@@ -73,8 +76,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 0,
       passengers: [
-        { title: 'Mr', firstName: 'John', lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
-        { title: 'Mrs', firstName: 'Jane', lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' }
+        { title: m('Mr'), firstName: 'John', lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
+        { title: m('Mrs'), firstName: 'Jane', lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' }
       ],
       services: {
         loungeExtension: 2,
@@ -108,8 +111,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 2,
       nonFlyingGuests: 1,
       passengers: [
-        { title: 'Ms', firstName: 'Sarah', lastName: 'Chen', travelDoc: 'P11223344', membership: 'HKIAL003' },
-        { title: 'Mr', firstName: 'David', lastName: 'Wong', travelDoc: 'P99887766', membership: 'HKIAL004' }
+        { title: m('Ms'), firstName: 'Sarah', lastName: 'Chen', travelDoc: 'P11223344', membership: 'HKIAL003' },
+        { title: m('Mr'), firstName: 'David', lastName: 'Wong', travelDoc: 'P99887766', membership: 'HKIAL004' }
       ],
       services: {
         loungeExtension: 0,
@@ -143,7 +146,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 2,
       passengers: [
-        { title: 'Mr', firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' }
+        { title: m('Mr'), firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' }
       ],
       services: {
         loungeExtension: 1,
@@ -177,7 +180,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 0,
       passengers: [
-        { title: 'Mrs', firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' }
+        { title: m('Mrs'), firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' }
       ],
       services: {
         loungeExtension: 0,
@@ -211,10 +214,10 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 0,
       passengers: [
-        { title: 'Dr', firstName: 'Robert', lastName: 'Anderson', travelDoc: 'P77889900', membership: 'HKIAL007' },
-        { title: 'Mrs', firstName: 'Patricia', lastName: 'Anderson', travelDoc: 'P00998877', membership: 'HKIAL008' },
-        { title: 'Miss', firstName: 'Sophie', lastName: 'Anderson', travelDoc: 'P11001100', membership: 'HKIAL009' },
-        { title: 'Mr', firstName: 'James', lastName: 'Anderson', travelDoc: 'P22112211', membership: 'HKIAL010' }
+        { title: m('Dr'), firstName: 'Robert', lastName: 'Anderson', travelDoc: 'P77889900', membership: 'HKIAL007' },
+        { title: m('Mrs'), firstName: 'Patricia', lastName: 'Anderson', travelDoc: 'P00998877', membership: 'HKIAL008' },
+        { title: m('Miss'), firstName: 'Sophie', lastName: 'Anderson', travelDoc: 'P11001100', membership: 'HKIAL009' },
+        { title: m('Mr'), firstName: 'James', lastName: 'Anderson', travelDoc: 'P22112211', membership: 'HKIAL010' }
       ],
       services: {
         loungeExtension: 3,
@@ -248,7 +251,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 0,
       passengers: [
-        { title: 'Mr', firstName: 'James', lastName: 'Ng', travelDoc: 'P33445566', membership: 'HKIAL011' }
+        { title: m('Mr'), firstName: 'James', lastName: 'Ng', travelDoc: 'P33445566', membership: 'HKIAL011' }
       ],
       services: {
         loungeExtension: 0,
@@ -282,7 +285,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 1,
       passengers: [
-        { title: 'Ms', firstName: 'Linda', lastName: 'Wu', travelDoc: 'P66778899', membership: 'HKIAL012' }
+        { title: m('Ms'), firstName: 'Linda', lastName: 'Wu', travelDoc: 'P66778899', membership: 'HKIAL012' }
       ],
       services: {
         loungeExtension: 0,
@@ -316,8 +319,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 2,
       nonFlyingGuests: 2,
       passengers: [
-        { title: 'Mr', firstName: 'Thomas', lastName: 'Leung', travelDoc: 'P88990011', membership: 'HKIAL013' },
-        { title: 'Ms', firstName: 'Grace', lastName: 'Leung', travelDoc: 'P22334455', membership: 'HKIAL014' }
+        { title: m('Mr'), firstName: 'Thomas', lastName: 'Leung', travelDoc: 'P88990011', membership: 'HKIAL013' },
+        { title: m('Ms'), firstName: 'Grace', lastName: 'Leung', travelDoc: 'P22334455', membership: 'HKIAL014' }
       ],
       services: {
         loungeExtension: 0,
@@ -354,6 +357,8 @@ export function Bookings({
   setFilterStatus: propSetFilterStatus,
   setDateFilter: propSetDateFilter,
 }: BookingsProps) {
+  const m = useMsg();
+  const { t } = useTranslation();
   const { colors, glassStyle, mode } = useTheme();
   const isDark = mode === 'dark';
   const navigate = useNavigate();
@@ -550,9 +555,9 @@ export function Bookings({
 </head>
 <body>
   <div class="header">
-    <div class="header-title">HONG KONG INTERNATIONAL AIRPORT</div>
-    <div class="header-sub">Exclusive Lounge — Entry Pass</div>
-    <div class="header-note">This pass grants access to HKIA Premium Lounges. Present at entrance.</div>
+    <div class="header-title">{m('HONG KONG INTERNATIONAL AIRPORT')}</div>
+    <div class="header-sub">{m('Exclusive Lounge — Entry Pass')}</div>
+    <div class="header-note">{m('This pass grants access to HKIA Premium Lounges. Present at entrance.')}</div>
   </div>
   <div class="body">
     <div class="qr-section">
@@ -574,9 +579,11 @@ export function Bookings({
           const hash = (b as { entryQrHash?: string }).entryQrHash
             ?? (b as { entry_qr_hash?: string }).entry_qr_hash;
           if (hash) {
+            // entry_qr_hash is already stored as HKIAL-… — do not double-prefix.
+            const payload = String(hash).startsWith('HKIAL-') ? String(hash) : `HKIAL-${hash}`;
             const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&data='
-              + encodeURIComponent(`HKIAL-${hash}`);
-            return `<img src="${qrUrl}" alt="QR ${hash}" style="width:160px;height:160px;display:block" />`;
+              + encodeURIComponent(payload);
+            return `<img src="${qrUrl}" alt="QR ${payload}" style="width:160px;height:160px;display:block" />`;
           }
           return `<div class="qr-grid">${
             [
@@ -597,20 +604,20 @@ export function Bookings({
           }</div>`;
         })()}
       </div>
-      <div class="qr-label">Scan to verify at lounge entrance</div>
+      <div class="qr-label">{m('Scan to verify at lounge entrance')}</div>
     </div>
     <div class="ref-badge">${b.bookingRef}</div>
     <div class="section">
-      <div class="section-header">Booking Details</div>
+      <div class="section-header">{m('Booking Details')}</div>
       <table>${detailRowsHtml}</table>
     </div>
     <div class="section">
-      <div class="section-header">Passengers</div>
+      <div class="section-header">{m('Passengers')}</div>
       <table>
         <thead><tr style="background:#f5f4ee">
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">Name</th>
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">Travel Document</th>
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">Membership</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Name')}</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Travel Document')}</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Membership')}</th>
         </tr></thead>
         <tbody>${passengerRows}</tbody>
       </table>
@@ -618,7 +625,7 @@ export function Bookings({
   </div>
   <div class="footer">
     HKIA PREMIUM LOUNGE SERVICES &nbsp;·&nbsp; Hong Kong International Airport &nbsp;·&nbsp; Lantau Island, Hong Kong
-    <div class="footer-sub">This document is system-generated. For assistance call +852 2181 8888.</div>
+    <div class="footer-sub">{m('This document is system-generated. For assistance call +852 2181 8888.')}</div>
   </div>
   <script>window.onload = function(){ window.print(); }</script>
 </body>
@@ -629,51 +636,56 @@ export function Bookings({
     printWindow.document.write(html);
     printWindow.document.close();
 
-    toast.success('Print dialog opened', {
-      description: `Save as PDF to download entry details for ${b.bookingRef}.`,
+    toast.success(t('bookings.printOpened'), {
+      description: t('bookings.printOpenedHint', { ref: b.bookingRef }),
     });
   };
 
   const getStatusBadge = (status: string) => {
+    const label = translateStatus(t, status) || t(`bookings.status${status.charAt(0).toUpperCase()}${status.slice(1)}`, { defaultValue: status });
     switch (status) {
       case 'confirmed':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-green-100 text-green-700 border border-green-200">
-            <CheckCircle className="w-3 h-3" /> Confirmed
+            <CheckCircle className="w-3 h-3" /> {t('bookings.statusConfirmed')}
           </span>
         );
       case 'reviewing':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-purple-100 text-purple-700 border border-purple-200">
-            <AlertCircle className="w-3 h-3" /> Reviewing
+            <AlertCircle className="w-3 h-3" /> {t('bookings.statusReviewing')}
           </span>
         );
       case 'processing':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-yellow-100 text-yellow-700 border border-yellow-200">
-            <AlertCircle className="w-3 h-3" /> Processing
+            <AlertCircle className="w-3 h-3" /> {t('bookings.statusProcessing')}
           </span>
         );
       case 'completed':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-blue-100 text-blue-700 border border-blue-200">
-            <CheckCircle className="w-3 h-3" /> Completed
+            <CheckCircle className="w-3 h-3" /> {t('bookings.statusCompleted')}
           </span>
         );
       case 'cancelled':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-red-100 text-red-700 border border-red-200">
-            <XCircle className="w-3 h-3" /> Cancelled
+            <XCircle className="w-3 h-3" /> {t('bookings.statusCancelled')}
           </span>
         );
       case 'rejected':
         return (
           <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-orange-100 text-orange-700 border border-orange-200">
-            <XCircle className="w-3 h-3" /> Rejected
+            <XCircle className="w-3 h-3" /> {t('bookings.statusRejected')}
           </span>
         );
       default:
-        return null;
+        return label ? (
+          <span className="px-3 py-1 rounded-full text-xs flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-200">
+            {label}
+          </span>
+        ) : null;
     }
   };
 
@@ -744,27 +756,27 @@ export function Bookings({
     };
 
     const steps = [
-      { baseLabel: 'Reviewing',   idx: 0 },
-      { baseLabel: 'Processing',  idx: 1 },
-      { baseLabel: 'Confirmed',   idx: 2 },
-      { baseLabel: 'Completed',   idx: 3 },
+      { baseLabel: t('bookings.statusReviewing'),   idx: 0 },
+      { baseLabel: t('bookings.statusProcessing'),  idx: 1 },
+      { baseLabel: t('bookings.statusConfirmed'),   idx: 2 },
+      { baseLabel: t('bookings.statusCompleted'),   idx: 3 },
     ].map(s => ({
       ...s,
       label: isTerminated && s.idx === 2
-        ? (isCancelled ? 'Cancelled' : 'Rejected')
+        ? (isCancelled ? t('bookings.statusCancelled') : t('bookings.statusRejected'))
         : s.baseLabel,
     }));
 
     const footnote = isCancelled
-      ? 'Cancelled by member'
+      ? t('bookings.cancelledByMember')
       : isRejected
-      ? 'Rejected by administrator'
+      ? t('bookings.rejectedByStaff')
       : null;
 
     return (
       <div className="w-full mt-4 pt-4" style={{ borderTop: `1px solid ${divider}` }}>
         {/* Label row */}
-        <p className="text-xs mb-3" style={{ color: grayText }}>Booking Status</p>
+        <p className="text-xs mb-3" style={{ color: grayText }}>{t('bookings.bookingStatus')}</p>
 
         {/* Step nodes + connector lines — nodes pinned at edges, lines stretch between */}
         <div className="flex items-start w-full">
@@ -871,10 +883,10 @@ export function Bookings({
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] bg-clip-text text-transparent">
-            My Bookings
+            {t('bookings.title')}
           </h1>
           <p className="mt-1" style={{ color: colors.textSecondary }}>
-            Manage your lounge reservations and visit history.
+            {t('bookings.subtitle')}
           </p>
         </div>
         <button
@@ -882,7 +894,7 @@ export function Bookings({
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
-          New Booking
+          {t('bookings.newBooking')}
         </button>
       </div>
 
@@ -895,7 +907,7 @@ export function Bookings({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
               <input
                 type="text"
-                placeholder="Search by lounge, flight, or reference..."
+                placeholder={t('bookings.searchPlaceholder')}
                 value={searchTerm}
                  onChange={(e) => handleSetSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
@@ -908,19 +920,19 @@ export function Bookings({
               className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
             >
-              <option value="all">All Status</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="reviewing">Reviewing</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="rejected">Rejected</option>
+              <option value="all">{t('bookings.allStatus')}</option>
+              <option value="confirmed">{t('bookings.statusConfirmed')}</option>
+              <option value="reviewing">{t('bookings.statusReviewing')}</option>
+              <option value="processing">{t('bookings.statusProcessing')}</option>
+              <option value="completed">{t('bookings.statusCompleted')}</option>
+              <option value="cancelled">{t('bookings.statusCancelled')}</option>
+              <option value="rejected">{t('bookings.statusRejected')}</option>
             </select>
             <button
               className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all flex items-center gap-2 whitespace-nowrap"
             >
               <Search className="w-5 h-5" />
-              Search
+              {t('common.search')}
             </button>
           </div>
 
@@ -928,7 +940,7 @@ export function Bookings({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2" style={{ color: colors.text }}>
               <Calendar className="w-5 h-5" style={{ color: 'rgb(220, 181, 21)' }} />
-              <span className="text-sm font-medium">Filter by Date:</span>
+              <span className="text-sm font-medium">{t('bookings.filterByDate')}:</span>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -938,7 +950,7 @@ export function Bookings({
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
                 style={inputStyle}
               />
-              <span className="flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>to</span>
+              <span className="flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>{m('to')}</span>
               <input
                 type="date"
                 value={dateFilter.end}
@@ -951,7 +963,7 @@ export function Bookings({
                   onClick={() => handleSetDateFilter({ start: '', end: '' })}
                   className="flex-shrink-0 px-3 py-2.5 rounded-xl bg-red-100 border border-red-200 text-red-700 hover:bg-red-200 transition-all text-sm whitespace-nowrap"
                 >
-                  Clear Dates
+                  {m('Clear Dates')}
                 </button>
               )}
             </div>
@@ -993,7 +1005,7 @@ export function Bookings({
                   <div className="flex items-center gap-2" style={{ color: colors.text }}>
                     <Calendar className="w-4 h-4 text-purple-500" />
                     <div>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Date</p>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{m('Date')}</p>
                       <p className="text-sm font-medium">{formatDateDDMMYYYY(booking.date)}</p>
                     </div>
                   </div>
@@ -1001,7 +1013,7 @@ export function Bookings({
                   <div className="flex items-center gap-2" style={{ color: colors.text }}>
                     <Clock className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                     <div>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Time</p>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{m('Time')}</p>
                       <p className="text-sm font-medium">{booking.time}{booking.duration ? ` (${booking.duration})` : ''}</p>
                     </div>
                   </div>
@@ -1009,7 +1021,7 @@ export function Bookings({
                   <div className="flex items-center gap-2" style={{ color: colors.text }}>
                     <Plane className="w-4 h-4 text-blue-500" />
                     <div>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Flight</p>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{m('Flight')}</p>
                       <p className="text-sm font-medium">{booking.flight}</p>
                     </div>
                   </div>
@@ -1017,7 +1029,7 @@ export function Bookings({
                   <div className="flex items-center gap-2" style={{ color: colors.text }}>
                     <Users className="w-4 h-4 text-purple-500" />
                     <div>
-                      <p className="text-xs" style={{ color: colors.textMuted }}>Guests</p>
+                      <p className="text-xs" style={{ color: colors.textMuted }}>{m('Guests')}</p>
                       <p className="text-sm font-medium">
                         {booking.guests === 0 ? 'Solo' : `${booking.guests} guest${booking.guests > 1 ? 's' : ''}`}
                       </p>
@@ -1039,7 +1051,7 @@ export function Bookings({
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all flex items-center gap-2 text-sm whitespace-nowrap"
                   >
                     <QrCode className="w-4 h-4" />
-                    QR Code
+                    {m('QR Code')}
                   </button>
                 )}
                 {(booking.status === 'confirmed' || booking.status === 'processing' || booking.status === 'reviewing') && (
@@ -1050,14 +1062,14 @@ export function Bookings({
                       style={secondaryBtnStyle}
                     >
                       <Edit className="w-4 h-4" />
-                      Edit
+                      {m('Edit')}
                     </button>
                     <button
                       onClick={() => handleCancelClick(booking)}
                       className="px-4 py-2 rounded-xl bg-red-100 border border-red-200 text-red-700 hover:bg-red-200 transition-all flex items-center gap-2 text-sm"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Cancel
+                      {m('Cancel')}
                     </button>
                   </>
                 )}
@@ -1067,7 +1079,7 @@ export function Bookings({
                     style={secondaryBtnStyle}
                   >
                     <Download className="w-4 h-4" />
-                    Receipt
+                    {m('Receipt')}
                   </button>
                 )}
               </div>
@@ -1082,14 +1094,14 @@ export function Bookings({
       {filteredBookings.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-          <h3 className="text-xl mb-2" style={{ color: colors.text }}>No bookings found</h3>
-          <p className="mb-4" style={{ color: colors.textSecondary }}>Try adjusting your search or filter criteria</p>
+          <h3 className="text-xl mb-2" style={{ color: colors.text }}>{m('No bookings found')}</h3>
+          <p className="mb-4" style={{ color: colors.textSecondary }}>{m('Try adjusting your search or filter criteria')}</p>
           <button
             onClick={() => navigate('/newbooking')}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Make Your First Booking
+            {m('Make Your First Booking')}
           </button>
         </div>
       )}
@@ -1106,7 +1118,7 @@ export function Bookings({
               </div>
 
               <h2 className="text-xl text-center mb-2" style={{ color: colors.text }}>
-                Cancel Booking
+                {m('Cancel Booking')}
               </h2>
               <p className="text-sm text-center mb-5" style={{ color: colors.textSecondary }}>
                 Are you sure you want to cancel booking{' '}
@@ -1135,10 +1147,10 @@ export function Bookings({
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(210,55,55)' }} />
                   <div>
                     <p className="text-sm" style={{ color: 'rgb(210,55,55)' }}>
-                      <span style={{ fontWeight: 600 }}>No Refund Applicable</span>
+                      <span style={{ fontWeight: 600 }}>{m('No Refund Applicable')}</span>
                     </p>
                     <p className="text-xs mt-1" style={{ color: isDark ? 'rgba(255,100,100,0.85)' : 'rgba(180,40,40,0.85)' }}>
-                      Your booking is within <span style={{ fontWeight: 600 }}>48 hours</span>. Cancellations made less than 48 hours before the booking date are not eligible for a refund.
+                      {m('Your booking is within')} <span style={{ fontWeight: 600 }}>48 hours</span>. Cancellations made less than 48 hours before the booking date are not eligible for a refund.
                     </p>
                   </div>
                 </div>
@@ -1146,7 +1158,7 @@ export function Bookings({
                 <div className="rounded-xl p-4 mb-6 flex items-start gap-3" style={{ background: 'rgba(220,181,21,0.10)', border: '1px solid rgba(220,181,21,0.35)' }}>
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(220,181,21)' }} />
                   <p className="text-xs" style={{ color: isDark ? 'rgba(220,181,21,0.9)' : 'rgba(140,110,0,0.9)' }}>
-                    Please note: cancellations made <span style={{ fontWeight: 600 }}>less than 48 hours</span> before the booking date are not eligible for a refund.
+                    {m('Please note: cancellations made')} <span style={{ fontWeight: 600 }}>less than 48 hours</span> before the booking date are not eligible for a refund.
                   </p>
                 </div>
               )}
@@ -1167,7 +1179,7 @@ export function Bookings({
                   className="flex-1 px-4 py-3 rounded-xl transition-all text-sm disabled:opacity-50"
                   style={secondaryBtnStyle}
                 >
-                  Keep Booking
+                  {m('Keep Booking')}
                 </button>
                 <button
                   onClick={handleConfirmCancel}
@@ -1185,14 +1197,14 @@ export function Bookings({
       {filteredBookings.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
-          <h3 className="text-xl mb-2" style={{ color: colors.text }}>No bookings found</h3>
-          <p className="mb-4" style={{ color: colors.textSecondary }}>Try adjusting your search or filter criteria</p>
+          <h3 className="text-xl mb-2" style={{ color: colors.text }}>{m('No bookings found')}</h3>
+          <p className="mb-4" style={{ color: colors.textSecondary }}>{m('Try adjusting your search or filter criteria')}</p>
           <button
             onClick={() => navigate('/newbooking')}
             className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Make Your First Booking
+            {m('Make Your First Booking')}
           </button>
         </div>
       )}
@@ -1203,8 +1215,8 @@ export function Bookings({
           <div className="rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={modalBg}>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl" style={{ color: colors.text }}>New Booking</h2>
-                <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>Reserve your lounge experience</p>
+                <h2 className="text-2xl" style={{ color: colors.text }}>{m('New Booking')}</h2>
+                <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>{m('Reserve your lounge experience')}</p>
               </div>
               <button
                 onClick={() => setShowBookingModal(false)}
@@ -1217,7 +1229,7 @@ export function Bookings({
 
             <form onSubmit={handleBookingSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Flight Type</label>
+                <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{m('Flight Type')}</label>
                 <div className="relative">
                   <Plane className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                   <select
@@ -1228,15 +1240,15 @@ export function Bookings({
                     style={inputStyle}
                     required
                   >
-                    <option value="Departure">Departure</option>
-                    <option value="Arrival">Arrival</option>
+                    <option value="Departure">{m('Departure')}</option>
+                    <option value="Arrival">{m('Arrival')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Date</label>
+                  <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{m('Date')}</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                     <input
@@ -1251,7 +1263,7 @@ export function Bookings({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>Time</label>
+                  <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{m('Time')}</label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                     <input
@@ -1268,11 +1280,11 @@ export function Bookings({
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg" style={{ color: colors.text }}>Select Services</h3>
+                <h3 className="text-lg" style={{ color: colors.text }}>{m('Select Services')}</h3>
                 {[
-                  { id: 'premiereSuites', label: 'Number of Premiere Suite', icon: Building, max: 10, placeholder: 'Enter number of suites' },
-                  { id: 'vipPassengers', label: 'Number of VIP Passenger in Lounge Deluxe', icon: Users, max: 20, placeholder: 'Enter number of VIP passengers' },
-                  { id: 'nonFlyingGuests', label: 'Number of Non Flying Guests in Lounge Deluxe', icon: Users, max: 20, placeholder: 'Enter number of non-flying guests' },
+                  { id: 'premiereSuites', label: m('Number of Premiere Suite'), icon: Building, max: 10, placeholder: 'Enter number of suites' },
+                  { id: 'vipPassengers', label: m('Number of VIP Passenger in Lounge Deluxe'), icon: Users, max: 20, placeholder: 'Enter number of VIP passengers' },
+                  { id: 'nonFlyingGuests', label: m('Number of Non Flying Guests in Lounge Deluxe'), icon: Users, max: 20, placeholder: 'Enter number of non-flying guests' },
                 ].map(({ id, label, icon: Icon, max, placeholder }) => (
                   <div key={id}>
                     <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{label}</label>
@@ -1300,14 +1312,14 @@ export function Bookings({
                   background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(231,230,221,0.5)',
                   border: `1px solid ${colors.glassBorder}`
                 }}>
-                <h4 className="text-sm mb-3" style={{ color: colors.textSecondary }}>Booking Summary</h4>
+                <h4 className="text-sm mb-3" style={{ color: colors.textSecondary }}>{m('Booking Summary')}</h4>
                 <div className="space-y-2 text-sm">
                   {[
-                    { label: 'Date & Time:', value: bookingForm.date && bookingForm.time ? `${formatDateDDMMYYYY(bookingForm.date)} at ${bookingForm.time}` : 'Not selected' },
-                    { label: 'Flight Type:', value: bookingForm.flightType },
-                    { label: 'Premiere Suites:', value: bookingForm.premiereSuites },
-                    { label: 'VIP Passengers:', value: bookingForm.vipPassengers },
-                    { label: 'Non-Flying Guests:', value: bookingForm.nonFlyingGuests },
+                    { label: m('Date & Time:'), value: bookingForm.date && bookingForm.time ? `${formatDateDDMMYYYY(bookingForm.date)} at ${bookingForm.time}` : 'Not selected' },
+                    { label: m('Flight Type:'), value: bookingForm.flightType },
+                    { label: m('Premiere Suites:'), value: bookingForm.premiereSuites },
+                    { label: m('VIP Passengers:'), value: bookingForm.vipPassengers },
+                    { label: m('Non-Flying Guests:'), value: bookingForm.nonFlyingGuests },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex justify-between">
                       <span style={{ color: colors.textMuted }}>{label}</span>
@@ -1315,7 +1327,7 @@ export function Bookings({
                     </div>
                   ))}
                   <div className="pt-2 flex justify-between" style={{ borderTop: `1px solid ${colors.glassBorder}` }}>
-                    <span style={{ color: colors.textMuted }}>Total Guests:</span>
+                    <span style={{ color: colors.textMuted }}>{m('Total Guests:')}</span>
                     <span className="font-semibold" style={{ color: colors.text }}>
                       {bookingForm.premiereSuites + bookingForm.vipPassengers + bookingForm.nonFlyingGuests}
                     </span>
@@ -1330,13 +1342,13 @@ export function Bookings({
                   className="flex-1 py-3 px-4 rounded-xl transition-all"
                   style={secondaryBtnStyle}
                 >
-                  Cancel
+                  {m('Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all"
                 >
-                  Confirm Booking
+                  {m('Confirm Booking')}
                 </button>
               </div>
             </form>
@@ -1350,8 +1362,8 @@ export function Bookings({
           <div className="rounded-2xl p-8 max-w-md w-full" style={modalBg}>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h2 className="text-2xl" style={{ color: colors.text }}>Entry QR Code</h2>
-                <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>Show this at the lounge entrance</p>
+                <h2 className="text-2xl" style={{ color: colors.text }}>{m('Entry QR Code')}</h2>
+                <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>{m('Show this at the lounge entrance')}</p>
               </div>
               <button
                 onClick={() => setShowQRModal(false)}
@@ -1378,9 +1390,13 @@ export function Bookings({
                   const hash = (selectedBooking as { entryQrHash?: string }).entryQrHash
                     ?? (selectedBooking as { entry_qr_hash?: string }).entry_qr_hash;
                   if (hash) {
+                    // entry_qr_hash already includes HKIAL- (API Booking::boot).
+                    const payload = String(hash).startsWith('HKIAL-')
+                      ? String(hash)
+                      : `HKIAL-${hash}`;
                     return (
                       <QRCodeSVG
-                        value={`HKIAL-${hash}`}
+                        value={payload}
                         size={224}
                         level="M"
                         includeMargin={false}
@@ -1397,7 +1413,7 @@ export function Bookings({
             </div>
 
             <div className="text-center mb-6">
-              <p className="text-sm mb-1" style={{ color: colors.textMuted }}>Booking Reference</p>
+              <p className="text-sm mb-1" style={{ color: colors.textMuted }}>{m('Booking Reference')}</p>
               <p className="text-2xl font-mono" style={{ color: colors.text }}>{selectedBooking.bookingRef}</p>
             </div>
 
@@ -1407,9 +1423,9 @@ export function Bookings({
                 border: `1px solid ${colors.glassBorder}`
               }}>
               {[
-                { label: 'Date:', value: formatDateDDMMYYYY(selectedBooking.date) },
-                { label: 'Time:', value: selectedBooking.time },
-                { label: 'Flight:', value: selectedBooking.flightNumber },
+                { label: m('Date:'), value: formatDateDDMMYYYY(selectedBooking.date) },
+                { label: m('Time:'), value: selectedBooking.time },
+                { label: m('Flight:'), value: selectedBooking.flightNumber },
                 // 2026-06-27 (round 6.2.95 — Sky): drop the
                 // Terminal row when the booking has no terminal
                 // value. Mirrors the booking-card subtitle fix
@@ -1417,7 +1433,7 @@ export function Bookings({
                 // the field filled so figma Make preview keeps
                 // showing it.
                 ...(selectedBooking.terminal
-                  ? [{ label: 'Terminal:', value: selectedBooking.terminal }]
+                  ? [{ label: m('Terminal:'), value: selectedBooking.terminal }]
                   : []),
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between">
@@ -1438,7 +1454,7 @@ export function Bookings({
                 <svg viewBox="0 0 814 1000" className="w-5 h-5 flex-shrink-0" fill="white" xmlns="http://www.w3.org/2000/svg">
                   <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-37.5-150.3-81.4c-52-50.9-98.1-128.2-98.1-205.5 0-42.7 15.2-86.9 45.8-121.9 42.4-48.8 103.8-80.8 168.1-80.8 62.4 0 107.7 41.5 162.6 41.5 52.7 0 85.1-41.5 165.9-41.5 22.1 0 93.5 2.6 141.9 66.5zm-64.7-204.9c27.2-34.4 49.6-82.2 49.6-130.2 0-6.3-.6-12.7-1.9-18.7-47 1.9-103.6 33.5-137.5 71.4-28.8 33.2-56.8 80.7-56.8 129.8 0 7 1.3 13.9 1.9 16.1 2.6.3 6.4.9 10.3.9 42.4 0 97.6-29.8 134.4-69.3z" />
                 </svg>
-                <span className="text-sm font-semibold tracking-wide">Add to Apple Wallet</span>
+                <span className="text-sm font-semibold tracking-wide">{m('Add to Apple Wallet')}</span>
               </button>
 
               {/* Download Entry Details PDF */}
@@ -1454,7 +1470,7 @@ export function Bookings({
                 }}
               >
                 <FileDown className="w-4 h-4 flex-shrink-0" />
-                <span className="text-sm font-semibold">Download Entry Details PDF</span>
+                <span className="text-sm font-semibold">{m('Download Entry Details PDF')}</span>
               </button>
             </div>
 
@@ -1462,7 +1478,7 @@ export function Bookings({
               onClick={() => setShowQRModal(false)}
               className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all"
             >
-              Close
+              {m('Close')}
             </button>
           </div>
         </div>

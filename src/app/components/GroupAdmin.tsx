@@ -30,6 +30,7 @@ import { useTheme } from './ThemeContext';
 import { MembershipFlowModal } from './MembershipFlowModal';
 import { NationalityTypeahead } from '../../../../../components/NationalityTypeahead';
 import { isValidCountryCode } from '../../../../../utils/countries';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -258,7 +259,7 @@ export interface GroupMember {
 const TITLES = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'];
 
 const EMPTY_FORM = {
-  title: 'Mr',
+  title: m('Mr'),
   firstName: '',
   lastName: '',
   email: '',
@@ -305,7 +306,7 @@ function FormField({
 const MOCK_MEMBERS: GroupMember[] = [
   {
     id: 1,
-    title: 'Ms',
+    title: m('Ms'),
     firstName: 'Sarah',
     lastName: 'Chen',
     email: 'sarah.chen@cathay.com',
@@ -319,7 +320,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 2,
-    title: 'Mr',
+    title: m('Mr'),
     firstName: 'Michael',
     lastName: 'Wong',
     email: 'michael.wong@cathay.com',
@@ -333,7 +334,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 3,
-    title: 'Ms',
+    title: m('Ms'),
     firstName: 'Jennifer',
     lastName: 'Lee',
     email: 'jennifer.lee@cathay.com',
@@ -347,7 +348,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 4,
-    title: 'Mr',
+    title: m('Mr'),
     firstName: 'David',
     lastName: 'Liu',
     email: 'david.liu@cathay.com',
@@ -361,7 +362,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 5,
-    title: 'Ms',
+    title: m('Ms'),
     firstName: 'Amanda',
     lastName: 'Ng',
     email: 'amanda.ng@cathay.com',
@@ -394,6 +395,7 @@ export function GroupAdmin({
   onBookForMember,
   onPurchaseMembership,
 }: GroupAdminProps) {
+  const m = useMsg();
   const { colors, glassStyle, mode } = useTheme();
   const [internalSearchQuery, setInternalSearchQuery] = useState('');
   const navigate = useNavigate();
@@ -623,7 +625,7 @@ export function GroupAdmin({
     const raw = e?.data?.errors ?? e?.errors;
     if (!raw || typeof raw !== 'object') return {};
     const keyMap: Record<string, keyof typeof EMPTY_FORM> = {
-      title: 'title',
+      title: m('title'),
       first_name: 'firstName',
       firstName: 'firstName',
       last_name: 'lastName',
@@ -741,9 +743,9 @@ export function GroupAdmin({
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent">
-            Group Account Management
+            {m('Group Account Management')}
           </h1>
-          <p className="mt-1" style={{ color: colors.textSecondary }}>Manage your team members and distribute credit balance.</p>
+          <p className="mt-1" style={{ color: colors.textSecondary }}>{m('Manage your team members and distribute credit balance.')}</p>
         </div>
         <button
           onClick={handleOpenAdd}
@@ -751,23 +753,23 @@ export function GroupAdmin({
           className="px-6 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all inline-flex items-center gap-2 disabled:opacity-60"
         >
           <UserPlus className="w-5 h-5" />
-          Add Member
+          {m('Add Member')}
         </button>
       </div>
 
       {isLoading && (
         <div className="rounded-2xl p-8 text-center border border-white/20" style={glassStyle}>
-          <p style={{ color: colors.textSecondary }}>Loading group members…</p>
+          <p style={{ color: colors.textSecondary }}>{m('Loading group members…')}</p>
         </div>
       )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
-          { label: 'Total Members', value: groupMembers.length, icon: Users },
-          { label: 'Active Members', value: activeCount, icon: CheckCircle },
-          { label: 'Total Credit', value: `HKD ${totalCredit.toLocaleString()}`, icon: Wallet },
-          { label: 'Avg Credit', value: `HKD ${avgCredit.toLocaleString()}`, icon: DollarSign },
+          { label: m('Total Members'), value: groupMembers.length, icon: Users },
+          { label: m('Active Members'), value: activeCount, icon: CheckCircle },
+          { label: m('Total Credit'), value: `HKD ${totalCredit.toLocaleString()}`, icon: Wallet },
+          { label: m('Avg Credit'), value: `HKD ${avgCredit.toLocaleString()}`, icon: DollarSign },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -792,7 +794,7 @@ export function GroupAdmin({
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: colors.textMuted }} />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder={m('Search by name or email...')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
@@ -807,11 +809,11 @@ export function GroupAdmin({
           <table className="w-full">
             <thead style={{ background: theadBg }} className="border-b border-white/20">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>Member</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>Memberships</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>Last Active</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>Actions</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>{m('Member')}</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>{m('Memberships')}</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>{m('Status')}</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>{m('Last Active')}</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold" style={{ color: colors.text }}>{m('Actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -845,7 +847,7 @@ export function GroupAdmin({
                     </td>
                     <td className="px-6 py-4 min-w-[220px]">
                       {packages.length === 0 ? (
-                        <span className="text-xs" style={{ color: colors.textMuted }}>No membership</span>
+                        <span className="text-xs" style={{ color: colors.textMuted }}>{m('No membership')}</span>
                       ) : (
                         <div className="flex flex-col gap-2">
                           {packages.map((pkg) => {
@@ -878,7 +880,7 @@ export function GroupAdmin({
                       {member.status === 'active' ? (
                         <span className="px-3 py-1 rounded-full text-xs bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 w-fit">
                           <CheckCircle className="w-3 h-3" />
-                          Active
+                          {m('Active')}
                         </span>
                       ) : (
                         <span
@@ -886,7 +888,7 @@ export function GroupAdmin({
                           style={{ background: inactiveBadgeBg, border: `1px solid ${inactiveBadgeBorder}`, color: colors.textSecondary }}
                         >
                           <XCircle className="w-3 h-3" />
-                          Inactive
+                          {m('Inactive')}
                         </span>
                       )}
                     </td>
@@ -903,7 +905,7 @@ export function GroupAdmin({
                           className="px-3 py-2 rounded-lg bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white text-sm font-semibold hover:shadow-lg transition-all flex items-center gap-1"
                         >
                           <UserCheck className="w-4 h-4" />
-                          Join Membership
+                          {m('Join Membership')}
                         </button>
                         <button
                           onClick={handleBookClick}
@@ -911,12 +913,12 @@ export function GroupAdmin({
                           style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.35)', color: '#60a5fa' }}
                         >
                           <CalendarPlus className="w-4 h-4" />
-                          Book for Member
+                          {m('Book for Member')}
                         </button>
                         <button
                           onClick={handleEditClick}
                           className="p-2 rounded-lg transition-colors"
-                          title="Edit member"
+                          title={m('Edit member')}
                           style={{ background: editBtnBg }}
                           onMouseEnter={editEnter}
                           onMouseLeave={editLeave}
@@ -958,8 +960,8 @@ export function GroupAdmin({
                   <UserPlus className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold" style={{ color: colors.text }}>Add New Member</h3>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>Fill in the details below</p>
+                  <h3 className="text-xl font-bold" style={{ color: colors.text }}>{m('Add New Member')}</h3>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>{m('Fill in the details below')}</p>
                 </div>
               </div>
               <button
@@ -1003,7 +1005,7 @@ export function GroupAdmin({
                       type="text"
                       value={addForm.firstName}
                       onChange={(e) => setAddForm(f => ({ ...f, firstName: e.target.value }))}
-                      placeholder="e.g. Thomas"
+                      placeholder={m('e.g. Thomas')}
                       className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                       style={fieldStyle}
                     />
@@ -1015,7 +1017,7 @@ export function GroupAdmin({
                   type="text"
                   value={addForm.lastName}
                   onChange={(e) => setAddForm(f => ({ ...f, lastName: e.target.value }))}
-                  placeholder="e.g. Leung"
+                  placeholder={m('e.g. Leung')}
                   className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                   style={fieldStyle}
                 />
@@ -1028,7 +1030,7 @@ export function GroupAdmin({
                     type="email"
                     value={addForm.email}
                     onChange={(e) => setAddForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="e.g. thomas.leung@company.com"
+                    placeholder={m('e.g. thomas.leung@company.com')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1042,7 +1044,7 @@ export function GroupAdmin({
                     type="tel"
                     value={addForm.phone}
                     onChange={(e) => setAddForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="e.g. +852 9123 4567 (Optional)"
+                    placeholder={m('e.g. +852 9123 4567 (Optional)')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1081,7 +1083,7 @@ export function GroupAdmin({
                     maxLength={4}
                     value={addForm.passportPrefix}
                     onChange={(e) => setAddForm(f => ({ ...f, passportPrefix: e.target.value.toUpperCase() }))}
-                    placeholder="e.g. K293 (Optional)"
+                    placeholder={m('e.g. K293 (Optional)')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1099,7 +1101,7 @@ export function GroupAdmin({
                 onMouseEnter={handleCancelBtnEnter}
                 onMouseLeave={handleCancelBtnLeave}
               >
-                Cancel
+                {m('Cancel')}
               </button>
               <button
                 type="button"
@@ -1129,7 +1131,7 @@ export function GroupAdmin({
                   <Edit2 className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold" style={{ color: colors.text }}>Edit Member</h3>
+                  <h3 className="text-xl font-bold" style={{ color: colors.text }}>{m('Edit Member')}</h3>
                   <p className="text-sm" style={{ color: colors.textSecondary }}>Update {selectedMember.title} {selectedMember.firstName} {selectedMember.lastName}'s details</p>
                 </div>
               </div>
@@ -1173,7 +1175,7 @@ export function GroupAdmin({
                       type="text"
                       value={editForm.firstName}
                       onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
-                      placeholder="First name"
+                      placeholder={m('First name')}
                       className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                       style={fieldStyle}
                     />
@@ -1185,7 +1187,7 @@ export function GroupAdmin({
                   type="text"
                   value={editForm.lastName}
                   onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
-                  placeholder="Last name"
+                  placeholder={m('Last name')}
                   className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                   style={fieldStyle}
                 />
@@ -1198,7 +1200,7 @@ export function GroupAdmin({
                     type="email"
                     value={editForm.email}
                     onChange={(e) => setEditForm(f => ({ ...f, email: e.target.value }))}
-                    placeholder="Email address"
+                    placeholder={m('Email address')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1212,7 +1214,7 @@ export function GroupAdmin({
                     type="tel"
                     value={editForm.phone}
                     onChange={(e) => setEditForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="Phone number"
+                    placeholder={m('Phone number')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1251,7 +1253,7 @@ export function GroupAdmin({
                     maxLength={4}
                     value={editForm.passportPrefix}
                     onChange={(e) => setEditForm(f => ({ ...f, passportPrefix: e.target.value.toUpperCase() }))}
-                    placeholder="e.g. K293 (Optional)"
+                    placeholder={m('e.g. K293 (Optional)')}
                     className="w-full pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                     style={fieldStyle}
                   />
@@ -1260,7 +1262,7 @@ export function GroupAdmin({
 
               {/* Status toggle */}
               <div>
-                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>Account Status</label>
+                <label className="block text-sm font-semibold mb-2" style={{ color: colors.text }}>{m('Account Status')}</label>
                 <div className="flex gap-3">
                   {(['active', 'inactive'] as const).map((s) => {
                     const isSelected = editForm.status === s;
@@ -1297,7 +1299,7 @@ export function GroupAdmin({
                 onMouseEnter={handleCancelBtnEnter}
                 onMouseLeave={handleCancelBtnLeave}
               >
-                Cancel
+                {m('Cancel')}
               </button>
               <button
                 onClick={() => { void confirmEdit(); }}

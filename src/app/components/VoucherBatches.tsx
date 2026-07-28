@@ -16,6 +16,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 export interface VoucherCode {
@@ -358,7 +359,7 @@ function CopyButton({ text, isDark }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      title="Copy code"
+      title={m('Copy code')}
       className="p-1.5 rounded-lg transition-all hover:opacity-80"
       style={{ background: btnBg }}
     >
@@ -462,10 +463,10 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
   const handleNext = () => setPage(p => Math.min(totalPages - 1, p + 1));
 
   const filterLabels: Array<{ key: typeof filter; label: string; count: number }> = [
-    { key: 'all',       label: 'All',       count: batch.codes.length },
-    { key: 'available', label: 'Available', count: availableCount },
-    { key: 'used',      label: 'Used',      count: usedCount },
-    { key: 'expired',   label: 'Expired',   count: expiredCount },
+    { key: 'all',       label: m('All'),       count: batch.codes.length },
+    { key: 'available', label: m('Available'), count: availableCount },
+    { key: 'used',      label: m('Used'),      count: usedCount },
+    { key: 'expired',   label: m('Expired'),   count: expiredCount },
   ];
 
   return (
@@ -507,19 +508,19 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
         >
           <div className="flex items-center gap-2">
             <Hash className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
-            <span className="text-xs" style={{ color: colors.textMuted }}>Total</span>
+            <span className="text-xs" style={{ color: colors.textMuted }}>{m('Total')}</span>
             <span className="text-sm" style={{ color: colors.text }}>{batch.totalCount}</span>
           </div>
           <div className="w-px h-4" style={{ background: dividerBg }} />
           <div className="flex items-center gap-2">
             <CheckCheck className="w-4 h-4" style={{ color: isDark ? 'rgb(165,180,252)' : 'rgb(79,70,229)' }} />
-            <span className="text-xs" style={{ color: colors.textMuted }}>Used</span>
+            <span className="text-xs" style={{ color: colors.textMuted }}>{m('Used')}</span>
             <span className="text-sm" style={{ color: colors.text }}>{batch.usedCount}</span>
           </div>
           <div className="w-px h-4" style={{ background: dividerBg }} />
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4" style={{ color: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' }} />
-            <span className="text-xs" style={{ color: colors.textMuted }}>Available</span>
+            <span className="text-xs" style={{ color: colors.textMuted }}>{m('Available')}</span>
             <span className="text-sm" style={{ color: colors.text }}>{availableCount}</span>
           </div>
           {expiredCount > 0 && (
@@ -527,7 +528,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
               <div className="w-px h-4" style={{ background: dividerBg }} />
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4" style={{ color: colors.textMuted }} />
-                <span className="text-xs" style={{ color: colors.textMuted }}>Expired</span>
+                <span className="text-xs" style={{ color: colors.textMuted }}>{m('Expired')}</span>
                 <span className="text-sm" style={{ color: colors.textMuted }}>{expiredCount}</span>
               </div>
             </>
@@ -540,7 +541,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
             <input
               type="text"
-              placeholder="Search by code or recipient…"
+              placeholder={m('Search by code or recipient…')}
               value={search}
               onChange={handleSearchChange}
               className="w-full pl-9 pr-3 py-2 rounded-lg text-sm outline-none"
@@ -573,12 +574,12 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
           {codesLoading && batch.codes.length === 0 && (
             <div className="text-center py-10" style={{ color: colors.textMuted }}>
-              Loading voucher codes…
+              {m('Loading voucher codes…')}
             </div>
           )}
           {!codesLoading && filtered.length === 0 && (
             <div className="text-center py-10" style={{ color: colors.textMuted }}>
-              No voucher codes match your search.
+              {m('No voucher codes match your search.')}
             </div>
           )}
           {pageSlice.map((vc) => {
@@ -613,7 +614,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
                 </div>
                 {vc.usedBy && (
                   <p className="text-xs mt-1.5" style={{ color: colors.textMuted }}>
-                    Used by <span style={{ color: colors.textSecondary }}>{vc.usedBy}</span>
+                    {m('Used by')} <span style={{ color: colors.textSecondary }}>{vc.usedBy}</span>
                     {vc.usedDate && <> · {formatDate(vc.usedDate)}</>}
                   </p>
                 )}
@@ -636,7 +637,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
                 className="px-3 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
                 style={{ background: paginBg, color: colors.textSecondary }}
               >
-                Previous
+                {m('Previous')}
               </button>
               <button
                 type="button"
@@ -645,7 +646,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
                 className="px-3 py-1.5 rounded-lg text-xs transition-all disabled:opacity-30"
                 style={{ background: paginBg, color: colors.textSecondary }}
               >
-                Next
+                {m('Next')}
               </button>
             </div>
           </div>
@@ -712,7 +713,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
               color: colors.textSecondary,
             }}
           >
-            Close
+            {m('Close')}
           </button>
         </div>
       </div>
@@ -733,6 +734,7 @@ export function VoucherBatches({
   onSelectBatch,
   onCloseBatch,
 }: VoucherBatchesProps = {}) {
+  const m = useMsg();
   const { colors, mode, glassStyle } = useTheme();
   // Controlled selectedBatch when parent passes the prop; otherwise local state (Figma Make).
   const isSelectedControlled = selectedBatchProp !== undefined;
@@ -766,9 +768,9 @@ export function VoucherBatches({
   const infoBoxBg       = isDark ? 'rgba(0,0,0,0.2)'                   : 'rgba(255,255,255,0.6)';
 
   const allStatuses: Array<{ key: typeof filterStatus; label: string }> = [
-    { key: 'all',     label: 'All Batches' },
-    { key: 'active',  label: 'Active' },
-    { key: 'expired', label: 'Expired / Exhausted' },
+    { key: 'all',     label: m('All Batches') },
+    { key: 'active',  label: m('Active') },
+    { key: 'expired', label: m('Expired / Exhausted') },
   ];
 
   const displayed = sourceBatches.filter((b) => {
@@ -826,20 +828,20 @@ export function VoucherBatches({
       {/* Page header */}
       <div>
         <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent mb-1">
-          Voucher Batches
+          {m('Voucher Batches')}
         </h1>
         <p className="text-sm" style={{ color: colors.textMuted }}>
-          Manage and distribute your corporate lounge voucher batches
+          {m('Manage and distribute your corporate lounge voucher batches')}
         </p>
       </div>
 
       {/* Summary stats — 4 tiles */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Active Batches', value: String(totalActive),            icon: Package,     iconBg: 'rgba(52,211,153,0.15)',  iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
-          { label: 'Total Vouchers', value: totalVouchers.toLocaleString(), icon: Hash,        iconBg: 'rgba(220,181,21,0.12)',  iconColor: 'rgb(220,181,21)' },
-          { label: 'Used',           value: totalUsed.toLocaleString(),     icon: CheckCheck,  iconBg: 'rgba(99,102,241,0.12)', iconColor: isDark ? 'rgb(165,180,252)' : 'rgb(79,70,229)' },
-          { label: 'Available',      value: totalAvailable.toLocaleString(),icon: CheckCircle, iconBg: 'rgba(52,211,153,0.12)', iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
+          { label: m('Active Batches'), value: String(totalActive),            icon: Package,     iconBg: 'rgba(52,211,153,0.15)',  iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
+          { label: m('Total Vouchers'), value: totalVouchers.toLocaleString(), icon: Hash,        iconBg: 'rgba(220,181,21,0.12)',  iconColor: 'rgb(220,181,21)' },
+          { label: m('Used'),           value: totalUsed.toLocaleString(),     icon: CheckCheck,  iconBg: 'rgba(99,102,241,0.12)', iconColor: isDark ? 'rgb(165,180,252)' : 'rgb(79,70,229)' },
+          { label: m('Available'),      value: totalAvailable.toLocaleString(),icon: CheckCircle, iconBg: 'rgba(52,211,153,0.12)', iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
@@ -864,7 +866,7 @@ export function VoucherBatches({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
           <input
             type="text"
-            placeholder="Search by batch name, voucher, or ID…"
+            placeholder={m('Search by batch name, voucher, or ID…')}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
@@ -901,7 +903,7 @@ export function VoucherBatches({
 
       {isLoading && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
-          <p className="text-sm" style={{ color: colors.textMuted }}>Loading voucher batches…</p>
+          <p className="text-sm" style={{ color: colors.textMuted }}>{m('Loading voucher batches…')}</p>
         </div>
       )}
 
@@ -909,7 +911,7 @@ export function VoucherBatches({
       {!isLoading && displayed.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Ticket className="w-12 h-12 mx-auto mb-4 opacity-30" style={{ color: colors.textMuted }} />
-          <p className="text-sm" style={{ color: colors.textMuted }}>No voucher batches match your criteria.</p>
+          <p className="text-sm" style={{ color: colors.textMuted }}>{m('No voucher batches match your criteria.')}</p>
         </div>
       )}
 
@@ -982,7 +984,7 @@ export function VoucherBatches({
                     }}
                   >
                     <Ticket className="w-4 h-4" />
-                    View Codes
+                    {m('View Codes')}
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -990,9 +992,9 @@ export function VoucherBatches({
                 {/* Quantity tiles */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label: 'Total Qty', value: batch.totalCount, bg: totalTileBg, color: totalTileClr, icon: Hash },
-                    { label: 'Used',      value: batch.usedCount,  bg: usedTileBg,  color: usedTileClr,  icon: CheckCheck },
-                    { label: 'Available', value: available,         bg: availTileBg, color: availTileClr, icon: CheckCircle },
+                    { label: m('Total Qty'), value: batch.totalCount, bg: totalTileBg, color: totalTileClr, icon: Hash },
+                    { label: m('Used'),      value: batch.usedCount,  bg: usedTileBg,  color: usedTileClr,  icon: CheckCheck },
+                    { label: m('Available'), value: available,         bg: availTileBg, color: availTileClr, icon: CheckCircle },
                   ].map((tile) => {
                     const TileIcon = tile.icon;
                     return (
@@ -1013,15 +1015,15 @@ export function VoucherBatches({
                   style={{ background: infoBoxBg, border: '1px solid ' + dividerBg }}
                 >
                   <div>
-                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>Valid From</p>
+                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>{m('Valid From')}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>{formatDate(batch.validFrom)}</p>
                   </div>
                   <div>
-                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>Valid Until</p>
+                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>{m('Valid Until')}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>{formatDate(batch.validUntil)}</p>
                   </div>
                   <div>
-                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>Issued Date</p>
+                    <p className="text-xs mb-0.5" style={{ color: metaColor }}>{m('Issued Date')}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>{formatDate(batch.issuedDate)}</p>
                   </div>
                 </div>
