@@ -568,3 +568,5 @@ export function VisitHistory() {
     </div>
   );
 }
+
+export default VisitHistory;

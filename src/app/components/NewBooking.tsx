@@ -403,6 +403,7 @@ function Time5MinSelect({
   wrapperStyle?: React.CSSProperties;
   testId?: string;
 }) {
+  const m = useMsg();
   // Parse `HH:MM` defensively (mirrors the parent-tree Time5MinSelect).
   // Empty / malformed → both columns empty so the disabled `HH`/`MM`
   // placeholder is shown rather than a stale `00`.
@@ -1110,6 +1111,7 @@ function ToggleCard({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const m = useMsg();
   const { textPrimary, textMuted, stepperCardBg } = useThemedStyles();
   return (
     <div
@@ -1245,6 +1247,7 @@ function ContactNoSplit({
   fieldClass: string;
   isDark: boolean;
 }) {
+  const m = useMsg();
   const { glassStyle } = useTheme();
   const [regionOpen, setRegionOpen] = useState(false);
   const [regionHighlight, setRegionHighlight] = useState(0);
@@ -1398,6 +1401,7 @@ function GuestNationalityTypeahead({
   isDark: boolean;
   required?: boolean;
 }) {
+  const m = useMsg();
   const { glassStyle } = useTheme();
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -1550,6 +1554,7 @@ function QRScannerModal({
   onDetected: (code: string) => void;
   onClose: () => void;
 }) {
+  const m = useMsg();
   const { isDark, colors, textMuted } = useThemedStyles();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1806,10 +1811,10 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 2,
     nonFlyingGuests: 0,
     passengers: [
-      { title: m('Mr'),  firstName: 'John',  lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
-      { title: m('Mrs'), firstName: 'Jane',  lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' },
-      { title: m('Ms'),  firstName: 'Emma',  lastName: 'Johnson', travelDoc: 'P11223344', membership: 'HKIAL003' },
-      { title: m('Mr'),  firstName: 'David', lastName: 'Chen',  travelDoc: 'P55667788', membership: 'HKIAL004' },
+      { title: 'Mr',  firstName: 'John',  lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
+      { title: 'Mrs', firstName: 'Jane',  lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' },
+      { title: 'Ms',  firstName: 'Emma',  lastName: 'Johnson', travelDoc: 'P11223344', membership: 'HKIAL003' },
+      { title: 'Mr',  firstName: 'David', lastName: 'Chen',  travelDoc: 'P55667788', membership: 'HKIAL004' },
     ],
     contactPerson: { name: 'John Smith', email: 'john.smith@example.com', phone: '+852 9876 5432' },
   },
@@ -1829,8 +1834,8 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 2,
     nonFlyingGuests: 1,
     passengers: [
-      { title: m('Ms'), firstName: 'Sarah', lastName: 'Chen',  travelDoc: 'P11223344', membership: 'HKIAL003' },
-      { title: m('Mr'), firstName: 'David', lastName: 'Wong',  travelDoc: 'P99887766', membership: 'HKIAL004' },
+      { title: 'Ms', firstName: 'Sarah', lastName: 'Chen',  travelDoc: 'P11223344', membership: 'HKIAL003' },
+      { title: 'Mr', firstName: 'David', lastName: 'Wong',  travelDoc: 'P99887766', membership: 'HKIAL004' },
     ],
     contactPerson: { name: 'Sarah Chen', email: 'sarah.chen@example.com', phone: '+852 9123 4567' },
   },
@@ -1850,7 +1855,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 1,
     nonFlyingGuests: 2,
     passengers: [
-      { title: m('Mr'), firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' },
+      { title: 'Mr', firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' },
     ],
     contactPerson: { name: 'Michael Lee', email: 'michael.lee@example.com', phone: '+852 9222 3344' },
   },
@@ -1870,7 +1875,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
     vipPassengers: 1,
     nonFlyingGuests: 0,
     passengers: [
-      { title: m('Mrs'), firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' },
+      { title: 'Mrs', firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' },
     ],
     contactPerson: { name: 'Emily Chan', email: 'emily.chan@example.com', phone: '+852 9555 6677' },
   },
@@ -2017,10 +2022,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       : '') || (isTravelAgency ? TA_AGENCY_CODE : '');
 
   function formatFreeCreditRemaining(value: number | null | undefined): string {
-    if (value === null || value === undefined) return 'Not available';
-    if (value === -1) return 'Unlimited';
-    if (value <= 0) return '0 remaining';
-    return `${value.toLocaleString()} remaining`;
+    if (value === null || value === undefined) return m('Not available');
+    if (value === -1) return m('Unlimited');
+    if (value <= 0) return m('0 remaining');
+    return `${value.toLocaleString()} ${m('remaining')}`;
   }
 
   function hasFreeCreditAvailable(value: number | null | undefined): boolean {
@@ -2306,52 +2311,63 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1FlightHints: string[] = [];
   if (form.flightType === 'Transit') {
     if (leg1FlightTime === '') {
-      step1FlightHints.push('Please enter the leg 1 arrival time (HH:MM)');
+      step1FlightHints.push(m('Please enter the leg 1 arrival time (HH:MM)'));
     }
     if (leg2ArrivalDate === '') {
-      step1FlightHints.push('Please enter the 2nd leg arrival date and time');
+      step1FlightHints.push(m('Please enter the 2nd leg arrival date and time'));
     }
     if (leg2FlightNo.trim() === '') {
-      step1FlightHints.push('Please enter the 2nd leg flight number');
+      step1FlightHints.push(m('Please enter the 2nd leg flight number'));
     }
     if (leg2TimeFromArrival === '') {
-      step1FlightHints.push('Please enter the 2nd leg flight time');
+      step1FlightHints.push(m('Please enter the 2nd leg flight time'));
     }
     if (leg2FlightClass === '') {
-      step1FlightHints.push('Please select the 2nd leg flight class');
+      step1FlightHints.push(m('Please select the 2nd leg flight class'));
     }
     if (leg2Destination.trim() === '') {
-      step1FlightHints.push('Please enter the 2nd leg destination');
+      step1FlightHints.push(m('Please enter the 2nd leg destination'));
     }
     if (transitGapError !== null) {
       step1FlightHints.push(transitGapError);
     }
   }
   if (form.date === '') {
-    step1FlightHints.push(`Please select a ${form.flightType === 'Departure' ? 'departure' : 'arrival'} date to proceed`);
+    step1FlightHints.push(
+      form.flightType === 'Departure'
+        ? m('Please select a departure date to proceed')
+        : m('Please select an arrival date to proceed'),
+    );
   }
   if (form.flightNumber.trim() === '') {
-    step1FlightHints.push('Please enter a flight number to proceed');
+    step1FlightHints.push(m('Please enter a flight number to proceed'));
   }
   if (!step1TimeValid) {
-    step1FlightHints.push(`Please enter the ${form.flightType === 'Departure' ? 'departure' : 'arrival'} time`);
+    step1FlightHints.push(
+      form.flightType === 'Departure'
+        ? m('Please enter the departure time')
+        : m('Please enter the arrival time'),
+    );
   }
   // 2026-06-30 (round ? — Sky) — surface past-datetime picks in the
   // existing bulleted hint list (see step1FlightHints comment at
   // line ~1748). Empty inputs return `true` from the checks above so
   // we don't double-up with the "please enter ..." hints.
   if (!leg1DateTimeInFuture) {
-    const which = form.flightType === 'Departure' ? 'departure' : 'arrival';
-    step1FlightHints.push(`Please select a future ${which} date and time (the selected datetime is in the past)`);
+    step1FlightHints.push(
+      form.flightType === 'Departure'
+        ? m('Please select a future departure date and time (the selected datetime is in the past)')
+        : m('Please select a future arrival date and time (the selected datetime is in the past)'),
+    );
   }
   if (!leg2DateTimeInFuture) {
-    step1FlightHints.push('Please select a future 2nd leg arrival date and time (the selected datetime is in the past)');
+    step1FlightHints.push(m('Please select a future 2nd leg arrival date and time (the selected datetime is in the past)'));
   }
   if (!step1OriginValid) {
-    step1FlightHints.push('Please enter the origin');
+    step1FlightHints.push(m('Please enter the origin'));
   }
   if (!step1DestinationValid) {
-    step1FlightHints.push('Please enter the destination');
+    step1FlightHints.push(m('Please enter the destination'));
   }
   // Keep the legacy `step1FlightHintMsg` derived for any callers that
   // still read the single-string form. The new `step1FlightHints` array
@@ -2360,7 +2376,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1FlightHintMsg =
     step1FlightHints.length > 0
       ? step1FlightHints[0]
-      : 'Please complete all required fields to proceed';
+      : m('Please complete all required fields to proceed');
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
@@ -3511,8 +3527,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     ];
     const stepsLeft = Math.max(0, 6 - effectiveStep);
     const progressCaption = effectiveStep >= 6
-      ? 'Booking completed — all steps done'
-      : (stepsLeft === 1 ? 'Step ' + effectiveStep + ' of 6 — 1 step remaining' : 'Step ' + effectiveStep + ' of 6 — ' + stepsLeft + ' steps remaining');
+      ? m('Booking completed — all steps done')
+      : (stepsLeft === 1
+        ? `${m('Step')} ${effectiveStep} ${m('of')} 6 — ${m('1 step remaining')}`
+        : `${m('Step')} ${effectiveStep} ${m('of')} 6 — ${stepsLeft} ${m('steps remaining')}`);
 
     return (
       <div className="w-full mb-6 pb-5" style={{ borderBottom: `1px solid ${divider}` }}>
@@ -4121,17 +4139,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
           <ReviewGrid>
             <ReviewField
-              label={form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
+              label={form.flightType === 'Departure' ? m('Departure Date') : m('Arrival Date')}
               value={formatDate(form.date)}
             />
-            <ReviewField label="Flight Number" value={form.flightNumber || '—'} />
+            <ReviewField label={m('Flight Number')} value={form.flightNumber || '—'} />
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-              <ReviewField label="Origin" value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
+              <ReviewField label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
             )}
-            <ReviewField label="Flight Class" value={form.flightClass} />
-            <ReviewField label="Flight Type" value={form.flightType} />
+            <ReviewField label={m('Flight Class')} value={form.flightClass} />
+            <ReviewField label={m('Flight Type')} value={form.flightType} />
             {flightDetails && form.flightType !== 'Departure' && (
-              <ReviewField label="Arrival Time" value={flightDetails.arrivalTime} />
+              <ReviewField label={m('Arrival Time')} value={flightDetails.arrivalTime} />
             )}
           </ReviewGrid>
 
@@ -4142,16 +4160,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <ReviewGrid>
                 <ReviewField
-                  label="Departure Date"
+                  label={m('Departure Date')}
                   value={leg2ArrivalDate?.split('T')[0] ? formatDate(leg2ArrivalDate.split('T')[0]) : '—'}
                 />
                 <ReviewField
-                  label="Departure Time"
+                  label={m('Departure Time')}
                   value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
                 />
-                <ReviewField label="Flight Number" value={leg2FlightNo || '—'} />
-                <ReviewField label="Destination" value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
-                <ReviewField label="Flight Class" value={leg2FlightClass || '—'} />
+                <ReviewField label={m('Flight Number')} value={leg2FlightNo || '—'} />
+                <ReviewField label={m('Destination')} value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
+                <ReviewField label={m('Flight Class')} value={leg2FlightClass || '—'} />
               </ReviewGrid>
             </div>
           )}
@@ -4641,7 +4659,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  {m('Lounge reservation shall be made')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 48 hours in advance</span>.
+                  {m('Lounge reservation shall be made')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('at least 48 hours in advance')}</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4650,7 +4668,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  {m('Payment needs to be settled')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>at least 12 hours prior to the flight time</span>, otherwise it will be treated as cancelled.
+                  {m('Payment needs to be settled')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('at least 12 hours prior to the flight time')}</span>, {m('otherwise it will be treated as cancelled.')}
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4659,7 +4677,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc amendment')}</span> of booking, and booking is <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>non-transferable</span>.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc amendment')}</span> {m('of booking, and booking is')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('non-transferable')}</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -4668,7 +4686,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No refund')}</span> if cancellation is made <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>less than 48 hours</span>.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No refund')}</span> {m('if cancellation is made')} <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('less than 48 hours')}</span>.
                 </p>
               </div>
               <div className="flex items-start gap-2.5">
@@ -5284,10 +5302,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <span>
                   <span className="font-medium" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
-                    For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries
-                    (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit
-                    (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.
-                    {!canUseFreeLd ? ' You have no free Lounge Deluxe entries left.' : ''}
+                    {m('For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.')}
+                    {!canUseFreeLd ? ` ${m('You have no free Lounge Deluxe entries left.')}` : ''}
                   </span>
                 </span>
               </label>
@@ -5306,11 +5322,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <span>
                   <span className="font-medium" style={textPrimary}>{m('Use free Premiere Suite upgrade on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
-                    For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry
-                    together. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite
-                    base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry).
-                    If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.
-                    {!canUseFreePs ? ' Free Premiere Suite upgrade is not available right now (no free upgrade and/or no free Lounge Deluxe entry left).' : ''}
+                    {m('For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry together. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry). If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.')}
+                    {!canUseFreePs ? ` ${m('Free Premiere Suite upgrade is not available right now (no free upgrade and/or no free Lounge Deluxe entry left).')}` : ''}
                   </span>
                 </span>
               </label>
@@ -5440,7 +5453,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     }}
                   >
                     <CheckCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> is valid and will be applied to your booking.</span>
+                    <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> {m('is valid and will be applied to your booking.')}</span>
                   </div>
                 )}
 
@@ -5457,7 +5470,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <span>
                       {promoCodeMessage
                         ? promoCodeMessage
-                        : <>{m('Code')} <strong>{step2Form.promotionCode}</strong> is invalid. Please check and try again.</>}
+                        : <>{m('Code')} <strong>{step2Form.promotionCode}</strong> {m('is invalid. Please check and try again.')}</>}
                     </span>
                   </div>
                 )}
@@ -5471,7 +5484,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       color: isDark ? 'rgba(220, 181, 21, 1)' : 'rgba(180, 145, 17, 1)',
                     }}
                   >
-                    ⚠️ <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> has already been used or expired.</span>
+                    ⚠️ <span>{m('Code')} <strong>{step2Form.promotionCode}</strong> {m('has already been used or expired.')}</span>
                   </div>
                 )}
 
@@ -5595,25 +5608,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
             <div className="p-5">
               <div className={`divide-y ${dividerClass}`}>
-                <SummaryRow label="Flight Number" value={form.flightNumber || '—'} />
+                <SummaryRow label={m('Flight Number')} value={form.flightNumber || '—'} />
                 {/* 2026-06-08 (round 6.2.8): Origin shown for both
                     Arrival and Transit (the form's leg 1 = inbound to
                     HKG). Departure mode omits Origin (no inbound). */}
                 {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-                  <SummaryRow label="Origin" value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
+                  <SummaryRow label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
                 )}
                 {/* 2026-06-08 (round 6.2.7): mode-aware — "Departure Date"
                     when flightType === 'Departure', "Arrival Date" otherwise.
                     Mirrors the change in the Flight Information review
                     section and the Step 1 form. */}
                 <SummaryRow
-                  label={form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'}
+                  label={form.flightType === 'Departure' ? m('Departure Date') : m('Arrival Date')}
                   value={formatDate(form.date)}
                 />
-                <SummaryRow label="Flight Class" value={form.flightClass} />
-                <SummaryRow label="Flight Type" value={form.flightType} />
+                <SummaryRow label={m('Flight Class')} value={form.flightClass} />
+                <SummaryRow label={m('Flight Type')} value={form.flightType} />
                 {flightDetails && form.flightType !== 'Departure' && (
-                  <SummaryRow label="Arrival Time" value={flightDetails.arrivalTime} />
+                  <SummaryRow label={m('Arrival Time')} value={flightDetails.arrivalTime} />
                 )}
 
                 {/* 2026-06-08 (round 6.2.8+): Transit 2-leg sub-section
@@ -5864,7 +5877,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   return (
                     <button key={type} type="button" onClick={handleFTClick} className="py-5 rounded-xl flex flex-col items-center gap-2 transition-all" style={ftBtnStyle}>
                       <Plane className="w-8 h-8" style={{ color: ftPlaneColor, transform: planeRotation }} />
-                      <span className="text-sm" style={{ color: ftLabelColor }}>{type}</span>
+                      <span className="text-sm" style={{ color: ftLabelColor }}>{m(type)}</span>
                     </button>
                   );
                 })}
@@ -5897,7 +5910,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 is Departure (the flight is outbound from HKG). */}
             <div className="mb-4">
               <label className={labelClass}>
-                {form.flightType === 'Departure' ? 'Departure Date' : 'Arrival Date'} *
+                {form.flightType === 'Departure' ? m('Departure Date') : m('Arrival Date')} *
               </label>
               <div className="relative">
                 <input
@@ -5925,7 +5938,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 as the date field above. */}
             <div className="mb-4">
               <label className={labelClass}>
-                {form.flightType === 'Departure' ? 'Departure Time' : 'Arrival Time'} *
+                {form.flightType === 'Departure' ? m('Departure Time') : m('Arrival Time')} *
               </label>
               <Time5MinSelect
                 value={leg1FlightTime}
@@ -7446,3 +7459,5 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   return null;
 }
+
+export default NewBooking;

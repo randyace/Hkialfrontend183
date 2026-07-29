@@ -79,7 +79,7 @@ export interface SettingsProps {
 // ── Mock data for Figma preview (used when no real props are provided) ───────
 const MOCK_SETTINGS = {
   profile: {
-    title: m('Mr'),
+    title: 'Mr',
     firstName: "John",
     lastName: "Doe",
     email: "john.doe@example.com",
@@ -1029,3 +1029,5 @@ export function Settings({
     </div>
   );
 }
+
+export default Settings;

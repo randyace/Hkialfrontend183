@@ -259,7 +259,7 @@ export interface GroupMember {
 const TITLES = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof'];
 
 const EMPTY_FORM = {
-  title: m('Mr'),
+  title: 'Mr',
   firstName: '',
   lastName: '',
   email: '',
@@ -306,7 +306,7 @@ function FormField({
 const MOCK_MEMBERS: GroupMember[] = [
   {
     id: 1,
-    title: m('Ms'),
+    title: 'Ms',
     firstName: 'Sarah',
     lastName: 'Chen',
     email: 'sarah.chen@cathay.com',
@@ -320,7 +320,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 2,
-    title: m('Mr'),
+    title: 'Mr',
     firstName: 'Michael',
     lastName: 'Wong',
     email: 'michael.wong@cathay.com',
@@ -334,7 +334,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 3,
-    title: m('Ms'),
+    title: 'Ms',
     firstName: 'Jennifer',
     lastName: 'Lee',
     email: 'jennifer.lee@cathay.com',
@@ -348,7 +348,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 4,
-    title: m('Mr'),
+    title: 'Mr',
     firstName: 'David',
     lastName: 'Liu',
     email: 'david.liu@cathay.com',
@@ -362,7 +362,7 @@ const MOCK_MEMBERS: GroupMember[] = [
   },
   {
     id: 5,
-    title: m('Ms'),
+    title: 'Ms',
     firstName: 'Amanda',
     lastName: 'Ng',
     email: 'amanda.ng@cathay.com',
@@ -405,8 +405,8 @@ export function GroupAdmin({
   const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
-  const [addErrors, setAddErrors] = useState<Partial<typeof EMPTY_FORM>>({});
-  const [editErrors, setEditErrors] = useState<Partial<typeof EMPTY_FORM>>({});
+  const [addErrors, setAddErrors] = useState<Partial<Record<keyof typeof EMPTY_FORM, string>>>({});
+  const [editErrors, setEditErrors] = useState<Partial<Record<keyof typeof EMPTY_FORM, string>>>({});
   const [internalSuccessMessage, setInternalSuccessMessage] = useState('');
   const [internalPackages, setInternalPackages] = useState<Record<number, MemberPackage[]>>(INITIAL_PACKAGES);
   const [internalMembers, setInternalMembers] = useState<GroupMember[]>(MOCK_MEMBERS);
@@ -617,7 +617,7 @@ export function GroupAdmin({
    * Map Laravel 422 `errors` (snake_case keys) onto the camelCase form fields
    * so duplicate-email / required-field API failures show next to inputs.
    */
-  function mapApiFieldErrors(err: unknown): Partial<typeof EMPTY_FORM> {
+  function mapApiFieldErrors(err: unknown): Partial<Record<keyof typeof EMPTY_FORM, string>> {
     const e = err as {
       data?: { errors?: Record<string, string[] | string> };
       errors?: Record<string, string[] | string>;
@@ -625,7 +625,7 @@ export function GroupAdmin({
     const raw = e?.data?.errors ?? e?.errors;
     if (!raw || typeof raw !== 'object') return {};
     const keyMap: Record<string, keyof typeof EMPTY_FORM> = {
-      title: m('title'),
+      title: 'title',
       first_name: 'firstName',
       firstName: 'firstName',
       last_name: 'lastName',
@@ -637,7 +637,7 @@ export function GroupAdmin({
       passportPrefix: 'passportPrefix',
       status: 'status',
     };
-    const out: Partial<typeof EMPTY_FORM> = {};
+    const out: Partial<Record<keyof typeof EMPTY_FORM, string>> = {};
     for (const [k, v] of Object.entries(raw)) {
       const field = keyMap[k];
       if (!field) continue;
@@ -1339,3 +1339,5 @@ export function GroupAdmin({
     </div>
   );
 }
+
+export default GroupAdmin;

@@ -344,6 +344,7 @@ function buildXlsXml(batch: VoucherBatch, availableCodes: VoucherCode[]): string
 // ── CopyButton ─────────────────────────────────────────────────────────────────
 interface CopyButtonProps { text: string; isDark: boolean; }
 function CopyButton({ text, isDark }: CopyButtonProps) {
+  const m = useMsg();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -374,6 +375,7 @@ function CopyButton({ text, isDark }: CopyButtonProps) {
 interface CodesModalProps { batch: VoucherBatch; onClose: () => void; codesLoading?: boolean; }
 
 function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
+  const m = useMsg();
   const { colors, mode } = useTheme();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'available' | 'used' | 'expired'>('all');

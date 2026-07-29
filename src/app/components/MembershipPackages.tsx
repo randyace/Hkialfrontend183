@@ -211,9 +211,9 @@ const CORPORATE_TIERS: TierData[] = [
 
 // Shared "other benefits" row data
 const OTHER_BENEFITS = [
-  { Icon: UserCheck, label: m('Flying Guest'), value: '40% off the original price' },
-  { Icon: Users, label: m('Non-flying Guest'), value: '40% off the original price' },
-  { Icon: Car, label: m('In-town Limousine Transfer'), value: '40% off the original price for 1 limousine' },
+  { Icon: UserCheck, label: 'Flying Guest', value: '40% off the original price' },
+  { Icon: Users, label: 'Non-flying Guest', value: '40% off the original price' },
+  { Icon: Car, label: 'In-town Limousine Transfer', value: '40% off the original price for 1 limousine' },
 ];
 
 const faqItems = [
@@ -237,43 +237,43 @@ const faqItems = [
 
 const termsAndConditions = [
   {
-    title: m('1. Membership Eligibility'),
+    title: '1. Membership Eligibility',
     body: 'Membership is open to individuals aged 18 years or above and to registered corporate entities. By purchasing a membership, you confirm that all information provided is accurate, complete, and up to date. HKIA Lounge reserves the right to verify eligibility and to decline or cancel any membership application that does not meet the stated criteria.',
   },
   {
-    title: m('2. Membership Benefits'),
+    title: '2. Membership Benefits',
     body: 'Benefits are as described in the membership package selected at the time of purchase. HKIA Lounge reserves the right to modify, substitute, or withdraw any benefit with 30 days\' written notice. Lounge access is subject to capacity and operational availability. Complimentary guest entitlements may not be exchanged for cash or transferred.',
   },
   {
-    title: m('3. Membership Period & Renewal'),
+    title: '3. Membership Period & Renewal',
     body: 'All memberships are valid for one (1) calendar year from the activation date. Memberships do not automatically renew. Members will receive a renewal reminder 30 days before expiry. Unused lounge visits and vouchers expire at the end of the membership year and cannot be carried forward or refunded.',
   },
   {
-    title: m('4. Payment & Fees'),
+    title: '4. Payment & Fees',
     body: 'All fees are quoted in Hong Kong Dollars (HKD) and are inclusive of any applicable taxes. Payment must be made in full at the time of purchase. HKIA Lounge accepts major credit and debit cards. Membership activation is conditional upon successful payment clearance.',
   },
   {
-    title: m('5. Refund & Cancellation Policy'),
+    title: '5. Refund & Cancellation Policy',
     body: 'A 14-day satisfaction guarantee applies to new memberships. Refund requests submitted within 14 days of the activation date will be processed in full, provided fewer than two (2) lounge visits have been made. After the 14-day period, no refunds will be issued. Membership upgrades are subject to a pro-rated adjustment and are non-refundable once processed.',
   },
   {
-    title: m('6. Lounge Access & Conduct'),
+    title: '6. Lounge Access & Conduct',
     body: 'Members and their guests must present a valid digital or physical membership card and a same-day boarding pass to gain lounge access. HKIA Lounge reserves the right to refuse entry or remove any member or guest who is in violation of lounge rules or whose behaviour is deemed disruptive or inappropriate. Minors under the age of 12 must be accompanied by an adult member at all times.',
   },
   {
-    title: m('7. Corporate Nominee Verification'),
+    title: '7. Corporate Nominee Verification',
     body: 'For Corporate memberships, the account holder must provide the names of all Executive Nominees. HKIA Lounge staff will verify the identity of these personnel upon booking submission. Any changes to nominated personnel must be submitted in writing to the membership team and will be effective within 5 business days.',
   },
   {
-    title: m('8. Privacy & Data Protection'),
+    title: '8. Privacy & Data Protection',
     body: 'Personal data collected during the membership application and throughout the membership period will be used solely for the purpose of administering your membership and improving our services. Data will be handled in accordance with the Personal Data (Privacy) Ordinance (Cap. 486) of Hong Kong. We will not sell or share your personal data with third parties without your explicit consent, except as required by law.',
   },
   {
-    title: m('9. Amendments to Terms'),
+    title: '9. Amendments to Terms',
     body: 'HKIA Lounge reserves the right to amend these Terms & Conditions at any time. Members will be notified of material changes via the registered email address at least 14 days in advance. Continued use of the membership after the effective date of any amendment constitutes acceptance of the revised terms.',
   },
   {
-    title: m('10. Governing Law'),
+    title: '10. Governing Law',
     body: 'These Terms & Conditions are governed by and construed in accordance with the laws of the Hong Kong Special Administrative Region. Any disputes arising in connection with these terms shall be subject to the exclusive jurisdiction of the courts of Hong Kong.',
   },
 ];
@@ -499,7 +499,7 @@ export function MembershipPackages({
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-3" style={{ background: 'rgba(220,181,21,0.15)', border: '1px solid rgba(220,181,21,0.35)' }}>
             <CreditCard className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Checkout</span>
+            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>{m('Checkout')}</span>
           </div>
           <h1 className="text-2xl" style={{ color: pageText }}>{m('Complete Your Purchase')}</h1>
         </div>
@@ -523,8 +523,8 @@ export function MembershipPackages({
               <div className="overflow-y-auto p-5 space-y-5" style={{ maxHeight: '420px' }}>
                 {termsAndConditions.map((section) => (
                   <div key={section.title}>
-                    <p className="text-xs mb-2" style={{ color: 'rgb(220,181,21)' }}>{section.title}</p>
-                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{section.body}</p>
+                    <p className="text-xs mb-2" style={{ color: 'rgb(220,181,21)' }}>{m(section.title)}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{m(section.body)}</p>
                   </div>
                 ))}
                 <div className="h-2" />
@@ -541,9 +541,9 @@ export function MembershipPackages({
                 {agreedToTerms && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
               </div>
               <span className="text-xs leading-relaxed" style={{ color: pageText }}>
-                I have read, understood, and agree to the{' '}
-                <strong style={{ color: 'rgb(220,181,21)' }}>Terms &amp; Conditions</strong>{' '}
-                of HKIA Lounge Membership, including the refund policy and lounge access rules.
+                {m('I have read, understood, and agree to the')}{' '}
+                <strong style={{ color: 'rgb(220,181,21)' }}>{m('Terms &amp; Conditions')}</strong>{' '}
+                {m('of HKIA Lounge Membership, including the refund policy and lounge access rules.')}
               </span>
             </button>
           </div>
@@ -646,7 +646,7 @@ export function MembershipPackages({
       <div className="mb-10 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4" style={{ background: 'rgba(220,181,21,0.15)', border: '1px solid rgba(220,181,21,0.35)' }}>
           <Sparkles className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-          <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Membership Packages</span>
+          <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>{m('Membership Packages')}</span>
         </div>
         <h1 className="text-3xl mb-3" style={{ color: pageText }}>{m('Choose Your Membership')}</h1>
         <p className="text-sm max-w-xl mx-auto" style={{ color: subText }}>
@@ -669,7 +669,7 @@ export function MembershipPackages({
             <Medal className="w-4 h-4" />
             {m('Individual Membership')}
             <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: activeTab === 'Individual' ? 'rgba(220,181,21,0.2)' : 'rgba(255,255,255,0.08)' }}>
-              {displayTiers.length}-tier
+              {displayTiers.length} {m('tiers')}
             </span>
           </button>
         </div>
@@ -687,7 +687,7 @@ export function MembershipPackages({
             <Medal className="w-4 h-4" />
             {m('Individual Membership')}
             <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(220,181,21,0.2)' }}>
-              {liveIndividual.length} packages
+              {liveIndividual.length} {m('packages')}
             </span>
           </div>
         </div>
@@ -722,8 +722,12 @@ export function MembershipPackages({
             : { background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.08)', color: 'rgb(220,181,21)', border: '1px solid rgba(220,181,21,0.35)' };
 
           // Key stats for the card
-          const entryLabel = typeof tier.entries === 'number' ? `${tier.entries} entries/year` : 'Unlimited entries/year';
-          const upgradeLabel = tier.freeUpgradesPerYear === 'NA' ? 'No free suite upgrades' : `${tier.freeUpgradesPerYear} free suite upgrade${tier.freeUpgradesPerYear !== 1 ? 's' : ''}/year`;
+          const entryLabel = typeof tier.entries === 'number'
+            ? `${tier.entries} ${m('entries/year')}`
+            : m('Unlimited entries/year');
+          const upgradeLabel = tier.freeUpgradesPerYear === 'NA'
+            ? m('No free suite upgrades')
+            : `${tier.freeUpgradesPerYear} ${tier.freeUpgradesPerYear !== 1 ? m('free suite upgrades') : m('free suite upgrade')}${m('/year')}`;
 
           const handleSelect = () => handleSelectTier(tier);
 
@@ -749,7 +753,7 @@ export function MembershipPackages({
                           : { background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(200,199,190,0.5)', color: subText, border: cardBorder }
                       }
                     >
-                      {tier.badge}
+                      {tier.badge ? m(tier.badge) : null}
                     </span>
                   </div>
                 )}
@@ -760,8 +764,8 @@ export function MembershipPackages({
                     <TierIcon className="w-5 h-5" style={{ color: iconColor }} />
                   </div>
                   <div>
-                    <p className="text-sm" style={{ color: pageText }}>{tier.name}</p>
-                    <p className="text-xs" style={{ color: subText }}>{tier.tagline}</p>
+                    <p className="text-sm" style={{ color: pageText }}>{m(tier.name)}</p>
+                    <p className="text-xs" style={{ color: subText }}>{m(tier.tagline)}</p>
                   </div>
                 </div>
 
@@ -771,7 +775,7 @@ export function MembershipPackages({
                     <span className="text-xs" style={{ color: subText }}>{tier.currency}</span>
                     <span className="text-3xl" style={{ color: priceColor }}>{tier.price.toLocaleString()}</span>
                   </div>
-                  <span className="text-xs" style={{ color: subText }}>per {tier.period}</span>
+                  <span className="text-xs" style={{ color: subText }}>{m('per')} {m(tier.period)}</span>
                 </div>
 
                 <div className="mb-4" style={{ borderTop: dividerColor }} />
@@ -801,7 +805,7 @@ export function MembershipPackages({
                   {tier.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
                       <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: featureTextColor }}>{f}</span>
+                      <span className="text-xs" style={{ color: featureTextColor }}>{m(f)}</span>
                     </li>
                   ))}
                 </ul>
@@ -826,9 +830,9 @@ export function MembershipPackages({
         <div className="rounded-xl p-4 mb-8 flex items-start gap-3" style={{ background: notesBg, border: notesBorder }}>
           <Users className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#60a5fa' }} />
           <div>
-            <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>Corporate Nominee Policy</p>
+            <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>{m('Corporate Nominee Policy')}</p>
             <p className="text-xs leading-relaxed" style={{ color: subText }}>
-              Entries are shared by a maximum of 5 nominated corporate personnel. The corporate would provide the names of these personnel, and HKIAL staff would verify upon booking submission.
+              {m('Entries are shared by a maximum of 5 nominated corporate personnel. The corporate would provide the names of these personnel, and HKIAL staff would verify upon booking submission.')}
             </p>
           </div>
         </div>
@@ -838,10 +842,10 @@ export function MembershipPackages({
       <div className="rounded-xl p-4 mb-8 flex items-start gap-3" style={{ background: notesBg, border: notesBorder }}>
         <UserCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#60a5fa' }} />
         <div>
-          <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>Voucher Eligibility Policy</p>
+          <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>{m('Voucher Eligibility Policy')}</p>
           <p className="text-xs leading-relaxed" style={{ color: subText }}>
-            Complimentary booking vouchers and free Premiere Suite upgrade vouchers are exclusively for use by the{' '}
-            <strong style={{ color: pageText }}>{m('account holder and their registered spouse')}</strong>. These vouchers may not be applied to guest bookings, transferred to nominees, gifted, or redeemed by any third party.
+            {m('Complimentary booking vouchers and free Premiere Suite upgrade vouchers are exclusively for use by the')}{' '}
+            <strong style={{ color: pageText }}>{m('account holder and their registered spouse')}</strong>. {m('These vouchers may not be applied to guest bookings, transferred to nominees, gifted, or redeemed by any third party.')}
           </p>
         </div>
       </div>
@@ -861,8 +865,8 @@ export function MembershipPackages({
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-1" style={{ background: 'rgba(220,181,21,0.15)' }}>
                   <BenefitIcon className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                 </div>
-                <p className="text-xs font-semibold" style={{ color: pageText }}>{benefit.label}</p>
-                <p className="text-xs" style={{ color: subText }}>{benefit.value}</p>
+                <p className="text-xs font-semibold" style={{ color: pageText }}>{m(benefit.label)}</p>
+                <p className="text-xs" style={{ color: subText }}>{m(benefit.value)}</p>
               </div>
             );
           })}
@@ -884,12 +888,12 @@ export function MembershipPackages({
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
                   onClick={handleToggle}
                 >
-                  <span className="text-sm pr-4" style={{ color: pageText }}>{item.q}</span>
+                  <span className="text-sm pr-4" style={{ color: pageText }}>{m(item.q)}</span>
                   <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-200" style={{ color: 'rgb(220,181,21)', transform: chevronRotate }} />
                 </button>
                 {isOpen && (
                   <div className="px-5 pb-4">
-                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{item.a}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{m(item.a)}</p>
                   </div>
                 )}
               </div>
@@ -900,3 +904,5 @@ export function MembershipPackages({
     </div>
   );
 }
+
+export default MembershipPackages;

@@ -6,6 +6,7 @@ import {
   UserCheck, ChevronRight, Zap, Wallet, AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Tier Data ─────────────────────────────────────────────────────────────────
 
@@ -352,6 +353,7 @@ export function MembershipFlowModal({
   onConfirmPurchase,
   hideCorporate = false,
 }: MembershipFlowModalProps) {
+  const m = useMsg();
   const { colors, mode } = useTheme();
   const [view, setView] = useState<FlowView>('packages');
   const [activeTab, setActiveTab] = useState<MemberTab>('Individual');
@@ -504,7 +506,7 @@ export function MembershipFlowModal({
           <Check className="w-12 h-12 text-white" strokeWidth={2.5} />
         </div>
 
-        <p className="text-2xl mb-2" style={{ color: pageText }}>Membership Activated!</p>
+        <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Membership Activated!')}</p>
         <p className="text-sm mb-2 max-w-xs" style={{ color: subText }}>
           <strong style={{ color: 'rgb(220,181,21)' }}>{selectedTier.name} {selectedTier.memberType} Membership</strong>
           {' '}has been assigned to
@@ -565,16 +567,16 @@ export function MembershipFlowModal({
           style={{ color: subText }}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="text-sm">Back to Packages</span>
+          <span className="text-sm">{m('Back to Packages')}</span>
         </button>
 
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-3" style={{ background: 'rgba(220,181,21,0.15)', border: '1px solid rgba(220,181,21,0.35)' }}>
             <CreditCard className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Checkout</span>
+            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>{m('Checkout')}</span>
           </div>
-          <p className="text-2xl" style={{ color: pageText }}>Complete Your Purchase</p>
-          <p className="text-sm mt-1" style={{ color: subText }}>Assigning membership to <strong style={{ color: pageText }}>{memberFullName}</strong></p>
+          <p className="text-2xl" style={{ color: pageText }}>{m('Complete Your Purchase')}</p>
+          <p className="text-sm mt-1" style={{ color: subText }}>{m('Assigning membership to')} <strong style={{ color: pageText }}>{memberFullName}</strong></p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -586,8 +588,8 @@ export function MembershipFlowModal({
                   <FileText className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                 </div>
                 <div>
-                  <p className="text-sm" style={{ color: pageText }}>Terms &amp; Conditions</p>
-                  <p className="text-xs" style={{ color: subText }}>Please read carefully before proceeding</p>
+                  <p className="text-sm" style={{ color: pageText }}>{m('Terms &amp; Conditions')}</p>
+                  <p className="text-xs" style={{ color: subText }}>{m('Please read carefully before proceeding')}</p>
                 </div>
               </div>
             </div>
@@ -597,7 +599,7 @@ export function MembershipFlowModal({
                 {termsAndConditions.map((section) => (
                   <div key={section.title}>
                     <p className="text-xs mb-2" style={{ color: 'rgb(220,181,21)' }}>{section.title}</p>
-                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{section.body}</p>
+                    <p className="text-xs leading-relaxed" style={{ color: subText }}>{m(section.body)}</p>
                   </div>
                 ))}
                 <div className="h-2" />
@@ -614,9 +616,9 @@ export function MembershipFlowModal({
                 {agreedToTerms && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
               </div>
               <span className="text-xs leading-relaxed" style={{ color: pageText }}>
-                I have read, understood, and agree to the{' '}
-                <strong style={{ color: 'rgb(220,181,21)' }}>Terms &amp; Conditions</strong>{' '}
-                of HKIA Lounge Membership, including the refund policy and lounge access rules.
+                {m('I have read, understood, and agree to the')}{' '}
+                <strong style={{ color: 'rgb(220,181,21)' }}>{m('Terms &amp; Conditions')}</strong>{' '}
+                {m('of HKIA Lounge Membership, including the refund policy and lounge access rules.')}
               </span>
             </button>
           </div>
@@ -626,31 +628,31 @@ export function MembershipFlowModal({
             <div className="rounded-2xl overflow-hidden" style={{ background: sectionBg, border: sectionBorder }}>
               <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, rgb(220,181,21), rgb(160,128,8))' }} />
               <div className="p-5">
-                <p className="text-xs mb-4" style={{ color: subText }}>Order Summary</p>
+                <p className="text-xs mb-4" style={{ color: subText }}>{m('Order Summary')}</p>
 
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgb(220,181,21), rgb(160,128,8))' }}>
                     <TierIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} Membership</p>
+                    <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} {m('Membership')}</p>
                     <p className="text-xs" style={{ color: subText }}>{selectedTier.memberType} · {selectedTier.tagline}</p>
                   </div>
                 </div>
 
                 <div className="rounded-lg px-3 py-2 mb-4 flex items-center gap-2" style={{ background: memberChipBg, border: '1px solid rgba(220,181,21,0.2)' }}>
-                  <p className="text-xs" style={{ color: subText }}>For: <strong style={{ color: pageText }}>{memberFullName}</strong></p>
+                  <p className="text-xs" style={{ color: subText }}>{m('For:')} <strong style={{ color: pageText }}>{memberFullName}</strong></p>
                 </div>
 
                 <ul className="space-y-2 mb-5">
                   {selectedTier.features.slice(0, 4).map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="w-3 h-3 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: subText }}>{f}</span>
+                      <span className="text-xs" style={{ color: subText }}>{m(f)}</span>
                     </li>
                   ))}
                   {selectedTier.features.length > 4 && (
-                    <li className="text-xs" style={{ color: subText }}>+{selectedTier.features.length - 4} more benefits</li>
+                    <li className="text-xs" style={{ color: subText }}>+{selectedTier.features.length - 4} {m('more benefits')}</li>
                   )}
                 </ul>
 
@@ -667,7 +669,7 @@ export function MembershipFlowModal({
                 </div>
 
                 <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-4" style={{ background: 'rgba(220,181,21,0.1)', border: '1px solid rgba(220,181,21,0.3)' }}>
-                  <span className="text-sm" style={{ color: pageText }}>Total Due</span>
+                  <span className="text-sm" style={{ color: pageText }}>{m('Total Due')}</span>
                   <span className="text-sm" style={{ color: 'rgb(220,181,21)' }}>
                     {selectedTier.currency} {selectedTier.price.toLocaleString()}
                   </span>
@@ -677,17 +679,17 @@ export function MembershipFlowModal({
                   <div className="rounded-xl px-3 py-3 mb-4 space-y-2" style={{ background: sectionBg, border: sectionBorder }}>
                     <div className="flex items-center gap-2">
                       <Wallet className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs font-semibold" style={{ color: pageText }}>Payment method: On Credit</span>
+                      <span className="text-xs font-semibold" style={{ color: pageText }}>{m('Payment method: On Credit')}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: subText }}>Agency credit balance</span>
+                      <span className="text-xs" style={{ color: subText }}>{m('Agency credit balance')}</span>
                       <span className="text-xs font-semibold" style={{ color: insufficientCredit ? 'rgb(239,68,68)' : 'rgb(52,199,89)' }}>
                         HKD {creditBalance.toLocaleString()}
                       </span>
                     </div>
                     {!insufficientCredit && (
                       <p className="text-xs" style={{ color: subText }}>
-                        This membership will be charged against your agency credit balance.
+                        {m('This membership will be charged against your agency credit balance.')}
                       </p>
                     )}
                   </div>
@@ -703,11 +705,11 @@ export function MembershipFlowModal({
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'rgb(239,68,68)' }} />
                     <div className="space-y-1">
                       <p className="text-xs font-semibold" style={{ color: 'rgb(239,68,68)' }}>
-                        Insufficient credit — top up required
+                        {m('Insufficient credit — top up required')}
                       </p>
                       <p className="text-xs leading-relaxed" style={{ color: isDark ? 'rgba(255,255,255,0.75)' : 'rgb(90,89,78)' }}>
-                        Need HKD {selectedPrice.toLocaleString()} but only HKD {creditBalance.toLocaleString()} is available.
-                        Please top up at least HKD {topupRequired.toLocaleString()} of agency credit before purchasing this membership.
+                        {m('Need HKD')} {selectedPrice.toLocaleString()} {m('but only HKD')} {creditBalance.toLocaleString()} {m('is available.')}
+                        {' '}{m('Please top up at least HKD')} {topupRequired.toLocaleString()} {m('of agency credit before purchasing this membership.')}
                       </p>
                     </div>
                   </div>
@@ -732,20 +734,20 @@ export function MembershipFlowModal({
                 >
                   {isOnCredit ? <Wallet className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                   {isSubmitting
-                    ? 'Processing…'
+                    ? m('Processing…')
                     : isOnCredit
-                      ? (insufficientCredit ? 'Top up credit to continue' : 'Confirm & Pay on Credit')
-                      : 'Confirm & Pay'}
+                      ? (insufficientCredit ? m('Top up credit to continue') : m('Confirm & Pay on Credit'))
+                      : m('Confirm & Pay')}
                 </button>
 
                 {!agreedToTerms && (
                   <p className="text-xs text-center mt-3" style={{ color: subText }}>
-                    Please agree to the Terms &amp; Conditions to proceed.
+                    {m('Please agree to the Terms &amp; Conditions to proceed.')}
                   </p>
                 )}
                 {agreedToTerms && isOnCredit && insufficientCredit && (
                   <p className="text-xs text-center mt-3" style={{ color: 'rgb(239,68,68)' }}>
-                    Top up your agency credit balance to complete this purchase.
+                    {m('Top up your agency credit balance to complete this purchase.')}
                   </p>
                 )}
               </div>
@@ -756,13 +758,13 @@ export function MembershipFlowModal({
                 <>
                   <Wallet className="w-4 h-4 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
                   <p className="text-xs" style={{ color: subText }}>
-                    Agency purchases for group members are settled on credit against your agency ledger balance.
+                    {m('Agency purchases for group members are settled on credit against your agency ledger balance.')}
                   </p>
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4 shrink-0" style={{ color: 'rgb(52,199,89)' }} />
-                  <p className="text-xs" style={{ color: subText }}>Your payment is secured with 256-bit SSL encryption.</p>
+                  <p className="text-xs" style={{ color: subText }}>{m('Your payment is secured with 256-bit SSL encryption.')}</p>
                 </>
               )}
             </div>
@@ -780,9 +782,9 @@ export function MembershipFlowModal({
         <div className="mb-8 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4" style={{ background: 'rgba(220,181,21,0.15)', border: '1px solid rgba(220,181,21,0.35)' }}>
             <Sparkles className="w-3.5 h-3.5" style={{ color: 'rgb(220,181,21)' }} />
-            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>Membership Packages</span>
+            <span className="text-xs" style={{ color: 'rgb(220,181,21)' }}>{m('Membership Packages')}</span>
           </div>
-          <p className="text-2xl mb-2" style={{ color: pageText }}>Choose a Membership</p>
+          <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Choose a Membership')}</p>
           <p className="text-sm max-w-md mx-auto" style={{ color: subText }}>
             Select a membership plan to assign to <strong style={{ color: pageText }}>{memberFullName}</strong>
           </p>
@@ -840,8 +842,12 @@ export function MembershipFlowModal({
             const ctaStyle = tier.highlight
               ? { background: 'linear-gradient(135deg, rgb(220,181,21) 0%, rgb(160,128,8) 100%)', color: '#ffffff', boxShadow: '0 8px 20px rgba(220,181,21,0.35)' }
               : { background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.08)', color: 'rgb(220,181,21)', border: '1px solid rgba(220,181,21,0.35)' };
-            const entryLabel = typeof tier.entries === 'number' ? `${tier.entries} entries/year` : 'Unlimited entries/year';
-            const upgradeLabel = tier.freeUpgradesPerYear === 'NA' ? 'No free suite upgrades' : `${tier.freeUpgradesPerYear} free suite upgrade${tier.freeUpgradesPerYear !== 1 ? 's' : ''}/year`;
+            const entryLabel = typeof tier.entries === 'number'
+              ? `${tier.entries} ${m('entries/year')}`
+              : m('Unlimited entries/year');
+            const upgradeLabel = tier.freeUpgradesPerYear === 'NA'
+              ? m('No free suite upgrades')
+              : `${tier.freeUpgradesPerYear} ${tier.freeUpgradesPerYear !== 1 ? m('free suite upgrades') : m('free suite upgrade')}${m('/year')}`;
             const badgeHighlightStyle = { background: 'rgba(220,181,21,0.2)', color: 'rgb(220,181,21)', border: '1px solid rgba(220,181,21,0.4)' };
             const badgeNormalStyle = { background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(200,199,190,0.5)', color: subText, border: cardBorder };
             const badgeStyle = tier.highlight ? badgeHighlightStyle : badgeNormalStyle;
@@ -871,8 +877,8 @@ export function MembershipFlowModal({
                       <TierIcon className="w-5 h-5" style={{ color: iconColor }} />
                     </div>
                     <div>
-                      <p className="text-sm" style={{ color: pageText }}>{tier.name}</p>
-                      <p className="text-xs" style={{ color: subText }}>{tier.tagline}</p>
+                      <p className="text-sm" style={{ color: pageText }}>{m(tier.name)}</p>
+                      <p className="text-xs" style={{ color: subText }}>{m(tier.tagline)}</p>
                     </div>
                   </div>
                   <div className="mb-5">
@@ -880,7 +886,7 @@ export function MembershipFlowModal({
                       <span className="text-xs" style={{ color: subText }}>{tier.currency}</span>
                       <span className="text-3xl" style={{ color: priceColor }}>{tier.price.toLocaleString()}</span>
                     </div>
-                    <span className="text-xs" style={{ color: subText }}>per {tier.period}</span>
+                    <span className="text-xs" style={{ color: subText }}>{m('per')} {m(tier.period)}</span>
                   </div>
                   <div className="mb-4" style={{ borderTop: dividerColor }} />
                   <div className="space-y-2 mb-4">
@@ -895,7 +901,7 @@ export function MembershipFlowModal({
                     {tier.hasNonFlyingGuest && (
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: upgradeStatBg, border: upgradeStatBorder }}>
                         <Users className="w-3.5 h-3.5 shrink-0" style={{ color: tier.accentColor }} />
-                        <span className="text-xs" style={{ color: featureTextColor }}>Free 1 non-flying guest per entry</span>
+                        <span className="text-xs" style={{ color: featureTextColor }}>{m('Free 1 non-flying guest per entry')}</span>
                       </div>
                     )}
                   </div>
@@ -904,7 +910,7 @@ export function MembershipFlowModal({
                     {tier.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
                         <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                        <span className="text-xs" style={{ color: featureTextColor }}>{f}</span>
+                        <span className="text-xs" style={{ color: featureTextColor }}>{m(f)}</span>
                       </li>
                     ))}
                   </ul>
@@ -927,9 +933,9 @@ export function MembershipFlowModal({
           <div className="rounded-xl p-4 mb-8 flex items-start gap-3" style={{ background: notesBg, border: notesBorder }}>
             <Users className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#60a5fa' }} />
             <div>
-              <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>Corporate Nominee Policy</p>
+              <p className="text-xs mb-1" style={{ color: '#60a5fa' }}>{m('Corporate Nominee Policy')}</p>
               <p className="text-xs leading-relaxed" style={{ color: subText }}>
-                Entries are shared by a maximum of 5 nominated corporate personnel. The corporate would provide the names of these personnel, and HKIAL staff would verify upon booking submission.
+                {m('Entries are shared by a maximum of 5 nominated corporate personnel. The corporate would provide the names of these personnel, and HKIAL staff would verify upon booking submission.')}
               </p>
             </div>
           </div>
@@ -939,7 +945,7 @@ export function MembershipFlowModal({
         <div className="rounded-2xl overflow-hidden mb-10" style={{ background: otherBenefitsBg, border: otherBenefitsBorder }}>
           <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(220,181,21,0.2)' }}>
             <p className="text-sm text-center" style={{ color: 'rgb(220,181,21)' }}>
-              Other Membership Benefits — Applicable to Both Types &amp; All Tiers
+              {m('Other Membership Benefits — Applicable to Both Types &amp; All Tiers')}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: 'rgba(220,181,21,0.15)' }}>
@@ -950,8 +956,8 @@ export function MembershipFlowModal({
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-1" style={{ background: 'rgba(220,181,21,0.15)' }}>
                     <BenefitIcon className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                   </div>
-                  <p className="text-xs font-semibold" style={{ color: pageText }}>{benefit.label}</p>
-                  <p className="text-xs" style={{ color: subText }}>{benefit.value}</p>
+                  <p className="text-xs font-semibold" style={{ color: pageText }}>{m(benefit.label)}</p>
+                  <p className="text-xs" style={{ color: subText }}>{m(benefit.value)}</p>
                 </div>
               );
             })}
@@ -960,7 +966,7 @@ export function MembershipFlowModal({
 
         {/* FAQ */}
         <div>
-          <p className="text-lg mb-5 text-center" style={{ color: pageText }}>Frequently Asked Questions</p>
+          <p className="text-lg mb-5 text-center" style={{ color: pageText }}>{m('Frequently Asked Questions')}</p>
           <div className="space-y-3 max-w-2xl mx-auto">
             {faqItems.map((item, idx) => {
               const isOpen = openFaq === idx;
@@ -970,12 +976,12 @@ export function MembershipFlowModal({
               return (
                 <div key={idx} className="rounded-xl overflow-hidden transition-all duration-200" style={{ background: itemBg, border: faqBorder }}>
                   <button className="w-full flex items-center justify-between px-5 py-4 text-left" onClick={handleToggle}>
-                    <span className="text-sm pr-4" style={{ color: pageText }}>{item.q}</span>
+                    <span className="text-sm pr-4" style={{ color: pageText }}>{m(item.q)}</span>
                     <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-200" style={{ color: 'rgb(220,181,21)', transform: chevronRotate }} />
                   </button>
                   {isOpen && (
                     <div className="px-5 pb-4">
-                      <p className="text-xs leading-relaxed" style={{ color: subText }}>{item.a}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: subText }}>{m(item.a)}</p>
                     </div>
                   )}
                 </div>
@@ -1001,7 +1007,7 @@ export function MembershipFlowModal({
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold" style={{ color: pageText }}>Join Membership</p>
+              <p className="text-sm font-semibold" style={{ color: pageText }}>{m('Join Membership')}</p>
               <p className="text-xs" style={{ color: subText }}>{memberFullName}</p>
             </div>
           </div>

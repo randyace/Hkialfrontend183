@@ -76,8 +76,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 0,
       passengers: [
-        { title: m('Mr'), firstName: 'John', lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
-        { title: m('Mrs'), firstName: 'Jane', lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' }
+        { title: 'Mr', firstName: 'John', lastName: 'Smith', travelDoc: 'P12345678', membership: 'HKIAL001' },
+        { title: 'Mrs', firstName: 'Jane', lastName: 'Smith', travelDoc: 'P87654321', membership: 'HKIAL002' }
       ],
       services: {
         loungeExtension: 2,
@@ -111,8 +111,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 2,
       nonFlyingGuests: 1,
       passengers: [
-        { title: m('Ms'), firstName: 'Sarah', lastName: 'Chen', travelDoc: 'P11223344', membership: 'HKIAL003' },
-        { title: m('Mr'), firstName: 'David', lastName: 'Wong', travelDoc: 'P99887766', membership: 'HKIAL004' }
+        { title: 'Ms', firstName: 'Sarah', lastName: 'Chen', travelDoc: 'P11223344', membership: 'HKIAL003' },
+        { title: 'Mr', firstName: 'David', lastName: 'Wong', travelDoc: 'P99887766', membership: 'HKIAL004' }
       ],
       services: {
         loungeExtension: 0,
@@ -146,7 +146,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 2,
       passengers: [
-        { title: m('Mr'), firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' }
+        { title: 'Mr', firstName: 'Michael', lastName: 'Lee', travelDoc: 'P55667788', membership: 'HKIAL005' }
       ],
       services: {
         loungeExtension: 1,
@@ -180,7 +180,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 0,
       passengers: [
-        { title: m('Mrs'), firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' }
+        { title: 'Mrs', firstName: 'Emily', lastName: 'Chan', travelDoc: 'P44332211', membership: 'HKIAL006' }
       ],
       services: {
         loungeExtension: 0,
@@ -214,10 +214,10 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 0,
       passengers: [
-        { title: m('Dr'), firstName: 'Robert', lastName: 'Anderson', travelDoc: 'P77889900', membership: 'HKIAL007' },
-        { title: m('Mrs'), firstName: 'Patricia', lastName: 'Anderson', travelDoc: 'P00998877', membership: 'HKIAL008' },
-        { title: m('Miss'), firstName: 'Sophie', lastName: 'Anderson', travelDoc: 'P11001100', membership: 'HKIAL009' },
-        { title: m('Mr'), firstName: 'James', lastName: 'Anderson', travelDoc: 'P22112211', membership: 'HKIAL010' }
+        { title: 'Dr', firstName: 'Robert', lastName: 'Anderson', travelDoc: 'P77889900', membership: 'HKIAL007' },
+        { title: 'Mrs', firstName: 'Patricia', lastName: 'Anderson', travelDoc: 'P00998877', membership: 'HKIAL008' },
+        { title: 'Miss', firstName: 'Sophie', lastName: 'Anderson', travelDoc: 'P11001100', membership: 'HKIAL009' },
+        { title: 'Mr', firstName: 'James', lastName: 'Anderson', travelDoc: 'P22112211', membership: 'HKIAL010' }
       ],
       services: {
         loungeExtension: 3,
@@ -251,7 +251,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 1,
       nonFlyingGuests: 0,
       passengers: [
-        { title: m('Mr'), firstName: 'James', lastName: 'Ng', travelDoc: 'P33445566', membership: 'HKIAL011' }
+        { title: 'Mr', firstName: 'James', lastName: 'Ng', travelDoc: 'P33445566', membership: 'HKIAL011' }
       ],
       services: {
         loungeExtension: 0,
@@ -285,7 +285,7 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 0,
       nonFlyingGuests: 1,
       passengers: [
-        { title: m('Ms'), firstName: 'Linda', lastName: 'Wu', travelDoc: 'P66778899', membership: 'HKIAL012' }
+        { title: 'Ms', firstName: 'Linda', lastName: 'Wu', travelDoc: 'P66778899', membership: 'HKIAL012' }
       ],
       services: {
         loungeExtension: 0,
@@ -319,8 +319,8 @@ const MOCK_BOOKINGS_DATA: any[] = [
       vipPassengers: 2,
       nonFlyingGuests: 2,
       passengers: [
-        { title: m('Mr'), firstName: 'Thomas', lastName: 'Leung', travelDoc: 'P88990011', membership: 'HKIAL013' },
-        { title: m('Ms'), firstName: 'Grace', lastName: 'Leung', travelDoc: 'P22334455', membership: 'HKIAL014' }
+        { title: 'Mr', firstName: 'Thomas', lastName: 'Leung', travelDoc: 'P88990011', membership: 'HKIAL013' },
+        { title: 'Ms', firstName: 'Grace', lastName: 'Leung', travelDoc: 'P22334455', membership: 'HKIAL014' }
       ],
       services: {
         loungeExtension: 0,
@@ -1150,7 +1150,7 @@ export function Bookings({
                       <span style={{ fontWeight: 600 }}>{m('No Refund Applicable')}</span>
                     </p>
                     <p className="text-xs mt-1" style={{ color: isDark ? 'rgba(255,100,100,0.85)' : 'rgba(180,40,40,0.85)' }}>
-                      {m('Your booking is within')} <span style={{ fontWeight: 600 }}>48 hours</span>. Cancellations made less than 48 hours before the booking date are not eligible for a refund.
+                      {m('Your booking is within')} <span style={{ fontWeight: 600 }}>{m('48 hours')}</span>. {m('Cancellations made less than 48 hours before the booking date are not eligible for a refund.')}
                     </p>
                   </div>
                 </div>
@@ -1158,7 +1158,7 @@ export function Bookings({
                 <div className="rounded-xl p-4 mb-6 flex items-start gap-3" style={{ background: 'rgba(220,181,21,0.10)', border: '1px solid rgba(220,181,21,0.35)' }}>
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(220,181,21)' }} />
                   <p className="text-xs" style={{ color: isDark ? 'rgba(220,181,21,0.9)' : 'rgba(140,110,0,0.9)' }}>
-                    {m('Please note: cancellations made')} <span style={{ fontWeight: 600 }}>less than 48 hours</span> before the booking date are not eligible for a refund.
+                    {m('Please note: cancellations made')} <span style={{ fontWeight: 600 }}>{m('less than 48 hours')}</span> {m('before the booking date are not eligible for a refund.')}
                   </p>
                 </div>
               )}
@@ -1486,3 +1486,5 @@ export function Bookings({
     </div>
   );
 }
+
+export default Bookings;
