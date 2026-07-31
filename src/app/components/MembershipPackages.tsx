@@ -285,7 +285,12 @@ type View = 'list' | 'checkout' | 'success';
 export type MembershipPackageInput = Omit<TierData, 'Icon'> & { Icon?: React.ElementType };
 
 export interface MembershipPackagesProps {
-  /** Live catalogue from API; when empty/undefined falls back to mock INDIVIDUAL_TIERS. */
+  /**
+   * Live catalogue from API.
+   * - `undefined` / omitted → Figma Make preview uses mock INDIVIDUAL_TIERS.
+   * - `[]` (controlled empty, including while loading) → show empty, never mock.
+   * - non-empty → live packages.
+   */
   packages?: MembershipPackageInput[] | null;
   isLoading?: boolean;
   error?: string | null;
@@ -368,10 +373,13 @@ export function MembershipPackages({
   const notesBg = isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)';
   const notesBorder = '1px solid rgba(59,130,246,0.25)';
 
+  // Controlled empty (`[]`) must not fall back to mock prices — only omitted props (Figma).
   const liveIndividual =
-    Array.isArray(packages) && packages.length > 0
-      ? packages.map(withTierIcon)
-      : INDIVIDUAL_TIERS;
+    packages === undefined || packages === null
+      ? INDIVIDUAL_TIERS
+      : packages.length > 0
+        ? packages.map(withTierIcon)
+        : [];
   const displayTiers = activeTab === 'Individual' ? liveIndividual : CORPORATE_TIERS;
   const gridCols =
     activeTab === 'Individual'

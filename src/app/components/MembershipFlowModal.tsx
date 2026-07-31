@@ -295,7 +295,11 @@ export interface MembershipFlowModalProps {
   member: MemberInfo;
   onClose: () => void;
   onSuccess?: (tier: { tierId: string; tierName: string; memberType: string; price: number; currency: string }) => void;
-  /** Live Individual packages from API; when empty/undefined uses mock tiers. */
+  /**
+   * Live Individual packages from API.
+   * - omitted / null → Figma preview mock tiers.
+   * - `[]` controlled empty → no mock catalogue (real Group Admin path).
+   */
   packages?: MembershipFlowPackageInput[] | null;
   /**
    * Agency parent credit balance (accounts.credit_balance).
@@ -417,9 +421,11 @@ export function MembershipFlowModal({
 
   const liveIndividual = useMemo(
     () =>
-      Array.isArray(packages) && packages.length > 0
-        ? packages.map(withTierIcon)
-        : INDIVIDUAL_TIERS,
+      packages === undefined || packages === null
+        ? INDIVIDUAL_TIERS
+        : packages.length > 0
+          ? packages.map(withTierIcon)
+          : [],
     [packages],
   );
   const displayTiers = activeTab === 'Individual' ? liveIndividual : CORPORATE_TIERS;
