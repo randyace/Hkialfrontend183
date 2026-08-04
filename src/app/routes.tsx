@@ -7,7 +7,9 @@ import { RegisteredPage } from './pages/RegisteredPage';
 import { MemberDashboard } from './components/MemberDashboard';
 import { NewBooking } from './components/NewBooking';
 import { Bookings } from './components/Bookings';
-import { EditBooking } from './components/EditBooking';
+// Round 6.2.153 L7 — figma-ui EditBooking.tsx deleted (dead Make-demo only).
+// Live prod `/mybooking/details` uses parent `src/components/EditBooking.tsx`
+// via `src/routes/index.tsx`. Make preview redirects details → list.
 import { MyMembership } from './components/MyMembership';
 import { MembershipPackages } from './components/MembershipPackages';
 import { VoucherBatches } from './components/VoucherBatches';
@@ -33,12 +35,6 @@ function NewBookingPage() {
 
 function BookingsPage() {
   return <Bookings />;
-}
-
-function EditBookingPage() {
-  const location = useLocation();
-  const booking = location.state?.booking ?? null;
-  return <EditBooking booking={booking} />;
 }
 
 function MyMembershipPage() {
@@ -70,7 +66,8 @@ export const router = createBrowserRouter([
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/newbooking', element: <NewBookingPage /> },
       { path: '/mybooking', element: <BookingsPage /> },
-      { path: '/mybooking/details/:id', element: <EditBookingPage /> },
+      // L7: dead figma-ui EditBooking removed — redirect Make preview to list
+      { path: '/mybooking/details/:id', element: <Navigate to="/mybooking" replace /> },
       { path: '/my-membership', element: <MyMembershipPage /> },
       { path: '/membership-packages', element: <MembershipPackages /> },
       { path: '/voucher-batches', element: <VoucherBatches /> },
