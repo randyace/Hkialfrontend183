@@ -1414,12 +1414,13 @@ function GuestNationalityTypeahead({
   });
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  // Sync display ONLY when parent sets a valid code. Do not clear `query`
+  // when value becomes '' — first keystroke after a selection calls
+  // onChange('') and clearing query here made the field non-editable.
   useEffect(() => {
     if (isValidCountryCode(value)) {
       const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
       if (hit) setQuery(countryLabel(hit));
-    } else if (!value) {
-      setQuery('');
     }
   }, [value]);
 
