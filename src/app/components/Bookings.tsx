@@ -27,6 +27,7 @@ import {
   MapPin,
   Ban,
   FileDown,
+  CreditCard,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner@2.0.3';
@@ -39,6 +40,8 @@ import { useMsg } from '../../../../../i18n/useMsg';
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
   onEditBooking?: (booking: any) => void;
+  /** Navigate to HKIAL payment landing page when booking awaits payment. */
+  onPayBooking?: (booking: any) => void;
   onCancelBooking?: (id: number) => Promise<string | null>;
   cancelLoading?: boolean;
   bookings?: any[];
@@ -51,6 +54,25 @@ interface BookingsProps {
   setSearchTerm?: (v: string) => void;
   setFilterStatus?: (v: string) => void;
   setDateFilter?: (v: { start: string; end: string }) => void;
+}
+
+/** Full-invoice unpaid statuses that should show Pay on the booking list. */
+const PENDING_PAYMENT_STATUSES = new Set([
+  'pending',
+  'invoicesent',
+  'paymentlinksent',
+  'overdue',
+  'paymentfailed',
+]);
+
+function bookingNeedsPayment(booking: any): boolean {
+  const ps = String(booking?.payment_status ?? booking?.paymentStatus ?? '').toLowerCase();
+  if (PENDING_PAYMENT_STATUSES.has(ps)) return true;
+  // Approved edit difference awaiting payment (booking itself may stay Paid).
+  const crStatus = String(
+    booking?.openChangeRequest?.status ?? booking?.open_change_request?.status ?? '',
+  ).toLowerCase();
+  return crStatus === 'awaiting_payment';
 }
 
 // Mock fallback for Figma standalone preview
@@ -346,6 +368,7 @@ function formatDateDDMMYYYY(dateStr: string): string {
 export function Bookings({
   setActiveTab,
   onEditBooking,
+  onPayBooking,
   onCancelBooking,
   cancelLoading,
   bookings: propBookings,
@@ -1045,6 +1068,23 @@ export function Bookings({
               </div>
 
               <div className="flex lg:flex-col gap-2 lg:pt-1">
+                {bookingNeedsPayment(booking) && (
+                  <button
+                    type="button"
+                    data-testid="booking-list-pay"
+                    onClick={() => {
+                      if (onPayBooking) {
+                        onPayBooking(booking);
+                      } else if (booking?.id != null) {
+                        navigate(`/payment/pay?booking_id=${encodeURIComponent(String(booking.id))}`);
+                      }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all flex items-center gap-2 text-sm whitespace-nowrap"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    {m('Pay')}
+                  </button>
+                )}
                 {booking.status === 'confirmed' && (
                   <button
                     onClick={() => handleShowQR(booking)}
