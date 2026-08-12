@@ -5224,6 +5224,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           });
                         }}
                         required
+                        disabled={false}
+                        readOnly={false}
+                        autoComplete="name"
                         placeholder={m('Enter name for wheelchair {n}').replace('{n}', String(i + 1))}
                         data-hkial-wheelchair-name-index={String(i)}
                         style={fieldStyle}
