@@ -459,7 +459,7 @@ export function MembershipPackages({
               </div>
               <div className="text-left">
                 <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m(selectedTier.memberType)} {m('Membership')}</p>
-                <p className="text-xs" style={{ color: subText }}>{m(selectedTier.tagline)}</p>
+                <p className="text-xs" style={{ color: subText }}>{selectedTier.tagline}</p>
               </div>
             </div>
             {[
@@ -571,7 +571,7 @@ export function MembershipPackages({
                   </div>
                   <div>
                     <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m('Membership')}</p>
-                    <p className="text-xs" style={{ color: subText }}>{m(selectedTier.memberType)} · {m(selectedTier.tagline)}</p>
+                    <p className="text-xs" style={{ color: subText }}>{m(selectedTier.memberType)} · {selectedTier.tagline}</p>
                   </div>
                 </div>
 
@@ -579,7 +579,7 @@ export function MembershipPackages({
                   {selectedTier.features.slice(0, 5).map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="w-3 h-3 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: subText }}>{m(f)}</span>
+                      <span className="text-xs" style={{ color: subText }}>{f}</span>
                     </li>
                   ))}
                   {selectedTier.features.length > 5 && (
@@ -777,7 +777,7 @@ export function MembershipPackages({
                   </div>
                   <div>
                     <p className="text-sm" style={{ color: pageText }}>{m(tier.name)}</p>
-                    <p className="text-xs" style={{ color: subText }}>{m(tier.tagline)}</p>
+                    <p className="text-xs" style={{ color: subText }}>{tier.tagline}</p>
                   </div>
                 </div>
 
@@ -817,7 +817,7 @@ export function MembershipPackages({
                   {tier.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
                       <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: featureTextColor }}>{m(f)}</span>
+                      <span className="text-xs" style={{ color: featureTextColor }}>{f}</span>
                     </li>
                   ))}
                 </ul>

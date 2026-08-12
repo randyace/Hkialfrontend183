@@ -654,7 +654,7 @@ export function MembershipFlowModal({
                   {selectedTier.features.slice(0, 4).map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="w-3 h-3 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: subText }}>{m(f)}</span>
+                      <span className="text-xs" style={{ color: subText }}>{f}</span>
                     </li>
                   ))}
                   {selectedTier.features.length > 4 && (
@@ -884,7 +884,7 @@ export function MembershipFlowModal({
                     </div>
                     <div>
                       <p className="text-sm" style={{ color: pageText }}>{m(tier.name)}</p>
-                      <p className="text-xs" style={{ color: subText }}>{m(tier.tagline)}</p>
+                      <p className="text-xs" style={{ color: subText }}>{tier.tagline}</p>
                     </div>
                   </div>
                   <div className="mb-5">
@@ -916,7 +916,7 @@ export function MembershipFlowModal({
                     {tier.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
                         <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                        <span className="text-xs" style={{ color: featureTextColor }}>{m(f)}</span>
+                        <span className="text-xs" style={{ color: featureTextColor }}>{f}</span>
                       </li>
                     ))}
                   </ul>
