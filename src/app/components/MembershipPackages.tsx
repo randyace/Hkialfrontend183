@@ -443,9 +443,10 @@ export function MembershipPackages({
 
         <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Payment Successful!')}</p>
         <p className="text-sm mb-8 max-w-xs" style={{ color: subText }}>
-          Your{' '}
-          <strong style={{ color: 'rgb(220,181,21)' }}>{selectedTier.name} {selectedTier.memberType} Membership</strong>{' '}
-          has been activated. Welcome to HKIA Lounge.
+          {m('Your {plan} has been activated. Welcome to HKIA Lounge.').replace(
+            '{plan}',
+            `${m(selectedTier.name)} ${m(selectedTier.memberType)} ${m('Membership')}`,
+          )}
         </p>
 
         <div className="w-full rounded-2xl overflow-hidden mb-6" style={{ background: sectionBg, border: sectionBorder }}>
@@ -456,17 +457,17 @@ export function MembershipPackages({
                 <TierIcon className="w-6 h-6 text-white" />
               </div>
               <div className="text-left">
-                <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} {selectedTier.memberType} Membership</p>
-                <p className="text-xs" style={{ color: subText }}>{selectedTier.tagline}</p>
+                <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m(selectedTier.memberType)} {m('Membership')}</p>
+                <p className="text-xs" style={{ color: subText }}>{m(selectedTier.tagline)}</p>
               </div>
             </div>
             {[
-              { label: m('Order Reference'), value: `MBR-${Date.now().toString().slice(-8)}` },
-              { label: m('Amount Paid'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-              { label: m('Valid Until'), value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
-              { label: m('Status'), value: 'Active' },
+              { key: 'ref', label: m('Order Reference'), value: `MBR-${Date.now().toString().slice(-8)}` },
+              { key: 'paid', label: m('Amount Paid'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
+              { key: 'until', label: m('Valid Until'), value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
+              { key: 'status', label: m('Status'), value: m('Active') },
             ].map((row) => {
-              const valueColor = row.label === 'Status' ? 'rgb(52,199,89)' : row.label === 'Amount Paid' ? 'rgb(220,181,21)' : pageText;
+              const valueColor = row.key === 'status' ? 'rgb(52,199,89)' : row.key === 'paid' ? 'rgb(220,181,21)' : pageText;
               const rowTopBorder = isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.35)';
               return (
                 <div key={row.label} className="flex items-center justify-between py-3" style={{ borderTop: rowTopBorder }}>
@@ -568,8 +569,8 @@ export function MembershipPackages({
                     <TierIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} Membership</p>
-                    <p className="text-xs" style={{ color: subText }}>{selectedTier.memberType} · {selectedTier.tagline}</p>
+                    <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m('Membership')}</p>
+                    <p className="text-xs" style={{ color: subText }}>{m(selectedTier.memberType)} · {m(selectedTier.tagline)}</p>
                   </div>
                 </div>
 
@@ -577,19 +578,21 @@ export function MembershipPackages({
                   {selectedTier.features.slice(0, 5).map((f) => (
                     <li key={f} className="flex items-start gap-2">
                       <Check className="w-3 h-3 mt-0.5 shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                      <span className="text-xs" style={{ color: subText }}>{f}</span>
+                      <span className="text-xs" style={{ color: subText }}>{m(f)}</span>
                     </li>
                   ))}
                   {selectedTier.features.length > 5 && (
-                    <li className="text-xs" style={{ color: subText }}>+{selectedTier.features.length - 5} more benefits</li>
+                    <li className="text-xs" style={{ color: subText }}>
+                      {m('+{n} more benefits').replace('{n}', String(selectedTier.features.length - 5))}
+                    </li>
                   )}
                 </ul>
 
                 <div className="space-y-2 mb-4">
                   {[
                     { label: m('Plan Price'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-                    { label: m('Duration'), value: '1 year' },
-                    { label: m('Processing Fee'), value: 'Waived', green: true },
+                    { label: m('Duration'), value: m('1 year') },
+                    { label: m('Processing Fee'), value: m('Waived'), green: true },
                   ].map((row) => {
                     const valColor = row.green ? 'rgb(52,199,89)' : pageText;
                     return (

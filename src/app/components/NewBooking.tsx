@@ -2818,7 +2818,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     if (diffMs > SIX_HOURS_MS) {
       const hours = Math.floor(diffMs / 3600000);
       const mins = Math.floor((diffMs % 3600000) / 60000);
-      setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
+      setTransitGapError(
+        m('Transit gap must be at most 6 hours (got {hours}h {mins}m). Please pick an earlier outbound leg.')
+          .replace('{hours}', String(hours))
+          .replace('{mins}', String(mins)),
+      );
     } else {
       setTransitGapError(null);
     }
@@ -4090,12 +4094,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
           
           <p className="mb-2" style={textSecondary}>
-            Your lounge booking request has been successfully submitted and is currently under staff approval.
-            You will receive a confirmation email once your booking is verified.
+            {m('Your lounge booking request has been successfully submitted and is currently under staff approval.')}
+            {' '}
+            {m('You will receive a confirmation email once your booking is verified.')}
           </p>
           {step2Form.promotionCode && (
             <p className="text-yellow-400 text-sm mb-4">
-              {m('Promotion / Redemption code')} <strong>{step2Form.promotionCode}</strong> applied.
+              {m('Promotion / Redemption code')} <strong>{step2Form.promotionCode}</strong> {m('applied.')}
             </p>
           )}
           {/* 2026-06-08 (Q6C + Q7A-light) — Booking summary with guest counts.
@@ -4104,9 +4109,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               focused on the booking reference + voucher info. */}
           {(vipData.length > 0 || nonFlyingGuestData.length > 0) && (
             <p className="text-sm mb-4" style={textSecondary}>
-              Booking for{' '}
               <strong style={textPrimary}>
-                {vipData.length} VIP Passenger{vipData.length !== 1 ? 's' : ''}
+                {m(
+                  vipData.length !== 1
+                    ? 'Booking for {n} VIP Passengers'
+                    : 'Booking for {n} VIP Passenger',
+                ).replace('{n}', String(vipData.length))}
               </strong>
               {nonFlyingGuestData.length > 0 && (
                 <>
@@ -4117,7 +4125,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </strong>
                 </>
               )}
-              .
             </p>
           )}
           {isTravelAgency && (
@@ -4134,8 +4141,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div className="text-xs space-y-1" style={textMuted}>
                 <div>• {m('Payment:')} <span style={textPrimary}>{m(TA_PAYMENT_METHOD)}</span></div>
-                <div>• Billing Ref: <span style={textPrimary}>{step2Form.billingReference || agencyBillingCode}</span></div>
-                <div>• Invoice will be sent to your registered agency email within 3 business days</div>
+                <div>• {m('Billing Ref:')} <span style={textPrimary}>{step2Form.billingReference || agencyBillingCode}</span></div>
+                <div>• {m('Invoice will be sent to your registered agency email within 3 business days')}</div>
               </div>
             </div>
           )}
@@ -4664,7 +4671,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="text-sm" style={textPrimary}>{m('Total Add-on Services')}</span>
                   {isTravelAgency && addonSaving > 0 && (
                     <div className="text-xs text-green-400 mt-0.5">
-                      You save HK${addonSaving.toLocaleString()} with TA pre-negotiated rates
+                      {m('You save HK${amount} with TA pre-negotiated rates').replace(
+                        '{amount}',
+                        addonSaving.toLocaleString(),
+                      )}
                     </div>
                   )}
                 </div>
@@ -6294,11 +6304,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {form.flightType === 'Transit' && (
               <div className="mt-5 pt-5" style={{ borderTop: borderSubtle }} data-testid="transit-leg2-block">
                 <h3 className="text-sm font-semibold mb-1" style={textPrimary}>
-                  2nd Flight (Outbound) <span>*</span>
+                  {m('2nd Flight (Outbound)')} <span>*</span>
                 </h3>
                 <p className="text-xs mb-4" style={textMuted}>
-                  The 2nd leg of your transit. The 1st leg (above) is your inbound to HKG; this is your outbound.
-                  Gap between leg 1 arrival and leg 2 departure must be at least 6 hours.
+                  {m('The 2nd leg of your transit. The 1st leg (above) is your inbound to HKG; this is your outbound.')}
+                  {' '}
+                  {m('Gap between leg 1 arrival and leg 2 departure must be at least 6 hours.')}
                 </p>
 
                 {/* 6h-gap pre-check handler. Called by the date/time
@@ -6358,7 +6369,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         if (diffMs > SIX_HOURS_MS) {
                           const hours = Math.floor(diffMs / 3600000);
                           const mins = Math.floor((diffMs % 3600000) / 60000);
-                          setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
+                          setTransitGapError(
+                          m('Transit gap must be at most 6 hours (got {hours}h {mins}m). Please pick an earlier outbound leg.')
+                            .replace('{hours}', String(hours))
+                            .replace('{mins}', String(mins)),
+                        );
                         } else {
                           setTransitGapError(null);
                         }
@@ -6399,7 +6414,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       if (diffMs > SIX_HOURS_MS) {
                         const hours = Math.floor(diffMs / 3600000);
                         const mins = Math.floor((diffMs % 3600000) / 60000);
-                        setTransitGapError(`Transit gap must be at most 6 hours (got ${hours}h ${mins}m). Please pick an earlier outbound leg.`);
+                        setTransitGapError(
+                          m('Transit gap must be at most 6 hours (got {hours}h {mins}m). Please pick an earlier outbound leg.')
+                            .replace('{hours}', String(hours))
+                            .replace('{mins}', String(mins)),
+                        );
                       } else {
                         setTransitGapError(null);
                       }

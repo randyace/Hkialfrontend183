@@ -1166,7 +1166,7 @@ export function Bookings({
                 {m('Cancel Booking')}
               </h2>
               <p className="text-sm text-center mb-5" style={{ color: colors.textSecondary }}>
-                Are you sure you want to cancel booking{' '}
+                {m('Are you sure you want to cancel booking')}{' '}
                 <span style={{ color: 'rgb(220,181,21)' }}>{bookingToCancel.bookingRef}</span>?
               </p>
 
@@ -1327,9 +1327,9 @@ export function Bookings({
               <div className="space-y-4">
                 <h3 className="text-lg" style={{ color: colors.text }}>{m('Select Services')}</h3>
                 {[
-                  { id: 'premiereSuites', label: m('Number of Premiere Suite'), icon: Building, max: 10, placeholder: 'Enter number of suites' },
-                  { id: 'vipPassengers', label: m('Number of VIP Passenger in Lounge Deluxe'), icon: Users, max: 20, placeholder: 'Enter number of VIP passengers' },
-                  { id: 'nonFlyingGuests', label: m('Number of Non Flying Guests in Lounge Deluxe'), icon: Users, max: 20, placeholder: 'Enter number of non-flying guests' },
+                  { id: 'premiereSuites', label: m('Number of Premiere Suite'), icon: Building, max: 10, placeholder: m('Enter number of suites') },
+                  { id: 'vipPassengers', label: m('Number of VIP Passenger in Lounge Deluxe'), icon: Users, max: 20, placeholder: m('Enter number of VIP passengers') },
+                  { id: 'nonFlyingGuests', label: m('Number of Non Flying Guests in Lounge Deluxe'), icon: Users, max: 20, placeholder: m('Enter number of non-flying guests') },
                 ].map(({ id, label, icon: Icon, max, placeholder }) => (
                   <div key={id}>
                     <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{label}</label>
