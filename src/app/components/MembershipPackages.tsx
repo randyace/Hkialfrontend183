@@ -6,6 +6,7 @@ import {
   UserCheck, Zap,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -464,7 +465,7 @@ export function MembershipPackages({
             {[
               { key: 'ref', label: m('Order Reference'), value: `MBR-${Date.now().toString().slice(-8)}` },
               { key: 'paid', label: m('Amount Paid'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-              { key: 'until', label: m('Valid Until'), value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) },
+              { key: 'until', label: m('Valid Until'), value: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toLocaleDateString(toBcp47Locale(getAppLocale()), { day: '2-digit', month: 'long', year: 'numeric' }) },
               { key: 'status', label: m('Status'), value: m('Active') },
             ].map((row) => {
               const valueColor = row.key === 'status' ? 'rgb(52,199,89)' : row.key === 'paid' ? 'rgb(220,181,21)' : pageText;
@@ -623,12 +624,12 @@ export function MembershipPackages({
                   }}
                 >
                   <Lock className="w-3.5 h-3.5" />
-                  {isSubmitting ? 'Redirecting to payment…' : 'Confirm & Pay'}
+                  {isSubmitting ? m('Redirecting to payment…') : m('Confirm & Pay')}
                 </button>
 
                 {submitError && (
                   <p className="text-xs text-center mt-3" style={{ color: 'rgb(239,68,68)' }}>
-                    {submitError}
+                    {m(submitError)}
                   </p>
                 )}
 

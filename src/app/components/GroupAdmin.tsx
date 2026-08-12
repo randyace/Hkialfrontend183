@@ -730,14 +730,14 @@ export function GroupAdmin({
         <div className="fixed top-6 right-6 z-[100] px-5 py-3 rounded-xl shadow-xl border border-green-400/40 text-white text-sm font-semibold flex items-center gap-2"
           style={{ background: 'rgba(22,163,74,0.92)', backdropFilter: 'blur(8px)' }}>
           <CheckCircle className="w-4 h-4 flex-shrink-0" />
-          {successMessage}
+          {m(successMessage)}
         </div>
       )}
 
       {error && (
         <div className="rounded-xl px-4 py-3 text-sm font-medium border border-red-400/40 text-red-200"
           style={{ background: 'rgba(185,28,28,0.25)' }}>
-          {error}
+          {m(error)}
         </div>
       )}
 
@@ -941,8 +941,8 @@ export function GroupAdmin({
             <Users className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
             <p style={{ color: colors.textSecondary }}>
               {groupMembers.length === 0
-                ? 'No group members yet. Click Add Member to create one.'
-                : 'No members found matching your search.'}
+                ? m('No group members yet. Click Add Member to create one.')
+                : m('No members found matching your search.')}
             </p>
           </div>
         )}
@@ -1112,7 +1112,7 @@ export function GroupAdmin({
                 className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <Plus className="w-4 h-4" />
-                {isSaving ? 'Saving…' : 'Add Member'}
+                {isSaving ? m('Saving…') : m('Add Member')}
               </button>
             </div>
           </div>
@@ -1284,7 +1284,7 @@ export function GroupAdmin({
                         style={btnStyle}
                       >
                         {s === 'active' ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                        {m(s === 'active' ? 'Active' : 'Inactive')}
                       </button>
                     );
                   })}
@@ -1309,7 +1309,7 @@ export function GroupAdmin({
                 className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 <Save className="w-4 h-4" />
-                {isSaving ? 'Saving…' : 'Save Changes'}
+                {isSaving ? m('Saving…') : m('Save Changes')}
               </button>
             </div>
           </div>

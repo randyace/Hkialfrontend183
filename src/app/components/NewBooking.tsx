@@ -5684,7 +5684,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <X className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     <span>
                       {promoCodeMessage
-                        ? promoCodeMessage
+                        ? m(promoCodeMessage)
                         : <>{m('Code')} <strong>{step2Form.promotionCode}</strong> {m('is invalid. Please check and try again.')}</>}
                     </span>
                   </div>

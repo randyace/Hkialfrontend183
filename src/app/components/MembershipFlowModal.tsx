@@ -723,7 +723,7 @@ export function MembershipFlowModal({
 
                 {submitError && (
                   <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: warningBg, border: warningBorder, color: 'rgb(239,68,68)' }} role="alert">
-                    {submitError}
+                    {m(submitError)}
                   </p>
                 )}
 
