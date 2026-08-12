@@ -1629,7 +1629,7 @@ function QRScannerModal({
           setScanning(true);
         }
       } catch {
-        setCamError('Unable to access the camera. Please allow camera permission and try again.');
+        setCamError(m('Unable to access the camera. Please allow camera permission and try again.'));
       }
     };
     startCamera();
@@ -1672,7 +1672,7 @@ function QRScannerModal({
       if (cancelled) return;
       jsQR = mod.default;
       scanFrame();
-    }).catch(() => setCamError('QR scanner library could not be loaded.'));
+    }).catch(() => setCamError(m('QR scanner library could not be loaded.')));
 
     return () => { cancelled = true; cancelAnimationFrame(rafRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3681,8 +3681,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       const vip = vipBase + vipExtra;
       const nfg = nfgBase + nfgExtra;
       const total = vip + nfg;
-      const nfgStr = nfg === 1 ? '1 Non-Flying' : nfg + ' Non-Flying';
-      const occupancyLabel = nfg > 0 ? vip + ' VIP · ' + nfgStr : vip + ' VIP';
+      const nfgStr =
+        nfg === 1
+          ? m('1 Non-Flying')
+          : m('{n} Non-Flying').replace('{n}', String(nfg));
+      const occupancyLabel =
+        nfg > 0
+          ? m('{n} VIP').replace('{n}', String(vip)) + ' · ' + nfgStr
+          : m('{n} VIP').replace('{n}', String(vip));
       return { vip, nfg, total, capacityPct: Math.round((total / 6) * 100) + '%', occupancyLabel };
     });
     let gridCols = 'grid-cols-1';
@@ -3690,8 +3696,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     else if (form.premiereSuites >= 3) gridCols = 'grid-cols-3';
     const hasLounge = form.vipPassengers > 0 || form.nonFlyingGuests > 0;
     const loungeTotalPax = form.vipPassengers + form.nonFlyingGuests;
-    const lvStr = form.vipPassengers > 0 ? form.vipPassengers + ' VIP' : '';
-    const lnStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
+    const lvStr =
+      form.vipPassengers > 0
+        ? m('{n} VIP').replace('{n}', String(form.vipPassengers))
+        : '';
+    const lnStr =
+      form.nonFlyingGuests > 0
+        ? form.nonFlyingGuests === 1
+          ? m('1 Non-Flying')
+          : m('{n} Non-Flying').replace('{n}', String(form.nonFlyingGuests))
+        : '';
     const loungeLabel = lvStr + (lvStr && lnStr ? ' · ' : '') + lnStr;
     const addonOrig =
       step2Form.loungeExtension * loungeExtensionBaseRate +
@@ -4083,14 +4097,28 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       const vip = vipBase + vipExtra;
       const nfg = nfgBase + nfgExtra;
       const total = vip + nfg;
-      const nfgStr = nfg === 1 ? '1 Non-Flying' : nfg + ' Non-Flying';
-      const occupancyLabel = nfg > 0 ? vip + ' VIP · ' + nfgStr : vip + ' VIP';
+      const nfgStr =
+        nfg === 1
+          ? m('1 Non-Flying')
+          : m('{n} Non-Flying').replace('{n}', String(nfg));
+      const occupancyLabel =
+        nfg > 0
+          ? m('{n} VIP').replace('{n}', String(vip)) + ' · ' + nfgStr
+          : m('{n} VIP').replace('{n}', String(vip));
       return { vip, nfg, total, capacityPct: Math.round((total / 6) * 100) + '%', occupancyLabel };
     });
     const hasLoungeGuests = form.vipPassengers > 0 || form.nonFlyingGuests > 0;
     const loungeTotalGuests = form.vipPassengers + form.nonFlyingGuests;
-    const loungeVipStr = form.vipPassengers > 0 ? form.vipPassengers + ' VIP' : '';
-    const loungeNfgStr = form.nonFlyingGuests > 0 ? form.nonFlyingGuests + ' Non-Flying' : '';
+    const loungeVipStr =
+      form.vipPassengers > 0
+        ? m('{n} VIP').replace('{n}', String(form.vipPassengers))
+        : '';
+    const loungeNfgStr =
+      form.nonFlyingGuests > 0
+        ? form.nonFlyingGuests === 1
+          ? m('1 Non-Flying')
+          : m('{n} Non-Flying').replace('{n}', String(form.nonFlyingGuests))
+        : '';
     const loungeOccupancyLabel = loungeVipStr + (loungeVipStr && loungeNfgStr ? ' · ' : '') + loungeNfgStr;
     let suiteGridCols = 'grid-cols-1';
     if (form.premiereSuites === 2) suiteGridCols = 'grid-cols-2';
@@ -4237,14 +4265,18 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {form.premiereSuites > 0 && (
               <div>
                 <div className="text-xs uppercase tracking-wider mb-2.5" style={{ color: sectionLabelColor }}>
-                  Premiere Suite{form.premiereSuites > 1 ? 's' : ''} &mdash; {form.premiereSuites} booked
+                  {m(form.premiereSuites > 1 ? 'Premiere Suites' : 'Premiere Suite')}
+                  {' — '}
+                  {form.premiereSuites} {m('booked')}
                 </div>
                 <div className={`grid gap-2 ${suiteGridCols}`}>
                   {suiteDistributions.map((suite, i) => (
                     <div key={i} className="rounded-lg p-3" style={suiteTileStyle}>
                       <div className="flex items-center gap-1.5 mb-2">
                         <Crown className="w-3.5 h-3.5" style={{ color: suiteAccentColor }} />
-                        <span className="text-xs font-semibold" style={textPrimary}>Suite {i + 1}</span>
+                        <span className="text-xs font-semibold" style={textPrimary}>
+                          {m('Suite {n}').replace('{n}', String(i + 1))}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs mb-2.5" style={textPrimary}>
                         <User className="w-3 h-3" style={{ color: colors.textMuted }} />
@@ -4253,7 +4285,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <div className="h-1 w-full rounded-full overflow-hidden" style={capacityTrackStyle}>
                         <div className="h-full rounded-full" style={{ width: suite.capacityPct, background: 'rgb(220,181,21)' }} />
                       </div>
-                      <div className="text-xs mt-1.5" style={{ color: colors.textMuted }}>{suite.total} / 6 capacity</div>
+                      <div className="text-xs mt-1.5" style={{ color: colors.textMuted }}>
+                        {m('{n} / 6 capacity').replace('{n}', String(suite.total))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4329,7 +4363,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               className="text-xs font-semibold tracking-wide uppercase"
               style={textMuted}
             >
-              Non-Flying Guests ({nonFlyingGuestData.length})
+              {m('Non-Flying Guests')} ({nonFlyingGuestData.length})
             </div>
             {nonFlyingGuestData.map((g, i) => {
               const premiereNonFlyingEnd = form.premiereNonFlyingGuests;
@@ -4342,7 +4376,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   key={i}
                   icon={<User className="w-4 h-4 text-white" />}
                   iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-                  title={`Non-Flying Guest #${i + 1}`}
+                  title={m('Non-Flying Guest #{n}').replace('{n}', String(i + 1))}
                 >
                   <ReviewGrid>
                     <ReviewField
@@ -4419,8 +4453,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                           {m('Airport Limousine Transfer Service')}
                         </div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
-                          {step2Form.limousineService} vehicle
-                          {step2Form.limousineService !== 1 ? 's' : ''}
+                          {step2Form.limousineService}{' '}
+                          {step2Form.limousineService !== 1 ? m('vehicles') : m('vehicle')}
                         </div>
                         {step2Form.destinationAddresses.length > 0 && (
                           <div className="mt-2 space-y-1">
@@ -4428,7 +4462,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                               addr && (
                                 <div key={idx} className="text-xs" style={textMuted}>
                                   <span style={textMuted}>
-                                    {step2Form.limousineService > 1 ? `Vehicle #${idx + 1}: ` : 'Destination: '}
+                                    {step2Form.limousineService > 1
+                                      ? m('Vehicle #{n}:').replace('{n}', String(idx + 1)) + ' '
+                                      : m('Destination:') + ' '}
                                   </span>
                                   {addr}
                                 </div>
@@ -4637,7 +4673,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               />
               <ReviewField
                 label="Use free Premiere Suite upgrade"
-                value={useMembershipPsFree ? 'Yes' : 'No — pay reduced Suite rate if applicable'}
+                value={
+                  useMembershipPsFree
+                    ? 'Yes'
+                    : 'No — pay reduced Suite rate if applicable'
+                }
               />
             </ReviewGrid>
           </ReviewSection>
@@ -5160,8 +5200,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // Round 6.2.140 — membership benefits card styles (readable end-customer copy).
     const membershipBenefitsBg = isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.06)';
     const membershipBenefitsBorder = '1px solid rgba(220,181,21,0.35)';
-    const summaryLuggagePlural = step2Form.luggageCount !== 1 ? 's' : '';
-    const summaryLuggageValue = step2Form.luggageCount + ' piece' + summaryLuggagePlural;
+    const summaryLuggageValue =
+      step2Form.luggageCount +
+      ' ' +
+      (step2Form.luggageCount !== 1 ? m('pieces') : m('piece'));
 
     return (
       <>
@@ -5734,13 +5776,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {step2Form.loungeExtension > 0 && (
                   <SummaryRow
                     label="Lounge Extension"
-                    value={`${step2Form.loungeExtension} hour${step2Form.loungeExtension !== 1 ? 's' : ''}`}
+                    value={`${step2Form.loungeExtension} ${
+                      step2Form.loungeExtension !== 1 ? m('hours') : m('hour')
+                    }`}
                   />
                 )}
                 {step2Form.limousineService > 0 && (
                   <SummaryRow
                     label="Limousine Service"
-                    value={`${step2Form.limousineService} vehicle${step2Form.limousineService !== 1 ? 's' : ''}`}
+                    value={`${step2Form.limousineService} ${
+                      step2Form.limousineService !== 1 ? m('vehicles') : m('vehicle')
+                    }`}
                   />
                 )}
                 {step2Form.wheelchairService > 0 && (
@@ -6398,7 +6444,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // pass through already-translated dynamic strings.
   let premiereVipHelperText: string | undefined = undefined;
   if (form.premiereSuites === 0) {
-    premiereVipHelperText = 'Please select at least 1 Premiere Suite first';
+    premiereVipHelperText = m('Please select at least 1 Premiere Suite first');
   } else {
     // 2026-06-27 (round 6.2.96 — Sky): show the minimum floor
     // (1 VIP per suite) alongside the cap. The 1:1 floor is
@@ -6418,7 +6464,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   let premiereNfgHelperText: string | undefined = undefined;
   if (form.premiereVipPassengers === 0) {
-    premiereNfgHelperText = 'Requires at least 1 VIP Passenger';
+    premiereNfgHelperText = m('Requires at least 1 VIP Passenger');
   } else if (form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6) {
     const used = form.premiereVipPassengers + form.premiereNonFlyingGuests;
     const cap = form.premiereSuites * 6;
@@ -6429,9 +6475,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   let loungeNfgHelperText: string | undefined = undefined;
   if (form.vipPassengers === 0) {
-    loungeNfgHelperText = 'Requires at least 1 VIP Passenger';
+    loungeNfgHelperText = m('Requires at least 1 VIP Passenger');
   } else if (form.nonFlyingGuests >= 3) {
-    loungeNfgHelperText = 'Maximum 3 non-flying guests per booking';
+    loungeNfgHelperText = m('Maximum 3 non-flying guests per booking');
   }
 
   const gradientTextS2: React.CSSProperties = {
@@ -6754,7 +6800,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             >
               <SectionHeader
                 title={m('VIP Passenger Information #{n}').replace('{n}', String(index + 1))}
-                subtitle={`${guestType} — please fill in details`}
+                subtitle={m(`${guestType} — please fill in details`)}
               />
 
               {/* Badge */}
@@ -7138,11 +7184,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             }}
           >
             <h3 className="text-xl mb-4" style={textPrimary}>
-              Select {getSegmentLabel(pendingVipDeletion.segment, 'vip')} to Remove
+              {m('Select {type} to Remove').replace(
+                '{type}',
+                m(getSegmentLabel(pendingVipDeletion.segment, 'vip')),
+              )}
             </h3>
             <p className="text-sm mb-6" style={textSecondary}>
-              You have reduced the number of {getSegmentLabel(pendingVipDeletion.segment, 'vip')}s from {pendingVipDeletion.prevCount} to {pendingVipDeletion.newCount}.
-              Please select {pendingVipDeletion.prevCount - pendingVipDeletion.newCount} passenger(s) to remove:
+              {m(
+                'You have reduced the number of {type}s from {from} to {to}. Please select {n} to remove:',
+              )
+                .replace('{type}', m(getSegmentLabel(pendingVipDeletion.segment, 'vip')))
+                .replace('{from}', String(pendingVipDeletion.prevCount))
+                .replace('{to}', String(pendingVipDeletion.newCount))
+                .replace(
+                  '{n}',
+                  String(pendingVipDeletion.prevCount - pendingVipDeletion.newCount),
+                )}
             </p>
 
             <div className="space-y-3 mb-6">
@@ -7157,10 +7214,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   displayIndex,
                   form.premiereVipPassengers,
                 );
-                const guestType = getSegmentLabel(pendingVipDeletion.segment, 'vip');
+                const guestType = m(getSegmentLabel(pendingVipDeletion.segment, 'vip'));
                 const displayName = vip.vipFirstName || vip.vipLastName
                   ? `${vip.vipTitle} ${vip.vipFirstName} ${vip.vipLastName}`.trim()
-                  : `VIP Passenger #${absoluteIndex + 1} (Empty)`;
+                  : m('VIP Passenger #{n} (Empty)').replace(
+                      '{n}',
+                      String(absoluteIndex + 1),
+                    );
 
                 return (
                   <div
@@ -7178,7 +7238,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                       <div className="text-xs" style={textSecondary}>
                         {guestType}
-                        {vip.vipTravelDocNo && ` • Doc: ${vip.vipTravelDocNo}`}
+                        {vip.vipTravelDocNo && ` • ${m('Doc:')} ${vip.vipTravelDocNo}`}
 
                       </div>
                     </div>
@@ -7223,11 +7283,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             }}
           >
             <h3 className="text-xl mb-4" style={textPrimary}>
-              Select {getSegmentLabel(pendingGuestDeletion.segment, 'guest')} to Remove
+              {m('Select {type} to Remove').replace(
+                '{type}',
+                m(getSegmentLabel(pendingGuestDeletion.segment, 'guest')),
+              )}
             </h3>
             <p className="text-sm mb-6" style={textSecondary}>
-              You have reduced the number of {getSegmentLabel(pendingGuestDeletion.segment, 'guest')}s from {pendingGuestDeletion.prevCount} to {pendingGuestDeletion.newCount}.
-              Please select {pendingGuestDeletion.prevCount - pendingGuestDeletion.newCount} guest(s) to remove:
+              {m(
+                'You have reduced the number of {type}s from {from} to {to}. Please select {n} to remove:',
+              )
+                .replace('{type}', m(getSegmentLabel(pendingGuestDeletion.segment, 'guest')))
+                .replace('{from}', String(pendingGuestDeletion.prevCount))
+                .replace('{to}', String(pendingGuestDeletion.newCount))
+                .replace(
+                  '{n}',
+                  String(pendingGuestDeletion.prevCount - pendingGuestDeletion.newCount),
+                )}
             </p>
 
             <div className="space-y-3 mb-6">
@@ -7242,10 +7313,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   displayIndex,
                   form.premiereNonFlyingGuests,
                 );
-                const guestType = getSegmentLabel(pendingGuestDeletion.segment, 'guest');
+                const guestType = m(getSegmentLabel(pendingGuestDeletion.segment, 'guest'));
                 const displayName = guest.guestFirstName || guest.guestLastName
                   ? `${guest.guestTitle} ${guest.guestFirstName} ${guest.guestLastName}`.trim()
-                  : `Non-Flying Guest #${absoluteIndex + 1} (Empty)`;
+                  : m('Non-Flying Guest #{n} (Empty)').replace(
+                      '{n}',
+                      String(absoluteIndex + 1),
+                    );
 
                 return (
                   <div
@@ -7262,7 +7336,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         {displayName}
                       </div>
                       <div className="text-xs" style={textSecondary}>
-                        {guestType} • {guest.guestAgeGroup}
+                        {guestType} • {guest.guestAgeGroup ? m(guest.guestAgeGroup) : ''}
                       </div>
                     </div>
                     <button

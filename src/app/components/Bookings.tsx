@@ -505,8 +505,11 @@ export function Bookings({
   // ── Apple Wallet ──────────────────────────────────────────────────────────
   const handleAddToWallet = () => {
     if (!selectedBooking) return;
-    toast.success('Added to Apple Wallet', {
-      description: `Booking ${selectedBooking.bookingRef} has been added to your Apple Wallet.`,
+    toast.success(m('Added to Apple Wallet'), {
+      description: m('Booking {ref} has been added to your Apple Wallet.').replace(
+        '{ref}',
+        selectedBooking.bookingRef,
+      ),
     });
   };
 
