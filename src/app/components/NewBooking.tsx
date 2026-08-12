@@ -47,6 +47,7 @@ import { useTheme } from './ThemeContext';
 import {
   COUNTRIES,
   countryLabel,
+  localizedCountryName,
   countryNameFor,
   filterCountries,
   isValidCountryCode,
@@ -86,6 +87,8 @@ import {
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
 import { formatAirportDisplay } from '../../../../../utils/airports';
 import { useMsg } from '../../../../../i18n/useMsg';
+import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
+import { useTranslation } from 'react-i18next';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -996,12 +999,13 @@ function SectionHeader({
   title: string;
   subtitle?: string;
 }) {
+  const m = useMsg();
   const { textPrimary, textMuted } = useThemedStyles();
   return (
     <div className="flex items-start justify-between gap-3 mb-4">
       <div>
-        <div className="text-sm" style={textPrimary}>{title}</div>
-        {subtitle && <div className="text-xs mt-0.5" style={textMuted}>{subtitle}</div>}
+        <div className="text-sm" style={textPrimary}>{m(title)}</div>
+        {subtitle && <div className="text-xs mt-0.5" style={textMuted}>{m(subtitle)}</div>}
       </div>
     </div>
   );
@@ -1416,13 +1420,15 @@ function GuestNationalityTypeahead({
   required?: boolean;
 }) {
   const m = useMsg();
+  const { i18n } = useTranslation();
+  const bcp47 = toBcp47Locale(i18n.language || getAppLocale());
   const { glassStyle } = useTheme();
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const [query, setQuery] = useState(() => {
     if (isValidCountryCode(value)) {
       const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
-      return hit ? countryLabel(hit) : value;
+      return hit ? countryLabel(hit, bcp47) : value;
     }
     return '';
   });
@@ -1434,15 +1440,15 @@ function GuestNationalityTypeahead({
   useEffect(() => {
     if (isValidCountryCode(value)) {
       const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
-      if (hit) setQuery(countryLabel(hit));
+      if (hit) setQuery(countryLabel(hit, bcp47));
     }
-  }, [value]);
+  }, [value, bcp47]);
 
-  const filtered = useMemo(() => filterCountries(query), [query]);
+  const filtered = useMemo(() => filterCountries(query, bcp47), [query, bcp47]);
 
   const pick = (c: CountryOption) => {
     onChange(c.code);
-    setQuery(countryLabel(c));
+    setQuery(countryLabel(c, bcp47));
     setOpen(false);
     setHighlight(0);
   };
@@ -1475,7 +1481,7 @@ function GuestNationalityTypeahead({
         setOpen(false);
         if (isValidCountryCode(value)) {
           const hit = COUNTRIES.find((c) => c.code === value.toUpperCase());
-          if (hit) setQuery(countryLabel(hit));
+          if (hit) setQuery(countryLabel(hit, bcp47));
         } else if (!value) {
           setQuery('');
         }
@@ -1549,7 +1555,7 @@ function GuestNationalityTypeahead({
                     highlighted ? (isDark ? 'bg-white/15' : 'bg-[rgb(231,230,221)]') : ''
                   } ${selected ? 'font-semibold' : ''}`}
                 >
-                  <span>{c.name}</span>
+                  <span>{localizedCountryName(c.code, bcp47)}</span>
                   <span className={mutedColor}>{c.code}</span>
                 </li>
               );
@@ -2284,7 +2290,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1TimeValid =
     !isArrivalOrDeparture || leg1FlightTime !== '';
   // 2026-06-30 (round ? — Sky) — date+time must be in the future.
-  // The native `<input type="date" min={today}>` (line ~5422) only
+  // The native `<input type="date" lang={toBcp47Locale(getAppLocale())} min={today}>` (line ~5422) only
   // blocks past DATES through the picker UI; it does NOT block (a)
   // typed / pasted past dates, OR (b) past TIMES on today's date.
   // Add a combined datetime check so the hint list catches every
@@ -3328,9 +3334,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const dateLocale = toBcp47Locale(getAppLocale());
   const formatDate = (s: string) => {
     if (!s) return '—';
-    return new Date(s).toLocaleDateString('en-GB', {
+    return new Date(s).toLocaleDateString(dateLocale, {
       weekday: 'short',
       day: '2-digit',
       month: 'short',
@@ -3340,7 +3347,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const formatBirthday = (s: string) => {
     if (!s) return '—';
-    return new Date(s).toLocaleDateString('en-GB', {
+    return new Date(s).toLocaleDateString(dateLocale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -3729,14 +3736,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <span className="text-sm" style={textPrimary}>{m('Booking Summary')}</span>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5" style={{ color: accentColor }} />
-            <span className="text-xs font-medium" style={{ color: accentColor }}>{totalGuests} guests</span>
+            <span className="text-xs font-medium" style={{ color: accentColor }}>
+              {m(totalGuests === 1 ? 'Total {n} guest' : 'Total {n} guests').replace('{n}', String(totalGuests))}
+            </span>
           </div>
         </div>
         <div className="px-5 py-4 space-y-3">
           {form.premiereSuites > 0 && (
             <div>
               <div className="text-xs uppercase tracking-wider mb-2" style={{ color: sectionLabel }}>
-                Premiere Suite{form.premiereSuites > 1 ? 's' : ''} ({form.premiereSuites})
+                {m(form.premiereSuites > 1 ? 'Premiere Suites' : 'Premiere Suite')} ({form.premiereSuites})
               </div>
               <div className={`grid gap-2 ${gridCols}`}>
                 {suiteDists.map((suite, i) => (
@@ -3777,7 +3786,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="text-xs" style={{ color: colors.textMuted }}>{loungeLabel}</div>
                   </div>
                 </div>
-                <span className="text-xs font-medium" style={{ color: colors.textMuted }}>| Total {loungeTotalPax} guests</span>
+                <span className="text-xs font-medium" style={{ color: colors.textMuted }}>| {m(loungeTotalPax === 1 ? 'Total {n} guest' : 'Total {n} guests').replace('{n}', String(loungeTotalPax))}</span>
               </div>
               {ppHasLoaded && (
                 <div
@@ -3794,7 +3803,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="space-y-1.5">
               {membershipDiscounts.map((d) => (
                 <div key={d.key} className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{d.label}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -3810,7 +3819,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between"
                   data-testid="booking-summary-promo-discount-row"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{d.label}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -3826,7 +3835,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between"
                   data-testid="booking-summary-account-discount-row"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{d.label}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -4252,7 +4261,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             key={i}
             icon={<User className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title={`VIP Passenger #${i + 1}`}
+            title={m('VIP Passenger #{n}').replace('{n}', String(i + 1))}
           >
             <ReviewGrid>
               <ReviewField
@@ -4266,7 +4275,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 label="Nationality"
                 value={
                   p.nationality
-                    ? `${countryNameFor(p.nationality)} (${p.nationality.toUpperCase()})`
+                    ? `${localizedCountryName(p.nationality, dateLocale)} (${p.nationality.toUpperCase()})`
                     : '—'
                 }
               />
@@ -4320,7 +4329,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       label="Nationality"
                       value={
                         g.nationality
-                          ? `${countryNameFor(g.nationality)} (${g.nationality.toUpperCase()})`
+                          ? `${localizedCountryName(g.nationality, dateLocale)} (${g.nationality.toUpperCase()})`
                           : '—'
                       }
                     />
@@ -4854,11 +4863,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div>
                 <p className="text-sm" style={{ color: isDark ? '#93c5fd' : 'rgb(37,99,235)' }}>
-                  Booking on behalf of{' '}
+                  {m('Booking on behalf of')}{' '}
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                  Vouchers deducted from this member&apos;s account · Balance: {prefillMember.voucherCount} vouchers
+                  {m("Vouchers deducted from this member's account")} · {m('Balance:')} {prefillMember.voucherCount} {m('vouchers')}
                 </p>
               </div>
             </div>
@@ -4898,8 +4907,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               // see the uniform catalog rate.
               subtitle={
                 loungeRateBreakdownText
-                  ? 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' per hour  ·  ' + loungeRateBreakdownText
-                  : 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' per hour'
+                  ? 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' ' + m('per hour') + '  ·  ' + loungeRateBreakdownText
+                  : 'HK$' + loungeExtensionBaseRate.toLocaleString() + ' ' + m('per hour')
               }
               value={step2Form.loungeExtension}
               onDecrement={() => updateStep2Count('loungeExtension', -1)}
@@ -4912,7 +4921,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Car className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title={m('Limousine Service')}
-              subtitle={'HK$1,500 per vehicle'}
+              subtitle={'HK$1,500 ' + m('per vehicle')}
               value={step2Form.limousineService}
               onDecrement={() => updateStep2Count('limousineService', -1)}
               onIncrement={() => updateStep2Count('limousineService', 1)}
@@ -5008,7 +5017,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Accessibility className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title={m('Wheelchair Assistance')}
-              subtitle={'HK$300 per service'}
+              subtitle={'HK$300 ' + m('per service')}
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
               onIncrement={() => updateStep2Count('wheelchairService', 1)}
@@ -5018,7 +5027,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="mt-3 space-y-3">
                 {Array.from({ length: step2Form.wheelchairService }, (_, i) => (
                   <div key={i}>
-                    <label className={labelClass}>Passenger {i + 1} Name *</label>
+                    <label className={labelClass}>{m('Passenger {n} Name').replace('{n}', String(i + 1))} *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
@@ -5151,11 +5160,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div>
                 <p className="text-sm" style={{ color: isDark ? '#93c5fd' : 'rgb(37,99,235)' }}>
-                  Booking on behalf of{' '}
+                  {m('Booking on behalf of')}{' '}
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                  Vouchers deducted from this member&apos;s account · Balance: {prefillMember.voucherCount} vouchers
+                  {m("Vouchers deducted from this member's account")} · {m('Balance:')} {prefillMember.voucherCount} {m('vouchers')}
                 </p>
               </div>
             </div>
@@ -5284,8 +5293,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <span className="text-sm" style={textPrimary}>{m('Your membership benefits for this booking')}</span>
             </div>
             <p className="text-xs mb-4" style={textMuted}>
-              You can choose whether to use your free credits on this booking. Unchecking keeps the credit for later.
-              Membership does not add a percentage discount — free entries and free suite upgrades only.
+              {m('You can choose whether to use your free credits on this booking. Unchecking keeps the credit for later. Membership does not add a percentage discount — free entries and free suite upgrades only.')}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -5930,7 +5938,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </label>
               <div className="relative">
                 <input
-                  type="date"
+                  type="date" lang={toBcp47Locale(getAppLocale())}
                   value={form.date}
                   min={hktTodayYmd()}
                   onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
@@ -6139,7 +6147,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <label className={labelClass}>{m('Leg 2 Departure Date')} <span>*</span></label>
                   <div className="relative">
                     <input
-                      type="date"
+                      type="date" lang={toBcp47Locale(getAppLocale())}
                       value={leg2ArrivalDate?.split('T')[0] || ''}
                       min={form.date ? form.date : hktTodayYmd()}
                       onChange={(e) => {
@@ -6475,7 +6483,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <Plane className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }} />
             <div className="flex-1 min-w-0">
               <span className="text-xs" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }}>
-                {form.flightNumber} · {form.flightType} · {form.flightClass}
+                {form.flightNumber} · {m(form.flightType)} · {m(form.flightClass)}
               </span>
               <span className="text-xs ml-2" style={textMuted}>
                 {flightDetails.origin} → {flightDetails.destination}
@@ -6507,7 +6515,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           >
             <Plane className="w-4 h-4 flex-shrink-0" style={textMuted} />
             <span className="text-xs flex-1" style={textMuted}>
-              {form.flightNumber} · {form.flightType} · {form.flightClass}
+              {form.flightNumber} · {m(form.flightType)} · {m(form.flightClass)}
             </span>
             <button
               type="button"
@@ -6698,14 +6706,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               data-hkial-vip-info={index}
             >
               <SectionHeader
-                title={`VIP Passenger Information #${index + 1}`}
+                title={m('VIP Passenger Information #{n}').replace('{n}', String(index + 1))}
                 subtitle={`${guestType} — please fill in details`}
               />
 
               {/* Badge */}
               <div className="mb-4">
                 <span className="text-xs px-2.5 py-0.5 rounded-full" style={badgeStyle}>
-                  {guestType}
+                  {m(guestType)}
                 </span>
               </div>
 
@@ -6816,7 +6824,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
-                      type="date"
+                      type="date" lang={toBcp47Locale(getAppLocale())}
                       value={passenger.vipBirthday}
                       onChange={(e) => handleVipChange(index, 'vipBirthday', e.target.value)}
                       style={fieldStyle}
@@ -6829,7 +6837,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Food Allergies */}
               <div className="mt-4">
-                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">(optional)</span></label>
+                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">{m('(optional)')}</span></label>
                 <input
                   type="text"
                   value={passenger.foodAllergies}
@@ -6873,14 +6881,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               data-hkial-nfg-info={index}
             >
               <SectionHeader
-                title={`Non-Flying Guest Information #${index + 1}`}
+                title={m('Non-Flying Guest Information #{n}').replace('{n}', String(index + 1))}
                 subtitle={`${guestType} — please fill in details`}
               />
 
               {/* Badge */}
               <div className="mb-4">
                 <span className="text-xs px-2.5 py-0.5 rounded-full" style={badgeStyle}>
-                  {guestType}
+                  {m(guestType)}
                 </span>
               </div>
 
@@ -6979,7 +6987,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Food Allergies */}
               <div className="mt-4">
-                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">(optional)</span></label>
+                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">{m('(optional)')}</span></label>
                 <input
                   type="text"
                   value={guest.foodAllergies}
