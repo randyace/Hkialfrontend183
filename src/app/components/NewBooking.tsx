@@ -89,10 +89,23 @@ import { formatAirportDisplay } from '../../../../../utils/airports';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
+import { catalogAddonDisplayName } from '../../../../../lib/addons/bookingAddonCatalog';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
+
+/** Localize price-preview / summary line labels (catalog EN names + known chrome). */
+function translatePriceLineLabel(
+  label: string,
+  locale: string,
+  m: (s: string) => string,
+): string {
+  if (!label) return label;
+  const fromCatalog = catalogAddonDisplayName({ name_en: label }, locale);
+  if (fromCatalog !== label) return fromCatalog;
+  return m(label);
+}
 
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
 // R6.2.100d (2026-07-02, Sky): Travel Agency MOCK addon discount percentages
@@ -1031,6 +1044,7 @@ function StepperCard({
   incrementDisabled,
   helperText,
   testId,
+  addonKey,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -1047,6 +1061,8 @@ function StepperCard({
   // relying on label text or DOM ordering (which can shift as
   // the form layout evolves).
   testId?: string;
+  /** Stable DOM key for portal enhancers (locale-independent). */
+  addonKey?: string;
 }) {
   const m = useMsg();
   const { isDark, textPrimary, textMuted, stepperCardBg, stepperBtnStyle, stepperIconColor } = useThemedStyles();
@@ -1058,6 +1074,7 @@ function StepperCard({
       className="rounded-xl overflow-hidden"
       style={stepperCardBg}
       data-hkial-stepper={testId}
+      data-hkial-addon={addonKey}
     >
       {/* Card label row */}
       <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(200,199,190,0.3)' }}>
@@ -1113,6 +1130,7 @@ function ToggleCard({
   subtitle,
   checked,
   onChange,
+  addonKey,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -1120,6 +1138,8 @@ function ToggleCard({
   subtitle: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  /** Stable DOM key for portal enhancers (locale-independent). */
+  addonKey?: string;
 }) {
   const m = useMsg();
   const { textPrimary, textMuted, stepperCardBg } = useThemedStyles();
@@ -1127,6 +1147,7 @@ function ToggleCard({
     <div
       className="rounded-xl overflow-hidden"
       style={stepperCardBg}
+      data-hkial-addon={addonKey}
     >
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
@@ -3152,8 +3173,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       }
       
       if (field === 'wheelchairService') {
-        const updatedNames = prev.wheelchairPassengerNames.slice(0, newValue);
-        return { ...prev, wheelchairService: newValue, wheelchairPassengerNames: updatedNames };
+        // Pad empty name slots when qty grows so controlled inputs stay writable.
+        const updatedNames = [...prev.wheelchairPassengerNames];
+        while (updatedNames.length < newValue) updatedNames.push('');
+        return {
+          ...prev,
+          wheelchairService: newValue,
+          wheelchairPassengerNames: updatedNames.slice(0, newValue),
+        };
       }
 
       if (field === 'privateTransport') {
@@ -3361,9 +3388,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step loading overlay (fixed over the current step) ───────────────────
   const stepLoadingMessages = [
-    'Saving your information…',
-    'Validating booking details…',
-    'Processing…',
+    m('Saving your information…'),
+    m('Validating booking details…'),
+    m('Processing…'),
   ];
   const stepLoadingMsg = stepLoadingMessages[currentStep % stepLoadingMessages.length];
 
@@ -3859,7 +3886,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="booking-summary-addon-row"
                 >
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {line.label}
+                    {translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
                     {line.qty > 0 ? ` × ${line.qty}` : ''}
                   </span>
                   <div className="text-right">
@@ -4450,13 +4477,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <div>
                         <div className="text-xs" style={textMuted}>{m('Wheelchair Assistance')}</div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
-                          {step2Form.wheelchairService} wheelchair
-                          {step2Form.wheelchairService !== 1 ? 's' : ''}
+                          {step2Form.wheelchairService}{' '}
+                          {step2Form.wheelchairService !== 1 ? m('wheelchairs') : m('wheelchair')}
                         </div>
                         {step2Form.wheelchairPassengerNames.filter(Boolean).length > 0 && (
                           <div className="text-xs mt-1" style={textMuted}>
                             {step2Form.wheelchairPassengerNames.filter(Boolean).map((n, i) => (
-                              <div key={i}>Passenger {i + 1}: {n}</div>
+                              <div key={i}>
+                                {m('Passenger {n}:').replace('{n}', String(i + 1))} {n}
+                              </div>
                             ))}
                           </div>
                         )}
@@ -4484,9 +4513,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <div className="flex items-start gap-2">
                       <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                       <div>
-                        <div className="text-xs" style={textMuted}>{line.label}</div>
+                        <div className="text-xs" style={textMuted}>
+                          {translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
+                        </div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
-                          Qty {line.qty > 0 ? line.qty : 1}
+                          {m('Qty')} {line.qty > 0 ? line.qty : 1}
                         </div>
                       </div>
                     </div>
@@ -4823,8 +4854,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   if (currentStep === 3) {
     return (
       <>
-      <form onSubmit={handleNextFromStep3}>
-        <div className="space-y-4 pb-8">
+      <form onSubmit={handleNextFromStep3} data-hkial-step="3">
+        <div className="space-y-4 pb-8" data-hkial-step="3">
           {/* Progress bar */}
           <BookingStepProgress skipAddons={noAddonRequired} />
 
@@ -4925,6 +4956,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               value={step2Form.limousineService}
               onDecrement={() => updateStep2Count('limousineService', -1)}
               onIncrement={() => updateStep2Count('limousineService', 1)}
+              addonKey="limousine"
             />
 
             {step2Form.limousineService > 0 && (
@@ -4938,13 +4970,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
                     }}
                   >
-                    ⚠️ Extra charges will apply if waiting time is exceeded at pick-up point.
+                    ⚠️ {m('Extra charges will apply if waiting time is exceeded at pick-up point.')}
                   </div>
                 )}
                 {step2Form.destinationAddresses.map((address, index) => (
                   <div key={index}>
                     <label className={labelClass}>
-                      {step2Form.limousineService > 1 ? 'Destination / Pick-up Point #' + (index + 1) : 'Destination / Pick-up Point'} *
+                      {step2Form.limousineService > 1
+                        ? m('Destination / Pick-up Point #{n}').replace('{n}', String(index + 1))
+                        : m('Destination / Pick-up Point')}{' '}
+                      *
                     </label>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -4979,7 +5014,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {step2Form.limousineStops.map((stop, index) => (
                   <div key={'stop-' + index}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className={labelClass}>Additional Stop #{index + 1}</label>
+                      <label className={labelClass}>
+                        {m('Additional Stop #{n}').replace('{n}', String(index + 1))}
+                      </label>
                       <button type="button" onClick={() => removeStop(index)} className="text-xs text-red-400 hover:text-red-300 transition-colors">{m('Remove')}</button>
                     </div>
                     <div className="relative">
@@ -5021,10 +5058,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
               onIncrement={() => updateStep2Count('wheelchairService', 1)}
+              addonKey="wheelchair"
+              testId="wheelchair-service"
             />
 
             {step2Form.wheelchairService > 0 && (
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 space-y-3" data-hkial-figma-wheelchair-names>
                 {Array.from({ length: step2Form.wheelchairService }, (_, i) => (
                   <div key={i}>
                     <label className={labelClass}>{m('Passenger {n} Name').replace('{n}', String(i + 1))} *</label>
@@ -5034,12 +5073,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         type="text"
                         value={step2Form.wheelchairPassengerNames[i] ?? ''}
                         onChange={(e) => {
-                          const updated = [...step2Form.wheelchairPassengerNames];
-                          updated[i] = e.target.value;
-                          setStep2Form((p) => ({ ...p, wheelchairPassengerNames: updated }));
+                          const nextVal = e.target.value;
+                          setStep2Form((p) => {
+                            const updated = [...p.wheelchairPassengerNames];
+                            while (updated.length <= i) updated.push('');
+                            updated[i] = nextVal;
+                            return { ...p, wheelchairPassengerNames: updated };
+                          });
                         }}
                         required
-                        placeholder={`Enter name for wheelchair ${i + 1}`}
+                        placeholder={m('Enter name for wheelchair {n}').replace('{n}', String(i + 1))}
+                        data-hkial-wheelchair-name-index={String(i)}
                         style={fieldStyle}
                         className={fieldClass + ' pl-10'}
                       />
@@ -5058,6 +5102,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               subtitle={m('Personal security personnel')}
               checked={step2Form.securityService}
               onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
+              addonKey="security"
             />
 
             {step2Form.securityService && (
@@ -5069,7 +5114,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
                 }}
               >
-                💰 Separate charges are required for security service. Our team will contact you for pricing details.
+                💰 {m('Separate charges are required for security service. Our team will contact you for pricing details.')}
               </div>
             )}
           </div>
@@ -5200,6 +5245,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               value={step2Form.privateTransport}
               onDecrement={() => updateStep2Count('privateTransport', -1)}
               onIncrement={() => updateStep2Count('privateTransport', 1)}
+              addonKey="private-transport"
+              testId="private-transport"
             />
 
             {step2Form.privateTransport > 0 && (
@@ -5355,7 +5402,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             {(form.premiereSuites > 0 && (form.vipPassengers > 0 || form.nonFlyingGuests > 0)) && (
               <p className="text-xs mt-3" style={textMuted}>
-                Note: free membership credits apply to Lounge Deluxe-only or Premiere Suite-only bookings, not when both are on the same booking.
+                {m('Note: free membership credits apply to Lounge Deluxe-only or Premiere Suite-only bookings, not when both are on the same booking.')}
               </p>
             )}
           </div>
@@ -5705,7 +5752,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {reviewCatalogAddonLines.map((line, idx) => (
                   <SummaryRow
                     key={`summary-catalog-${line.label}-${idx}`}
-                    label={line.label}
+                    label={translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
                     value={`× ${line.qty > 0 ? line.qty : 1} · HK$${line.subtotal.toLocaleString()}`}
                   />
                 ))}
