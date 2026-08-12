@@ -15,6 +15,7 @@ import {
   Shield,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 interface MemberDashboardProps {
   memberData: {
@@ -82,6 +83,7 @@ function getMembershipStatus(expiryDate: string) {
 }
 
 export function MemberDashboard({ memberData: propMemberData, upcomingBookings: propUpcoming, recentActivity: propRecent, quickStats: propQuickStats, isLoading: propIsLoading, error: propError }: MemberDashboardProps) {
+  const m = useMsg();
   const { colors, glassStyle, mode } = useTheme();
   const [memberData, setMemberData] = useState({
     name: propMemberData.name || 'Sarah Chen',
@@ -241,7 +243,7 @@ export function MemberDashboard({ memberData: propMemberData, upcomingBookings: 
       <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
         <div>
           <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent mb-2">
-            Welcome back, {memberData.name}
+            {m('Welcome back, {name}').replace('{name}', memberData.name || m('Member'))}
           </h1>
         </div>
         <div className="flex gap-4">

@@ -102,9 +102,87 @@ function translatePriceLineLabel(
   m: (s: string) => string,
 ): string {
   if (!label) return label;
+  // Exact / catalog first.
   const fromCatalog = catalogAddonDisplayName({ name_en: label }, locale);
   if (fromCatalog !== label) return fromCatalog;
-  return m(label);
+  const exact = m(label);
+  if (exact !== label) return exact;
+
+  // Backend often emits product English with qty/discount suffixes.
+  // Translate known heads then keep the trailing meta when possible.
+  const patterns: Array<{ re: RegExp; to: (match: RegExpMatchArray) => string }> = [
+    {
+      re: /^Membership In-town Limousine(?:\s*\((.+)\))?$/i,
+      to: (mm) =>
+        mm[1]
+          ? `${m('Membership In-town Limousine')} (${m(mm[1]) !== mm[1] ? m(mm[1]) : mm[1]
+              .replace(/40%\s*off/i, m('40% off'))
+              .replace(/\b1 car\b/i, `1 ${m('car')}`)
+              .replace(/\bcars?\b/i, m('cars'))})`
+          : m('Membership In-town Limousine'),
+    },
+    {
+      re: /^Lounge Deluxe\s*[—–-]\s*Additional Hour of Stay$/i,
+      to: () => m('Lounge Deluxe — Additional Hour of Stay'),
+    },
+    {
+      re: /^Premiere Suite\s*[—–-]\s*Additional Hour of Stay$/i,
+      to: () => m('Premiere Suite — Additional Hour of Stay'),
+    },
+    {
+      re: /^Additional Hour of Stay$/i,
+      to: () => m('Additional Hour of Stay'),
+    },
+    {
+      re: /^Limousine Transfer$/i,
+      to: () => m('Limousine Transfer'),
+    },
+    {
+      re: /^Wheelchair Assistance$/i,
+      to: () => m('Wheelchair Assistance'),
+    },
+    {
+      re: /^Security Escort Service$/i,
+      to: () => m('Security Escort Service'),
+    },
+    {
+      re: /^Private Transport$/i,
+      to: () => m('Private Transport'),
+    },
+    {
+      re: /^Lounge Extension$/i,
+      to: () => m('Lounge Extension'),
+    },
+    {
+      re: /^In-town Limousine Transfer(?::\s*(.+))?$/i,
+      to: (mm) =>
+        mm[1]
+          ? `${m('In-town Limousine Transfer')}: ${m(mm[1]) !== mm[1] ? m(mm[1]) : mm[1]}`
+          : m('In-town Limousine Transfer'),
+    },
+  ];
+  for (const { re, to } of patterns) {
+    const mm = label.match(re);
+    if (mm) return to(mm);
+  }
+
+  // Soft product-name rewrite for Chinese locales when backend sends mixed labels.
+  const loc = (locale || '').toLowerCase();
+  const isZh = loc.startsWith('zh') || loc.includes('hant') || loc.includes('hans');
+  if (!isZh) return label;
+  const isHans = loc.includes('hans') || loc.startsWith('zh-cn') || loc.startsWith('zh-sg');
+  let out = label
+    .replace(/Premiere Suite/g, isHans ? '尊尚套房' : '尊尚套房')
+    .replace(/Lounge Deluxe/g, isHans ? '豪华贵宾室' : '豪華貴賓室')
+    .replace(/Limousine Transfer/g, isHans ? '豪华轿车接送' : '豪華轎車接送')
+    .replace(/Additional Hour of Stay/g, isHans ? '额外停留小时' : '額外停留小時')
+    .replace(/In-town Limousine/g, isHans ? '市区豪华轿车' : '市區豪華轎車')
+    .replace(/Membership /g, isHans ? '会籍' : '會籍')
+    .replace(/40%\s*off/gi, isHans ? '4折' : '4 折')
+    .replace(/\b1 car\b/gi, isHans ? '1 辆' : '1 輛')
+    .replace(/\bcars\b/gi, isHans ? '辆' : '輛')
+    .replace(/\bcar\b/gi, isHans ? '辆' : '輛');
+  return out;
 }
 
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
@@ -3793,7 +3871,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div key={i} className="rounded-lg p-2.5" style={suiteTile}>
                     <div className="flex items-center gap-1 mb-1.5">
                       <Crown className="w-3 h-3" style={{ color: accentColor }} />
-                      <span className="text-xs font-semibold" style={textPrimary}>Suite {i + 1}</span>
+                      <span className="text-xs font-semibold" style={textPrimary}>
+                        {m('Suite {n}').replace('{n}', String(i + 1))}
+                      </span>
                     </div>
                     <div className="text-xs mb-1.5" style={{ color: colors.textMuted }}>{suite.occupancyLabel}</div>
                     <div className="h-0.5 w-full rounded-full overflow-hidden" style={capacityTrack}>
@@ -3844,7 +3924,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <div className="space-y-1.5">
               {membershipDiscounts.map((d) => (
                 <div key={d.key} className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>
+                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                  </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -3860,7 +3942,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between"
                   data-testid="booking-summary-promo-discount-row"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>
+                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                  </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -3876,7 +3960,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className="flex items-center justify-between"
                   data-testid="booking-summary-account-discount-row"
                 >
-                  <span className="text-xs" style={{ color: colors.textMuted }}>{m(d.label)}</span>
+                  <span className="text-xs" style={{ color: colors.textMuted }}>
+                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                  </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
                   </span>
@@ -4424,8 +4510,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <div>
                         <div className="text-xs" style={textMuted}>{m('Extension of Stay in VIP Lounge')}</div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
-                          {step2Form.loungeExtension} hour
-                          {step2Form.loungeExtension !== 1 ? 's' : ''}
+                          {step2Form.loungeExtension}{' '}
+                          {step2Form.loungeExtension !== 1 ? m('hours') : m('hour')}
                         </div>
                       </div>
                     </div>
@@ -4634,7 +4720,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <ReviewGrid>
             <ReviewField
               label="Number of Luggage"
-              value={`${step2Form.luggageCount} piece${step2Form.luggageCount !== 1 ? 's' : ''}`}
+              value={`${step2Form.luggageCount} ${
+                step2Form.luggageCount !== 1 ? m('pieces') : m('piece')
+              }`}
             />
             <ReviewField
               label="Private Transport"
@@ -4649,7 +4737,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             key={idx}
             icon={<Car className="w-4 h-4 text-white" />}
             iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-            title={step2Form.vehicles.length > 1 ? `Vehicle ${idx + 1}` : 'Private Vehicle'}
+            title={
+              step2Form.vehicles.length > 1
+                ? m('Vehicle {n}').replace('{n}', String(idx + 1))
+                : m('Private Vehicle')
+            }
           >
             <ReviewGrid>
               <ReviewField label="Driver Name" value={vehicle.driverName || '—'} />

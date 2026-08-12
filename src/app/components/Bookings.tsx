@@ -1057,7 +1057,9 @@ export function Bookings({
                     <div>
                       <p className="text-xs" style={{ color: colors.textMuted }}>{m('Guests')}</p>
                       <p className="text-sm font-medium">
-                        {booking.guests === 0 ? 'Solo' : `${booking.guests} guest${booking.guests > 1 ? 's' : ''}`}
+                        {booking.guests === 0
+                          ? m('Solo')
+                          : `${booking.guests} ${booking.guests > 1 ? m('guests') : m('guest')}`}
                       </p>
                     </div>
                   </div>
@@ -1066,7 +1068,7 @@ export function Bookings({
                 
 
                 <p className="text-xs" style={{ color: colors.textMuted }}>
-                  Booking Reference: {booking.bookingRef}
+                  {m('Booking Reference')}: {booking.bookingRef}
                 </p>
               </div>
 
