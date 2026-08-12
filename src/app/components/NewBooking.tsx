@@ -4169,7 +4169,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             />
             <ReviewField label={m('Flight Number')} value={form.flightNumber || '—'} />
             {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-              <ReviewField label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
+              <ReviewField label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin, dateLocale) : '—'} />
             )}
             <ReviewField label={m('Flight Class')} value={form.flightClass} />
             <ReviewField label={m('Flight Type')} value={form.flightType} />
@@ -4193,7 +4193,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
                 />
                 <ReviewField label={m('Flight Number')} value={leg2FlightNo || '—'} />
-                <ReviewField label={m('Destination')} value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
+                <ReviewField label={m('Destination')} value={leg2Destination ? formatAirportDisplay(leg2Destination, dateLocale) : '—'} />
                 <ReviewField label={m('Flight Class')} value={leg2FlightClass || '—'} />
               </ReviewGrid>
             </div>
@@ -5637,7 +5637,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     Arrival and Transit (the form's leg 1 = inbound to
                     HKG). Departure mode omits Origin (no inbound). */}
                 {(form.flightType === 'Arrival' || form.flightType === 'Transit') && (
-                  <SummaryRow label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin) : '—'} />
+                  <SummaryRow label={m('Origin')} value={form.origin ? formatAirportDisplay(form.origin, dateLocale) : '—'} />
                 )}
                 {/* 2026-06-08 (round 6.2.7): mode-aware — "Departure Date"
                     when flightType === 'Departure', "Arrival Date" otherwise.
@@ -5669,7 +5669,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       value={leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '—'}
                     />
                     <SummaryRow label="Leg 2 Flight Number" value={leg2FlightNo || '—'} />
-                    <SummaryRow label="Leg 2 Destination" value={leg2Destination ? formatAirportDisplay(leg2Destination) : '—'} />
+                    <SummaryRow label="Leg 2 Destination" value={leg2Destination ? formatAirportDisplay(leg2Destination, dateLocale) : '—'} />
                     <SummaryRow label="Leg 2 Flight Class" value={leg2FlightClass || '—'} />
                   </>
                 )}
@@ -6023,8 +6023,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div
                   className={`grid gap-1 text-xs ${form.flightType === 'Departure' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}
                 >
-                  <div><span style={textMuted}>{m('Origin:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.origin)}</span></div>
-                  <div><span style={textMuted}>{m('Destination:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.destination)}</span></div>
+                  <div><span style={textMuted}>{m('Origin:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.origin, dateLocale)}</span></div>
+                  <div><span style={textMuted}>{m('Destination:')} </span><span style={textPrimary}>{formatAirportDisplay(flightDetails.destination, dateLocale)}</span></div>
                   {form.flightType !== 'Departure' && (
                     <div>
                       <span style={textMuted}>{m('Arrival Time:')} </span>
