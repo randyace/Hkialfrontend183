@@ -290,15 +290,17 @@ function FormField({
   children: React.ReactNode;
   error?: string;
 }) {
+  const m = useMsg();
   const { colors } = useTheme();
+  // Auto-translate English source labels (safe if already translated).
   return (
     <div>
       <label className="block text-sm font-semibold mb-1.5" style={{ color: colors.text }}>
-        {label}
+        {m(label)}
         {required && <span className="ml-1">*</span>}
       </label>
       {children}
-      <FieldError msg={error} />
+      <FieldError msg={error ? m(error) : undefined} />
     </div>
   );
 }

@@ -1008,9 +1008,11 @@ function SectionHeader({
 }
 
 function SubSectionLabel({ label }: { label: string }) {
+  const m = useMsg();
   const { textMuted } = useThemedStyles();
+  // Auto-translate: callers may pass English source or already-m()'d text.
   return (
-    <div className="text-xs mb-2 mt-4" style={textMuted}>{label}</div>
+    <div className="text-xs mb-2 mt-4" style={textMuted}>{m(label)}</div>
   );
 }
 
@@ -1042,7 +1044,11 @@ function StepperCard({
   // the form layout evolves).
   testId?: string;
 }) {
+  const m = useMsg();
   const { isDark, textPrimary, textMuted, stepperCardBg, stepperBtnStyle, stepperIconColor } = useThemedStyles();
+  const titleLabel = m(title);
+  const subtitleLabel = m(subtitle);
+  const helperLabel = helperText ? m(helperText) : undefined;
   return (
     <div
       className="rounded-xl overflow-hidden"
@@ -1057,8 +1063,8 @@ function StepperCard({
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm" style={textPrimary}>{title}</div>
-          <div className="text-xs" style={textMuted}>{subtitle}</div>
+          <div className="text-sm" style={textPrimary}>{titleLabel}</div>
+          <div className="text-xs" style={textMuted}>{subtitleLabel}</div>
         </div>
       </div>
       {/* Stepper row */}
@@ -1066,7 +1072,7 @@ function StepperCard({
         <button
           type="button"
           onClick={onDecrement}
-          aria-label={`Decrease ${title}`}
+          aria-label={`${m('Decrease')} ${titleLabel}`}
           data-hkial-stepper-decrement={testId}
           className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
           style={stepperBtnStyle}
@@ -1078,7 +1084,7 @@ function StepperCard({
           type="button"
           onClick={onIncrement}
           disabled={incrementDisabled}
-          aria-label={`Increase ${title}`}
+          aria-label={`${m('Increase')} ${titleLabel}`}
           data-hkial-stepper-increment={testId}
           className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
           style={stepperBtnStyle}
@@ -1087,9 +1093,9 @@ function StepperCard({
         </button>
       </div>
       {/* Helper text */}
-      {helperText && (
+      {helperLabel && (
         <div className="px-4 pb-2.5 pt-0">
-          <div className="text-xs" style={textMuted}>{helperText}</div>
+          <div className="text-xs" style={textMuted}>{helperLabel}</div>
         </div>
       )}
     </div>
@@ -1124,8 +1130,8 @@ function ToggleCard({
             {icon}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm" style={textPrimary}>{title}</div>
-            <div className="text-xs" style={textMuted}>{subtitle}</div>
+            <div className="text-sm" style={textPrimary}>{m(title)}</div>
+            <div className="text-xs" style={textMuted}>{m(subtitle)}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 ml-4">
@@ -1150,16 +1156,18 @@ function ToggleCard({
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
+  const m = useMsg();
   const { textPrimary, textMuted } = useThemedStyles();
+  // Translate label + known enum/display values; unknown strings pass through.
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className="text-xs" style={textMuted}>{label}</span>
-      <span className="text-xs text-right ml-4" style={textPrimary}>{value}</span>
+      <span className="text-xs" style={textMuted}>{m(label)}</span>
+      <span className="text-xs text-right ml-4" style={textPrimary}>{m(value)}</span>
     </div>
   );
 }
 
-// ── Review helpers ─────────���────────────────���─────────���───────────────────────
+// ── Review helpers (auto-translate labels/values for Chinese locale) ─────────
 
 function ReviewSection({
   icon,
@@ -1172,6 +1180,7 @@ function ReviewSection({
   title: string;
   children: React.ReactNode;
 }) {
+  const m = useMsg();
   const { isDark, textPrimary, reviewSectionBg, reviewHeaderBg } = useThemedStyles();
   return (
 <div
@@ -1187,7 +1196,7 @@ function ReviewSection({
         >
           {icon}
         </div>
-        <span className="text-sm" style={textPrimary}>{title}</span>
+        <span className="text-sm" style={textPrimary}>{m(title)}</span>
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>
@@ -1207,11 +1216,16 @@ function ReviewGrid({ children, cols = 2 }: { children: React.ReactNode; cols?: 
 }
 
 function ReviewField({ label, value }: { label: string; value: React.ReactNode }) {
+  const m = useMsg();
   const { textPrimary, textMuted } = useThemedStyles();
+  const displayValue =
+    typeof value === 'string' && value && value !== '—'
+      ? m(value)
+      : value;
   return (
     <div>
-      <div className="text-xs mb-0.5" style={textMuted}>{label}</div>
-      <div className="text-sm" style={textPrimary}>{value || '—'}</div>
+      <div className="text-xs mb-0.5" style={textMuted}>{m(label)}</div>
+      <div className="text-sm" style={textPrimary}>{displayValue || '—'}</div>
     </div>
   );
 }
@@ -3868,15 +3882,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   "Total is not really the Total Charge" complaint). */}
               <div className="flex items-center justify-between">
                 <span className="text-xs" style={{ color: colors.textMuted }}>
-                  Subtotal HK${(psSectionPrice + ldSectionPrice + addonsAmtFinal).toLocaleString()}
+                  {m('Subtotal')} HK${(psSectionPrice + ldSectionPrice + addonsAmtFinal).toLocaleString()}
                   {membershipDiscountTotal < 0 && (
-                    <> − Membership discount HK${Math.abs(membershipDiscountTotal).toLocaleString()}</>
+                    <> − {m('Membership discount')} HK${Math.abs(membershipDiscountTotal).toLocaleString()}</>
                   )}
                   {promoDiscountTotal < 0 && (
-                    <> − Promo discount HK${Math.abs(promoDiscountTotal).toLocaleString()}</>
+                    <> − {m('Promo discount')} HK${Math.abs(promoDiscountTotal).toLocaleString()}</>
                   )}
                   {accountDiscountTotal < 0 && (
-                    <> − Account discount HK${Math.abs(accountDiscountTotal).toLocaleString()}</>
+                    <> − {m('Account discount')} HK${Math.abs(accountDiscountTotal).toLocaleString()}</>
                   )}
                 </span>
               </div>
@@ -3895,7 +3909,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               }}
             >
               <Banknote className="w-4 h-4 flex-shrink-0" style={{ color: isDark ? '#34d399' : 'rgb(5,150,105)' }} />
-              <div className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5,150,105)' }}>{TA_PAYMENT_METHOD}</div>
+              <div className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5,150,105)' }}>{m(TA_PAYMENT_METHOD)}</div>
             </div>
           )}
         </div>
@@ -3962,7 +3976,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <>
                   {' + '}
                   <strong style={textPrimary}>
-                    {nonFlyingGuestData.length} Non-Flying Guest{nonFlyingGuestData.length !== 1 ? 's' : ''}
+                    {nonFlyingGuestData.length}{' '}
+                    {nonFlyingGuestData.length !== 1 ? m('Non-Flying Guests') : m('Non-Flying Guest')}
                   </strong>
                 </>
               )}
@@ -3982,7 +3997,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <span className="text-sm" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{m('Travel Agency Billing Confirmed')}</span>
               </div>
               <div className="text-xs space-y-1" style={textMuted}>
-                <div>• Payment: <span style={textPrimary}>{TA_PAYMENT_METHOD}</span></div>
+                <div>• {m('Payment:')} <span style={textPrimary}>{m(TA_PAYMENT_METHOD)}</span></div>
                 <div>• Billing Ref: <span style={textPrimary}>{step2Form.billingReference || agencyBillingCode}</span></div>
                 <div>• Invoice will be sent to your registered agency email within 3 business days</div>
               </div>
@@ -6323,7 +6338,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const noAddonToggleBg = noAddonRequired
     ? 'linear-gradient(90deg, rgb(220,181,21) 0%, rgb(180,140,10) 100%)'
     : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(180,178,168,0.5)');
-  // Pre-compute helperText values to avoid chained ternaries and complex template literals in JSX props
+  // Pre-compute helperText values to avoid chained ternaries and complex template literals in JSX props.
+  // English source keys stay in catalog; placeholders filled here so StepperCard m() can still
+  // pass through already-translated dynamic strings.
   let premiereVipHelperText: string | undefined = undefined;
   if (form.premiereSuites === 0) {
     premiereVipHelperText = 'Please select at least 1 Premiere Suite first';
@@ -6336,10 +6353,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // increment suites.
     const cap = form.premiereSuites * 6;
     const used = form.premiereVipPassengers + form.premiereNonFlyingGuests;
-    premiereVipHelperText =
-      'Minimum 1 VIP per suite · Maximum: ' + cap
-      + ' total guests per ' + form.premiereSuites + ' suite(s) ('
-      + used + '/' + cap + ' used)';
+    premiereVipHelperText = m(
+      'Minimum 1 VIP per suite · Maximum: {cap} total guests per {suites} suite(s) ({used}/{cap} used)',
+    )
+      .replaceAll('{cap}', String(cap))
+      .replaceAll('{suites}', String(form.premiereSuites))
+      .replaceAll('{used}', String(used));
   }
 
   let premiereNfgHelperText: string | undefined = undefined;
@@ -6348,7 +6367,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   } else if (form.premiereVipPassengers + form.premiereNonFlyingGuests >= form.premiereSuites * 6) {
     const used = form.premiereVipPassengers + form.premiereNonFlyingGuests;
     const cap = form.premiereSuites * 6;
-    premiereNfgHelperText = 'Suite capacity reached (' + used + '/' + cap + ')';
+    premiereNfgHelperText = m('Suite capacity reached ({used}/{cap})')
+      .replaceAll('{used}', String(used))
+      .replaceAll('{cap}', String(cap));
   }
 
   let loungeNfgHelperText: string | undefined = undefined;
@@ -6428,14 +6449,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm" style={{ color: isDark ? '#93c5fd' : 'rgb(37,99,235)' }}>
-                Booking on behalf of{' '}
+                {m('Booking on behalf of')}{' '}
                 <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
               </p>
               <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                Membership: {prefillMember.membershipLabel}
+                {m('Membership:')} {prefillMember.membershipLabel}
                 {' · '}
-                Voucher balance: {prefillMember.voucherCount} voucher{prefillMember.voucherCount !== 1 ? 's' : ''}
-                {' '}(booking vouchers deducted from this member&apos;s account)
+                {m('Voucher balance:')} {prefillMember.voucherCount}{' '}
+                {prefillMember.voucherCount !== 1 ? m('vouchers') : m('voucher')}
+                {' '}{m("(booking vouchers deducted from this member's account)")}
               </p>
             </div>
           </div>
@@ -7037,7 +7059,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </p>
               <ul className="text-xs space-y-0.5 list-disc list-inside" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>
                 {step1Hints.map((hint, idx) => (
-                  <li key={idx}>{hint}</li>
+                  <li key={idx}>{m(hint)}</li>
                 ))}
               </ul>
             </div>

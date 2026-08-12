@@ -671,7 +671,9 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
               {pdfLoading
                 ? <Download className="w-4 h-4 animate-bounce" />
                 : <FileText className="w-4 h-4" />}
-              {pdfLoading ? 'Opening…' : 'Download PDF (' + availableCodes.length + ')'}
+              {pdfLoading
+                ? m('Opening…')
+                : m('Download PDF ({n})').replace('{n}', String(availableCodes.length))}
             </button>
 
             <button
@@ -688,20 +690,23 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
               {xlsLoading
                 ? <Download className="w-4 h-4 animate-bounce" />
                 : <FileSpreadsheet className="w-4 h-4" />}
-              {xlsLoading ? 'Generating…' : 'Download Excel (' + availableCodes.length + ')'}
+              {xlsLoading
+                ? m('Generating…')
+                : m('Download Excel ({n})').replace('{n}', String(availableCodes.length))}
             </button>
           </div>
 
           {availableCodes.length === 0 && (
             <p className="text-xs text-center" style={{ color: colors.textMuted }}>
-              No available codes to download for this batch.
+              {m('No available codes to download for this batch.')}
             </p>
           )}
 
           <p className="text-xs text-center" style={{ color: colors.textMuted }}>
-            Downloads always include all{' '}
-            <span style={{ color: availHintColor }}>{availableCodes.length} available</span>{' '}
-            codes regardless of the current filter. Excel also includes a full summary sheet.
+            {m('Downloads always include all {n} available codes regardless of the current filter. Excel also includes a full summary sheet.').replace(
+              '{n}',
+              String(availableCodes.length),
+            )}
           </p>
 
           {/* Close */}
