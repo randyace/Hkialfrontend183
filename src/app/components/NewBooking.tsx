@@ -5128,7 +5128,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
                         type="text"
-                        value={step2Form.wheelchairPassengerNames[i] ?? ''}
+                        defaultValue={step2Form.wheelchairPassengerNames[i] ?? ''}
                         onChange={(e) => {
                           const nextVal = e.target.value;
                           setStep2Form((p) => {
