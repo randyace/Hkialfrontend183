@@ -372,6 +372,7 @@ export function Bookings({
   onCancelBooking,
   cancelLoading,
   bookings: propBookings,
+  isLoading = false,
   stats: propStats,
   searchTerm: propSearchTerm,
   filterStatus: propFilterStatus,
@@ -998,6 +999,15 @@ export function Bookings({
       </div>
 
       {/* Bookings List */}
+      {isLoading ? (
+        <div className="rounded-2xl p-12 text-center" style={glassStyle} data-testid="booking-list-loading">
+          <div
+            className="w-8 h-8 mx-auto mb-4 border-2 border-[rgb(220,181,21)] border-t-transparent rounded-full animate-spin"
+            aria-hidden="true"
+          />
+          <p style={{ color: colors.textSecondary }}>{m('Loading bookings…')}</p>
+        </div>
+      ) : (
       <div className="space-y-4">
         {sortedBookings.map((booking) => (
           <div key={booking.id} className="rounded-2xl p-6" style={glassStyle}>
@@ -1135,8 +1145,9 @@ export function Bookings({
           </div>
         ))}
       </div>
+      )}
 
-      {filteredBookings.length === 0 && (
+      {!isLoading && filteredBookings.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
           <h3 className="text-xl mb-2" style={{ color: colors.text }}>{m('No bookings found')}</h3>
@@ -1239,7 +1250,7 @@ export function Bookings({
           </div>
       )}
 
-      {filteredBookings.length === 0 && (
+      {!isLoading && filteredBookings.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Calendar className="w-16 h-16 mx-auto mb-4" style={{ color: colors.textMuted }} />
           <h3 className="text-xl mb-2" style={{ color: colors.text }}>{m('No bookings found')}</h3>
