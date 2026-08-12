@@ -89,101 +89,12 @@ import { formatAirportDisplay } from '../../../../../utils/airports';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
-import { catalogAddonDisplayName } from '../../../../../lib/addons/bookingAddonCatalog';
+import { translatePriceLineLabel } from '../../../../../lib/addons/translatePriceLineLabel';
+import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
-
-/** Localize price-preview / summary line labels (catalog EN names + known chrome). */
-function translatePriceLineLabel(
-  label: string,
-  locale: string,
-  m: (s: string) => string,
-): string {
-  if (!label) return label;
-  // Exact / catalog first.
-  const fromCatalog = catalogAddonDisplayName({ name_en: label }, locale);
-  if (fromCatalog !== label) return fromCatalog;
-  const exact = m(label);
-  if (exact !== label) return exact;
-
-  // Backend often emits product English with qty/discount suffixes.
-  // Translate known heads then keep the trailing meta when possible.
-  const patterns: Array<{ re: RegExp; to: (match: RegExpMatchArray) => string }> = [
-    {
-      re: /^Membership In-town Limousine(?:\s*\((.+)\))?$/i,
-      to: (mm) =>
-        mm[1]
-          ? `${m('Membership In-town Limousine')} (${m(mm[1]) !== mm[1] ? m(mm[1]) : mm[1]
-              .replace(/40%\s*off/i, m('40% off'))
-              .replace(/\b1 car\b/i, `1 ${m('car')}`)
-              .replace(/\bcars?\b/i, m('cars'))})`
-          : m('Membership In-town Limousine'),
-    },
-    {
-      re: /^Lounge Deluxe\s*[—–-]\s*Additional Hour of Stay$/i,
-      to: () => m('Lounge Deluxe — Additional Hour of Stay'),
-    },
-    {
-      re: /^Premiere Suite\s*[—–-]\s*Additional Hour of Stay$/i,
-      to: () => m('Premiere Suite — Additional Hour of Stay'),
-    },
-    {
-      re: /^Additional Hour of Stay$/i,
-      to: () => m('Additional Hour of Stay'),
-    },
-    {
-      re: /^Limousine Transfer$/i,
-      to: () => m('Limousine Transfer'),
-    },
-    {
-      re: /^Wheelchair Assistance$/i,
-      to: () => m('Wheelchair Assistance'),
-    },
-    {
-      re: /^Security Escort Service$/i,
-      to: () => m('Security Escort Service'),
-    },
-    {
-      re: /^Private Transport$/i,
-      to: () => m('Private Transport'),
-    },
-    {
-      re: /^Lounge Extension$/i,
-      to: () => m('Lounge Extension'),
-    },
-    {
-      re: /^In-town Limousine Transfer(?::\s*(.+))?$/i,
-      to: (mm) =>
-        mm[1]
-          ? `${m('In-town Limousine Transfer')}: ${m(mm[1]) !== mm[1] ? m(mm[1]) : mm[1]}`
-          : m('In-town Limousine Transfer'),
-    },
-  ];
-  for (const { re, to } of patterns) {
-    const mm = label.match(re);
-    if (mm) return to(mm);
-  }
-
-  // Soft product-name rewrite for Chinese locales when backend sends mixed labels.
-  const loc = (locale || '').toLowerCase();
-  const isZh = loc.startsWith('zh') || loc.includes('hant') || loc.includes('hans');
-  if (!isZh) return label;
-  const isHans = loc.includes('hans') || loc.startsWith('zh-cn') || loc.startsWith('zh-sg');
-  let out = label
-    .replace(/Premiere Suite/g, isHans ? '尊尚套房' : '尊尚套房')
-    .replace(/Lounge Deluxe/g, isHans ? '豪华贵宾室' : '豪華貴賓室')
-    .replace(/Limousine Transfer/g, isHans ? '豪华轿车接送' : '豪華轎車接送')
-    .replace(/Additional Hour of Stay/g, isHans ? '额外停留小时' : '額外停留小時')
-    .replace(/In-town Limousine/g, isHans ? '市区豪华轿车' : '市區豪華轎車')
-    .replace(/Membership /g, isHans ? '会籍' : '會籍')
-    .replace(/40%\s*off/gi, isHans ? '4折' : '4 折')
-    .replace(/\b1 car\b/gi, isHans ? '1 辆' : '1 輛')
-    .replace(/\bcars\b/gi, isHans ? '辆' : '輛')
-    .replace(/\bcar\b/gi, isHans ? '辆' : '輛');
-  return out;
-}
 
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
 // R6.2.100d (2026-07-02, Sky): Travel Agency MOCK addon discount percentages
@@ -712,6 +623,8 @@ interface NewBookingProps {
   };
   /** 2026-07-16 — Lane B catalog picker slot (container-owned). */
   catalogAddonSlot?: React.ReactNode;
+  /** Staff-owned bookable-item names (name_trad / name_simp) for summary labels. */
+  catalogAddonOptions?: CatalogAddonOption[];
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -2002,8 +1915,10 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions }: NewBookingProps) {
   const m = useMsg();
+  const priceLineLabel = (label: string) =>
+    translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
   const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const { glassStyle } = useTheme();
   const navigate = useNavigate();
@@ -3929,7 +3844,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               {membershipDiscounts.map((d) => (
                 <div key={d.key} className="flex items-center justify-between">
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                    {priceLineLabel(d.label)}
                   </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
@@ -3947,7 +3862,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="booking-summary-promo-discount-row"
                 >
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                    {priceLineLabel(d.label)}
                   </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
@@ -3965,7 +3880,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="booking-summary-account-discount-row"
                 >
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {translatePriceLineLabel(d.label, toBcp47Locale(getAppLocale()), m)}
+                    {priceLineLabel(d.label)}
                   </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
@@ -3990,7 +3905,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="booking-summary-addon-row"
                 >
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
+                    {priceLineLabel(line.label)}
                     {line.qty > 0 ? ` × ${line.qty}` : ''}
                   </span>
                   <div className="text-right">
@@ -4643,7 +4558,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <div className="text-xs" style={textMuted}>
-                          {translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
+                          {priceLineLabel(line.label)}
                         </div>
                         <div className="text-sm mt-0.5" style={textPrimary}>
                           {m('Qty')} {line.qty > 0 ? line.qty : 1}
@@ -5903,7 +5818,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {reviewCatalogAddonLines.map((line, idx) => (
                   <SummaryRow
                     key={`summary-catalog-${line.label}-${idx}`}
-                    label={translatePriceLineLabel(line.label, toBcp47Locale(getAppLocale()), m)}
+                    label={priceLineLabel(line.label)}
                     value={`× ${line.qty > 0 ? line.qty : 1} · HK$${line.subtotal.toLocaleString()}`}
                   />
                 ))}
