@@ -682,6 +682,35 @@ interface NonFlyingGuest {
   nationality: string;
 }
 
+function formatBookingGuestName(title?: string, first?: string, last?: string): string {
+  const firstName = typeof first === 'string' ? first.trim() : '';
+  const lastName = typeof last === 'string' ? last.trim() : '';
+  if (!firstName && !lastName) return '';
+  const honorific = typeof title === 'string' ? title.trim() : '';
+  return [honorific, firstName, lastName].filter(Boolean).join(' ');
+}
+
+/** Named VIP + NFG guests for the wheelchair recipient select. */
+export function collectBookingGuestNames(
+  vipRows: Array<{ vipTitle?: string; vipFirstName?: string; vipLastName?: string }>,
+  nfgRows: Array<{ guestTitle?: string; guestFirstName?: string; guestLastName?: string }>,
+): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  const push = (name: string) => {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    names.push(name);
+  };
+  for (const p of vipRows) {
+    push(formatBookingGuestName(p.vipTitle, p.vipFirstName, p.vipLastName));
+  }
+  for (const g of nfgRows) {
+    push(formatBookingGuestName(g.guestTitle, g.guestFirstName, g.guestLastName));
+  }
+  return names;
+}
+
 const flightDatabase: { [key: string]: { origin: string; destination: string; arrivalTime: string } } = {
   // Values are IATA codes (typeahead stores codes; labels come from airports.ts).
   'CX888': { origin: 'HKG', destination: 'LHR', arrivalTime: '06:30' },
@@ -2147,7 +2176,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // matches the backend `prices.add_on_limousine` and the
   // `bookable_items.Limousine Transfer` price.
   const limoRate = 1500;
-  const wheelchairRate = 300;
+  // Wheelchair Assistance is a complimentary service (bookable_items.price = 0).
+  const wheelchairRate = 0;
+  const bookingGuestNames = collectBookingGuestNames(vipData, nonFlyingGuestData);
 
   // ── Step 2 state ──────────────────────────────────────────────────────────
   const [step2Form, setStep2Form] = useState({
@@ -3195,6 +3226,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     });
   };
 
+  const commitWheelchairPassengerName = (index: number, nextVal: string) => {
+    setStep2Form((prev) => {
+      const updated = [...prev.wheelchairPassengerNames];
+      while (updated.length <= index) updated.push('');
+      if (updated[index] === nextVal) return prev;
+      updated[index] = nextVal;
+      return { ...prev, wheelchairPassengerNames: updated };
+    });
+  };
+
   const handleDestinationAddressChange = (index: number, value: string) => {
     setStep2Form((prev) => {
       const newAddresses = [...prev.destinationAddresses];
@@ -3542,6 +3583,248 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     </div>
   ) : null;
 
+  // Lifted out of the Step 2 early-return so Step 1 can open it too.
+  // The button used to live only on Step 1; after the 2026-06-16 move it
+  // was Step 2-only, which made the control look missing on first landing.
+  const historyDialog = showHistoryDialog ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+          data-hkial-dialog="use-history"
+        >
+          <div
+            className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
+            style={{
+              background: isDark ? 'rgba(8,20,40,0.98)' : '#FFFFFF',
+              border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(200,199,190,0.5)',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+            }}
+          >
+            {/* Dialog header */}
+            <div
+              className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+              style={{
+                background: isDark
+                  ? 'linear-gradient(90deg,rgba(220,181,21,0.18) 0%,rgba(180,140,10,0.1) 100%)'
+                  : 'linear-gradient(90deg,rgba(220,181,21,0.15) 0%,rgba(180,140,10,0.08) 100%)',
+                borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)',
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: isDark ? 'rgba(220,181,21,0.2)' : 'rgba(220,181,21,0.18)',
+                    border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(220,181,21,0.4)',
+                  }}
+                >
+                  <History className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
+                </div>
+                <div>
+                  <div className="text-sm" style={textPrimary}>{m('Use History as New Booking')}</div>
+                  <div className="text-xs mt-0.5" style={textMuted}>{m('Select a past booking to pre-fill the form')}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseHistoryDialog}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
+                style={{ color: colors.textMuted }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable booking list — 2026-06-16 (round ?): source
+                switched from in-file MOCK to the derived
+                `historyBookings` (container-provided real data, or
+                MOCK fallback for figma preview). Empty / loading
+                states added so the user always sees something
+                meaningful when opening the dialog. */}
+            <div className="overflow-y-auto flex-1 p-5 space-y-3">
+              {isLoadingHistory ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 py-12"
+                  data-testid="history-dialog-loading"
+                >
+                  <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'rgb(220,181,21)' }} />
+                  <div className="text-xs" style={textMuted}>{m('Loading your past bookings…')}</div>
+                </div>
+              ) : historyBookings.length === 0 ? (
+                <div
+                  className="flex flex-col items-center justify-center gap-2 py-12"
+                  data-testid="history-dialog-empty"
+                >
+                  <Inbox className="w-7 h-7" style={{ color: colors.textMuted }} />
+                  <div className="text-sm" style={textPrimary}>{m('No past bookings yet')}</div>
+                  <div className="text-xs text-center max-w-xs" style={textMuted}>
+                    {m('Completed and confirmed bookings will appear here so you can quickly clone their setup.')}
+                  </div>
+                  {/* 2026-06-16 (round ?): if the container received
+                      bookings but all were rejected by the shape
+                      gate, show a diagnostic hint so the user can
+                      tell "I have no bookings" from "I have
+                      bookings but they don't match the expected
+                      shape". Helps the "I added a booking 792 but
+                      it's not showing" debugging loop. The hint
+                      is muted-styled so it doesn't break the
+                      empty-state visual. */}
+                  {historyDiagnostics && historyDiagnostics.totalReceived > 0 && (
+                    <div
+                      className="mt-3 px-3 py-2 rounded-lg text-xs text-center max-w-sm"
+                      style={{
+                        background: isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.12)',
+                        border: isDark ? '1px solid rgba(220,181,21,0.2)' : '1px solid rgba(220,181,21,0.3)',
+                        color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)',
+                      }}
+                      data-testid="history-dialog-diagnostics"
+                    >
+                      <div>
+                        Loaded {historyDiagnostics.totalReceived} booking
+                        {historyDiagnostics.totalReceived === 1 ? '' : 's'}
+                        , but {historyDiagnostics.rejectedCount} didn&apos;t
+                        match the expected shape{historyDiagnostics.sampleReason ? ` (first: ${historyDiagnostics.sampleReason})` : ''}.
+                      </div>
+                      <div className="mt-1" style={{ opacity: 0.75 }}>
+                        {m('Open the browser console for full per-row details.')}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                historyBookings.map((booking) => {
+                  const statusColors: { [key: string]: { bg: string; text: string; border: string } } = {
+                    confirmed: { bg: 'rgba(34,197,94,0.12)', text: 'rgb(22,163,74)', border: 'rgba(34,197,94,0.3)' },
+                    completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
+                  };
+                  const sc = statusColors[booking.status] || statusColors.completed;
+                  const statusLabel = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
+                  const guestSummary = booking.nonFlyingGuests > 0
+                    ? booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites + ' VIP  +  ' + booking.nonFlyingGuests + ' guest(s)'
+                    : (booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites) + ' VIP passenger(s)';
+                  const cardBg: React.CSSProperties = {
+                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(248,247,242,0.9)',
+                    border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(200,199,190,0.5)',
+                  };
+                  const divLine = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.35)';
+
+                  return (
+                    <div key={booking.id} className="rounded-xl overflow-hidden" style={cardBg}>
+                      {/* Card top row — date promoted to its own prominent
+                          line per Sky's "show the date of the old booking"
+                          request. `terminal` row dropped (per Sky: "we
+                          don't use terminal now"). */}
+                      <div className="px-4 pt-4 pb-3">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            {/* 2026-06-16: lounge is optional post-relax.
+                                Show "—" muted fallback when missing so
+                                the card header doesn't render an
+                                empty div. */}
+                            <div className="text-sm truncate" style={textPrimary}>
+                              {booking.lounge || <span style={textMuted}>—</span>}
+                            </div>
+                            <div className="text-xs mt-1 flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
+                              <span className="font-medium" style={textSecondary}>
+                                {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className="text-xs px-2.5 py-1 rounded-full flex-shrink-0"
+                            style={{ background: sc.bg, color: sc.text, border: '1px solid ' + sc.border }}
+                          >
+                            {statusLabel}
+                          </span>
+                        </div>
+
+                        {/* Info grid — 2026-06-16: each cell now hides
+                            itself when its data is missing (per Sky:
+                            "we just need to fill step 2 data only" →
+                            step 1 fields are optional on a past
+                            booking). Previously an undefined
+                            `booking.flightNumber` would render the
+                            literal "undefined · undefined". */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
+                          {booking.time && (
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
+                              <span className="text-xs" style={textSecondary}>{booking.time}</span>
+                            </div>
+                          )}
+                          {(booking.flightNumber || booking.flightType) && (
+                            <div className="flex items-center gap-1.5">
+                              <Plane className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+                              <span className="text-xs" style={textSecondary}>
+                                {[booking.flightNumber, booking.flightType].filter(Boolean).join('  ·  ')}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 col-span-2">
+                            <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                            <span className="text-xs" style={textSecondary}>{guestSummary}</span>
+                          </div>
+                        </div>
+
+                        {/* Passenger chips */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {booking.passengers.map((p, pi) => {
+                            const chipBg: React.CSSProperties = {
+                              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(220,181,21,0.1)',
+                              border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(220,181,21,0.25)',
+                            };
+                            return (
+                              <span key={pi} className="text-xs px-2 py-0.5 rounded-full" style={{ ...chipBg, color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)' }}>
+                                {p.title} {p.firstName} {p.lastName}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Card footer */}
+                      <div
+                        className="flex items-center justify-between px-4 py-2.5"
+                        style={{ borderTop: divLine, background: isDark ? 'rgba(0,0,0,0.18)' : 'rgba(231,230,221,0.4)' }}
+                      >
+                        <span className="text-xs font-mono" style={{ color: isDark ? 'rgba(220,181,21,0.8)' : 'rgb(160,128,8)' }}>
+                          {booking.bookingRef}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectHistory(booking)}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs text-white transition-all hover:opacity-90"
+                          style={{ background: 'linear-gradient(90deg,rgb(220,181,21) 0%,rgb(180,140,10) 100%)' }}
+                        >
+                          {m('Select')}
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Dialog footer */}
+            <div
+              className="px-6 py-4 flex-shrink-0"
+              style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)' }}
+            >
+              <button
+                type="button"
+                onClick={handleCloseHistoryDialog}
+                className="w-full py-2.5 rounded-xl text-sm transition-all hover:opacity-80"
+                style={{ ...secondaryBtnStyle, color: colors.text }}
+              >
+                {m('Cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+  ) : null;
+
   // ── Booking Step Progress Bar ────────────────────────────────────────────
   const BookingStepProgress = ({ skipAddons }: { skipAddons: boolean }) => {
     const gold = 'rgb(220,181,21)';
@@ -3707,7 +3990,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const addonOrig =
       step2Form.loungeExtension * loungeExtensionBaseRate +
       step2Form.limousineService * 1500 +
-      step2Form.wheelchairService * 300;
+      step2Form.wheelchairService * wheelchairRate;
     const addonAmt =
       step2Form.loungeExtension * loungeRate +
       step2Form.limousineService * limoRate +
@@ -4066,6 +4349,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       </div>
       {stepLoadingOverlay}
       {shortNoticeWarningDialog}
+      {historyDialog}
       </>
     );
   }
@@ -4076,7 +4360,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const addonOriginal =
       step2Form.loungeExtension * loungeExtensionBaseRate +
       step2Form.limousineService * 1500 +
-      step2Form.wheelchairService * 300;
+      step2Form.wheelchairService * wheelchairRate;
     const {
       addonsAmtFinal: reviewAddonsAmtFinal,
       addonLines: reviewAddonLines,
@@ -4536,10 +4820,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      {/* R6.2.100d (2026-07-02, Sky): TA discount
-                          branch removed (mock data). */}
-                      <div className="text-xs" style={textMuted}>HK$300 × {step2Form.wheelchairService}</div>
-                      <div className="text-sm mt-0.5" style={textPrimary}>HK${(step2Form.wheelchairService * 300).toLocaleString()}</div>
+                      <div className="text-xs" style={textMuted}>{m('Free')}</div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>HK$0</div>
                     </div>
                   </div>
                 </div>
@@ -4903,6 +5185,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       </div>
       {stepLoadingOverlay}
       {shortNoticeWarningDialog}
+      {historyDialog}
       </>
     );
   }
@@ -5111,7 +5394,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Accessibility className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title={m('Wheelchair Assistance')}
-              subtitle={'HK$300 ' + m('per service')}
+              subtitle={m('Free')}
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
               onIncrement={() => updateStep2Count('wheelchairService', 1)}
@@ -5121,35 +5404,60 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             {step2Form.wheelchairService > 0 && (
               <div className="mt-3 space-y-3" data-hkial-figma-wheelchair-names>
-                {Array.from({ length: step2Form.wheelchairService }, (_, i) => (
+                {Array.from({ length: step2Form.wheelchairService }, (_, i) => {
+                  const selectedName = step2Form.wheelchairPassengerNames[i] ?? '';
+                  const takenNames = new Set(
+                    step2Form.wheelchairPassengerNames
+                      .map((n, idx) => (idx === i ? '' : n))
+                      .filter(Boolean),
+                  );
+                  const options = bookingGuestNames.slice();
+                  if (selectedName && !options.includes(selectedName)) {
+                    options.unshift(selectedName);
+                  }
+                  return (
                   <div key={i}>
                     <label className={labelClass}>{m('Passenger {n} Name').replace('{n}', String(i + 1))} *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      <input
-                        type="text"
-                        defaultValue={step2Form.wheelchairPassengerNames[i] ?? ''}
+                      <select
+                        value={selectedName}
+                        onInput={(e) => {
+                          commitWheelchairPassengerName(
+                            i,
+                            (e.target as HTMLSelectElement).value,
+                          );
+                        }}
                         onChange={(e) => {
-                          const nextVal = e.target.value;
-                          setStep2Form((p) => {
-                            const updated = [...p.wheelchairPassengerNames];
-                            while (updated.length <= i) updated.push('');
-                            updated[i] = nextVal;
-                            return { ...p, wheelchairPassengerNames: updated };
-                          });
+                          commitWheelchairPassengerName(i, e.target.value);
                         }}
                         required
-                        disabled={false}
-                        readOnly={false}
-                        autoComplete="name"
-                        placeholder={m('Enter name for wheelchair {n}').replace('{n}', String(i + 1))}
                         data-hkial-wheelchair-name-index={String(i)}
+                        data-hkial-wheelchair-name-select=""
                         style={fieldStyle}
-                        className={fieldClass + ' pl-10'}
-                      />
+                        className={fieldClass + ' appearance-none pl-10 pr-10 cursor-pointer'}
+                      >
+                        <option value="" className={optionBg}>
+                          {bookingGuestNames.length === 0
+                            ? m('No named guests yet — add names in Step 2')
+                            : m('Select guest name')}
+                        </option>
+                        {options.map((name) => (
+                          <option
+                            key={name}
+                            value={name}
+                            className={optionBg}
+                            disabled={takenNames.has(name)}
+                          >
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -5205,6 +5513,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       </form>
       {stepLoadingOverlay}
       {shortNoticeWarningDialog}
+      {historyDialog}
       </>
     );
   }
@@ -5905,6 +6214,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       </form>
       {stepLoadingOverlay}
       {shortNoticeWarningDialog}
+      {historyDialog}
       </>
     );
   }
@@ -5961,6 +6271,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="text-xs" style={{ color: isDark ? '#6ee7b7' : 'rgb(5, 150, 105)' }}>{m('TA Rates Active')}</span>
                 </div>
               )}
+              <button
+                type="button"
+                data-testid="use-history-button"
+                onClick={handleOpenHistoryDialog}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
+                style={{ background: histBtnBgS1, border: histBtnBorderS1, color: histBtnColorS1 }}
+              >
+                <History className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="hidden sm:inline">{m('Use History as New Booking')}</span>
+                <span className="sm:hidden">{m('Use History')}</span>
+              </button>
             </div>
           </div>
 
@@ -6452,6 +6773,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       </form>
       {stepLoadingOverlay}
       {shortNoticeWarningDialog}
+      {historyDialog}
       </>
     );
   }
@@ -6551,6 +6873,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
+              data-testid="use-history-button"
               onClick={handleOpenHistoryDialog}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-90"
               style={{ background: histBtnBgS2, border: histBtnBorderS2, color: histBtnColorS2 }}
@@ -7393,247 +7716,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </div>
       )}
 
-      {/* ── Use History as New Booking Dialog ─────────────────────────── */}
-      {showHistoryDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
-        >
-          <div
-            className="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl overflow-hidden"
-            style={{
-              background: isDark ? 'rgba(8,20,40,0.98)' : '#FFFFFF',
-              border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(200,199,190,0.5)',
-              boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
-            }}
-          >
-            {/* Dialog header */}
-            <div
-              className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-              style={{
-                background: isDark
-                  ? 'linear-gradient(90deg,rgba(220,181,21,0.18) 0%,rgba(180,140,10,0.1) 100%)'
-                  : 'linear-gradient(90deg,rgba(220,181,21,0.15) 0%,rgba(180,140,10,0.08) 100%)',
-                borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: isDark ? 'rgba(220,181,21,0.2)' : 'rgba(220,181,21,0.18)',
-                    border: isDark ? '1px solid rgba(220,181,21,0.35)' : '1px solid rgba(220,181,21,0.4)',
-                  }}
-                >
-                  <History className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
-                </div>
-                <div>
-                  <div className="text-sm" style={textPrimary}>{m('Use History as New Booking')}</div>
-                  <div className="text-xs mt-0.5" style={textMuted}>{m('Select a past booking to pre-fill the form')}</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCloseHistoryDialog}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:opacity-70"
-                style={{ color: colors.textMuted }}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Scrollable booking list — 2026-06-16 (round ?): source
-                switched from in-file MOCK to the derived
-                `historyBookings` (container-provided real data, or
-                MOCK fallback for figma preview). Empty / loading
-                states added so the user always sees something
-                meaningful when opening the dialog. */}
-            <div className="overflow-y-auto flex-1 p-5 space-y-3">
-              {isLoadingHistory ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 py-12"
-                  data-testid="history-dialog-loading"
-                >
-                  <Loader2 className="w-7 h-7 animate-spin" style={{ color: 'rgb(220,181,21)' }} />
-                  <div className="text-xs" style={textMuted}>{m('Loading your past bookings…')}</div>
-                </div>
-              ) : historyBookings.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center gap-2 py-12"
-                  data-testid="history-dialog-empty"
-                >
-                  <Inbox className="w-7 h-7" style={{ color: colors.textMuted }} />
-                  <div className="text-sm" style={textPrimary}>{m('No past bookings yet')}</div>
-                  <div className="text-xs text-center max-w-xs" style={textMuted}>
-                    {m('Completed and confirmed bookings will appear here so you can quickly clone their setup.')}
-                  </div>
-                  {/* 2026-06-16 (round ?): if the container received
-                      bookings but all were rejected by the shape
-                      gate, show a diagnostic hint so the user can
-                      tell "I have no bookings" from "I have
-                      bookings but they don't match the expected
-                      shape". Helps the "I added a booking 792 but
-                      it's not showing" debugging loop. The hint
-                      is muted-styled so it doesn't break the
-                      empty-state visual. */}
-                  {historyDiagnostics && historyDiagnostics.totalReceived > 0 && (
-                    <div
-                      className="mt-3 px-3 py-2 rounded-lg text-xs text-center max-w-sm"
-                      style={{
-                        background: isDark ? 'rgba(220,181,21,0.08)' : 'rgba(220,181,21,0.12)',
-                        border: isDark ? '1px solid rgba(220,181,21,0.2)' : '1px solid rgba(220,181,21,0.3)',
-                        color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)',
-                      }}
-                      data-testid="history-dialog-diagnostics"
-                    >
-                      <div>
-                        Loaded {historyDiagnostics.totalReceived} booking
-                        {historyDiagnostics.totalReceived === 1 ? '' : 's'}
-                        , but {historyDiagnostics.rejectedCount} didn&apos;t
-                        match the expected shape{historyDiagnostics.sampleReason ? ` (first: ${historyDiagnostics.sampleReason})` : ''}.
-                      </div>
-                      <div className="mt-1" style={{ opacity: 0.75 }}>
-                        {m('Open the browser console for full per-row details.')}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                historyBookings.map((booking) => {
-                  const statusColors: { [key: string]: { bg: string; text: string; border: string } } = {
-                    confirmed: { bg: 'rgba(34,197,94,0.12)', text: 'rgb(22,163,74)', border: 'rgba(34,197,94,0.3)' },
-                    completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
-                  };
-                  const sc = statusColors[booking.status] || statusColors.completed;
-                  const statusLabel = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
-                  const guestSummary = booking.nonFlyingGuests > 0
-                    ? booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites + ' VIP  +  ' + booking.nonFlyingGuests + ' guest(s)'
-                    : (booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites) + ' VIP passenger(s)';
-                  const cardBg: React.CSSProperties = {
-                    background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(248,247,242,0.9)',
-                    border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(200,199,190,0.5)',
-                  };
-                  const divLine = isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(200,199,190,0.35)';
-
-                  return (
-                    <div key={booking.id} className="rounded-xl overflow-hidden" style={cardBg}>
-                      {/* Card top row — date promoted to its own prominent
-                          line per Sky's "show the date of the old booking"
-                          request. `terminal` row dropped (per Sky: "we
-                          don't use terminal now"). */}
-                      <div className="px-4 pt-4 pb-3">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            {/* 2026-06-16: lounge is optional post-relax.
-                                Show "—" muted fallback when missing so
-                                the card header doesn't render an
-                                empty div. */}
-                            <div className="text-sm truncate" style={textPrimary}>
-                              {booking.lounge || <span style={textMuted}>—</span>}
-                            </div>
-                            <div className="text-xs mt-1 flex items-center gap-1.5">
-                              <Calendar className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                              <span className="font-medium" style={textSecondary}>
-                                {new Date(booking.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </span>
-                            </div>
-                          </div>
-                          <span
-                            className="text-xs px-2.5 py-1 rounded-full flex-shrink-0"
-                            style={{ background: sc.bg, color: sc.text, border: '1px solid ' + sc.border }}
-                          >
-                            {statusLabel}
-                          </span>
-                        </div>
-
-                        {/* Info grid — 2026-06-16: each cell now hides
-                            itself when its data is missing (per Sky:
-                            "we just need to fill step 2 data only" →
-                            step 1 fields are optional on a past
-                            booking). Previously an undefined
-                            `booking.flightNumber` would render the
-                            literal "undefined · undefined". */}
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-3">
-                          {booking.time && (
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'rgb(220,181,21)' }} />
-                              <span className="text-xs" style={textSecondary}>{booking.time}</span>
-                            </div>
-                          )}
-                          {(booking.flightNumber || booking.flightType) && (
-                            <div className="flex items-center gap-1.5">
-                              <Plane className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
-                              <span className="text-xs" style={textSecondary}>
-                                {[booking.flightNumber, booking.flightType].filter(Boolean).join('  ·  ')}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5 col-span-2">
-                            <Users className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
-                            <span className="text-xs" style={textSecondary}>{guestSummary}</span>
-                          </div>
-                        </div>
-
-                        {/* Passenger chips */}
-                        <div className="flex flex-wrap gap-1.5">
-                          {booking.passengers.map((p, pi) => {
-                            const chipBg: React.CSSProperties = {
-                              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(220,181,21,0.1)',
-                              border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(220,181,21,0.25)',
-                            };
-                            return (
-                              <span key={pi} className="text-xs px-2 py-0.5 rounded-full" style={{ ...chipBg, color: isDark ? 'rgba(255,255,255,0.7)' : 'rgb(120,96,4)' }}>
-                                {p.title} {p.firstName} {p.lastName}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Card footer */}
-                      <div
-                        className="flex items-center justify-between px-4 py-2.5"
-                        style={{ borderTop: divLine, background: isDark ? 'rgba(0,0,0,0.18)' : 'rgba(231,230,221,0.4)' }}
-                      >
-                        <span className="text-xs font-mono" style={{ color: isDark ? 'rgba(220,181,21,0.8)' : 'rgb(160,128,8)' }}>
-                          {booking.bookingRef}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectHistory(booking)}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs text-white transition-all hover:opacity-90"
-                          style={{ background: 'linear-gradient(90deg,rgb(220,181,21) 0%,rgb(180,140,10) 100%)' }}
-                        >
-                          {m('Select')}
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Dialog footer */}
-            <div
-              className="px-6 py-4 flex-shrink-0"
-              style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(200,199,190,0.4)' }}
-            >
-              <button
-                type="button"
-                onClick={handleCloseHistoryDialog}
-                className="w-full py-2.5 rounded-xl text-sm transition-all hover:opacity-80"
-                style={{ ...secondaryBtnStyle, color: colors.text }}
-              >
-                {m('Cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </form>
     {stepLoadingOverlay}
     {shortNoticeWarningDialog}
+      {historyDialog}
     </>
   );
   } // end if (currentStep === 2)
