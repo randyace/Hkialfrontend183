@@ -3311,7 +3311,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       const year = now.getFullYear();
       const month = (now.getMonth() + 1).toString().padStart(2, '0');
       const day = now.getDate().toString().padStart(2, '0');
-      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
       const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
       setBookingNumber(generatedBookingNumber);
       setSubmitted(true);
@@ -3525,7 +3525,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 const year = now.getFullYear();
                 const month = (now.getMonth() + 1).toString().padStart(2, '0');
                 const day = now.getDate().toString().padStart(2, '0');
-                const randomNum = Math.floor(10000 + Math.random() * 90000);
+                const randomNum = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
                 const generatedBookingNumber = flightPrefix + '-' + year + month + day + '-' + randomNum;
                 setBookingNumber(generatedBookingNumber);
                 setSubmitted(true);
@@ -4808,7 +4808,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
                 />
                 <p className="text-xs leading-relaxed" style={textPrimary}>
-                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc guests')}</span> will be accepted.
+                  <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc guests will be accepted.')}</span>
                 </p>
               </div>
             </div>
