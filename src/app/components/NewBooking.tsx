@@ -336,23 +336,55 @@ const REGION_CODES: { code: string; name: string }[] = [
   { code: '+998', name: 'Uzbekistan' },
 ];
 
-// Splits a stored contact phone ("+852 9876-5432") into the region
-// code + number pair that the split input uses. Falls back to the
-// default region (+852) when the stored value doesn't start with a
-// known region code — keeps the booking form forgiving for legacy
-// data.
+// Splits a stored contact phone into the region code + number pair
+// the split input uses. Longest known prefix — the old
+// `/^(\+\d{1,4})\s*(.*)$/` regex clipped `+85298765432` to
+// number `8765432` (greedy 4 digits after +). Falls back to +852
+// when the stored value has no recognised region.
 function splitContactPhone(raw: string | undefined | null): { regionCode: string; contactNumber: string } {
   if (!raw) return { regionCode: '+852', contactNumber: '' };
   const trimmed = String(raw).trim();
-  const match = trimmed.match(/^(\+\d{1,4})\s*(.*)$/);
-  if (match) {
-    const code = match[1];
-    const num = match[2].replace(/[^0-9-]/g, '');
-    const known = REGION_CODES.find((r) => r.code === code);
-    return { regionCode: known ? code : '+852', contactNumber: num };
+  if (!trimmed) return { regionCode: '+852', contactNumber: '' };
+
+  const codes = REGION_CODES
+    .map((r) => r.code)
+    .filter((c): c is string => typeof c === 'string' && c.length > 0)
+    .sort((a, b) => b.length - a.length);
+
+  const compactHay = trimmed.replace(/[\s().]/g, '');
+  const hasLeadingPlus = trimmed.startsWith('+');
+
+  for (const code of codes) {
+    const compactCode = code.replace(/[\s().]/g, '');
+    if (!compactCode) continue;
+
+    const digitLen = compactCode.replace(/\D/g, '').length;
+    if (digitLen <= 1 && !hasLeadingPlus) continue;
+
+    if (compactHay.startsWith(compactCode)) {
+      return {
+        regionCode: code,
+        contactNumber: compactHay.slice(compactCode.length).replace(/[^0-9-]/g, ''),
+      };
+    }
+
+    const codeNoPlus = compactCode.replace(/^\+/, '');
+    if (codeNoPlus && compactHay.startsWith(codeNoPlus)) {
+      return {
+        regionCode: code.startsWith('+') ? code : `+${code}`,
+        contactNumber: compactHay.slice(codeNoPlus.length).replace(/[^0-9-]/g, ''),
+      };
+    }
   }
-  // No leading +XX region code → put the whole digits+dash part in
-  // contactNumber, default the region to +852.
+
+  const spaced = trimmed.match(/^(\+\d{1,4}(?:-\d{1,4})?)\s+(.+)$/);
+  if (spaced) {
+    return {
+      regionCode: spaced[1],
+      contactNumber: spaced[2].replace(/[^0-9-]/g, ''),
+    };
+  }
+
   return { regionCode: '+852', contactNumber: trimmed.replace(/[^0-9-]/g, '') };
 }
 
