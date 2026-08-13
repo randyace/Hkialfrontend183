@@ -1060,7 +1060,16 @@ export function Bookings({
                 
 
                 <p className="text-xs" style={{ color: colors.textMuted }}>
-                  {m('Booking Reference')}: {booking.bookingRef}
+                  {m('Booking Reference')}:{' '}
+                  <button
+                    type="button"
+                    data-testid="booking-list-ref-link"
+                    className="font-medium underline underline-offset-2 hover:opacity-80"
+                    style={{ color: 'rgb(220,181,21)' }}
+                    onClick={() => handleEditClick(booking)}
+                  >
+                    {booking.bookingRef}
+                  </button>
                 </p>
               </div>
 
