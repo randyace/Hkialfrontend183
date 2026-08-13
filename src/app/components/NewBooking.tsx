@@ -5467,6 +5467,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     ⚠️ {m('Extra charges will apply if waiting time is exceeded at pick-up point.')}
                   </div>
                 )}
+                <div
+                  className="p-3 rounded-lg text-sm"
+                  style={{
+                    background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.15)',
+                    border: isDark ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(220,181,21,0.4)',
+                    color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
+                  }}
+                >
+                  ⚠️ {m('Extra charges will apply for additional stops and child car seats.')}
+                </div>
                 {step2Form.destinationAddresses.map((address, index) => (
                   <div key={index}>
                     <label className={labelClass}>
