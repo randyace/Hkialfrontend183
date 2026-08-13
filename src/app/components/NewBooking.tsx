@@ -648,10 +648,32 @@ interface HistoryBooking {
     title: string;
     firstName: string;
     lastName: string;
-    travelDoc: string;
+    travelDoc?: string;
+    travelDocNo?: string;
     membership?: string;
+    membershipNo?: string;
     ageGroup?: string;
+    birthday?: string;
+    vipBirthday?: string;
+    foodAllergies?: string;
+    nationality?: string;
   }>;
+  /** Lounge Deluxe NFG count (flatten also writes this). Prefer over `nonFlyingGuests` when both exist. */
+  nonFlyingGuestsCount?: number;
+  /** NFG personal rows (container enrich). Fallback: `advanced_details` arrays. */
+  nonFlyingGuestDetails?: Array<{
+    title?: string;
+    firstName?: string;
+    lastName?: string;
+    ageGroup?: string;
+    foodAllergies?: string;
+    nationality?: string;
+  }>;
+  advanced_details?: {
+    nonFlyingGuests?: Array<Record<string, unknown>>;
+    suite_nonFlyingGuests?: Array<Record<string, unknown>>;
+    lounge_nonFlyingGuests?: Array<Record<string, unknown>>;
+  };
   contactPerson: {
     name: string;
     email: string;
@@ -709,6 +731,119 @@ export function collectBookingGuestNames(
     push(formatBookingGuestName(g.guestTitle, g.guestFirstName, g.guestLastName));
   }
   return names;
+}
+
+function historyNonBlank(...candidates: unknown[]): string {
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim() !== '') return c.trim();
+  }
+  return '';
+}
+
+const EMPTY_HISTORY_VIP: VipPassenger = {
+  vipTitle: 'Mr',
+  vipFirstName: '',
+  vipLastName: '',
+  vipTravelDocNo: '',
+  vipMembershipNo: '',
+  vipAgeGroup: '',
+  vipBirthday: '',
+  foodAllergies: '',
+  nationality: '',
+};
+
+const EMPTY_HISTORY_NFG: NonFlyingGuest = {
+  guestTitle: 'Mr',
+  guestFirstName: '',
+  guestLastName: '',
+  guestAgeGroup: '',
+  foodAllergies: '',
+  nationality: '',
+};
+
+/** Wire + view aliases for a past booking VIP row. */
+export function mapHistoryPassengerToVip(
+  p: HistoryBooking['passengers'][number],
+): VipPassenger {
+  return {
+    vipTitle: historyNonBlank(p.title) || 'Mr',
+    vipFirstName: historyNonBlank(p.firstName),
+    vipLastName: historyNonBlank(p.lastName),
+    vipTravelDocNo: historyNonBlank(p.travelDocNo, p.travelDoc),
+    vipMembershipNo: historyNonBlank(p.membershipNo, p.membership),
+    vipAgeGroup: historyNonBlank(p.ageGroup) || 'Adults (aged 12 and above)',
+    vipBirthday: historyNonBlank(p.birthday, p.vipBirthday),
+    foodAllergies: historyNonBlank(p.foodAllergies),
+    nationality: historyNonBlank(p.nationality).toUpperCase(),
+  };
+}
+
+/** Wire + view aliases for a past booking non-flying guest row. */
+export function mapHistoryGuestToNfg(
+  g: NonNullable<HistoryBooking['nonFlyingGuestDetails']>[number],
+): NonFlyingGuest {
+  return {
+    guestTitle: historyNonBlank(g.title) || 'Mr',
+    guestFirstName: historyNonBlank(g.firstName),
+    guestLastName: historyNonBlank(g.lastName),
+    guestAgeGroup: historyNonBlank(g.ageGroup) || 'Adults (aged 12 and above)',
+    foodAllergies: historyNonBlank(g.foodAllergies),
+    nationality: historyNonBlank(g.nationality).toUpperCase(),
+  };
+}
+
+/** LD NFG stepper count. Flatten stores LD on `nonFlyingGuestsCount` and the merged length on `nonFlyingGuests`. */
+export function loungeDeluxeNfgCount(booking: HistoryBooking): number {
+  if (typeof booking.nonFlyingGuestsCount === 'number') return booking.nonFlyingGuestsCount;
+  if (typeof booking.nonFlyingGuests === 'number') return booking.nonFlyingGuests;
+  return 0;
+}
+
+/** Prefer container `nonFlyingGuestDetails`; else recover from advanced_details. */
+export function extractHistoryNonFlyingGuests(booking: HistoryBooking): Array<
+  NonNullable<HistoryBooking['nonFlyingGuestDetails']>[number]
+> {
+  if (Array.isArray(booking.nonFlyingGuestDetails) && booking.nonFlyingGuestDetails.length > 0) {
+    return booking.nonFlyingGuestDetails;
+  }
+  const ad = booking.advanced_details;
+  if (!ad || typeof ad !== 'object') return [];
+  const suite = Array.isArray(ad.suite_nonFlyingGuests) ? ad.suite_nonFlyingGuests : [];
+  const lounge = Array.isArray(ad.lounge_nonFlyingGuests) ? ad.lounge_nonFlyingGuests : [];
+  if (suite.length + lounge.length > 0) {
+    return [...suite, ...lounge] as NonNullable<HistoryBooking['nonFlyingGuestDetails']>;
+  }
+  if (Array.isArray(ad.nonFlyingGuests) && ad.nonFlyingGuests.length > 0) {
+    return ad.nonFlyingGuests as NonNullable<HistoryBooking['nonFlyingGuestDetails']>;
+  }
+  return [];
+}
+
+function padHistoryRows<T>(rows: T[], needed: number, blank: T): T[] {
+  const next = rows.slice(0, needed);
+  while (next.length < needed) next.push(blank);
+  return next;
+}
+
+/** Clone VIP + NFG personal rows from a past booking into NewBooking form state. */
+export function buildHistoryGuestForms(booking: HistoryBooking): {
+  vipData: VipPassenger[];
+  nonFlyingGuestData: NonFlyingGuest[];
+} {
+  const totalVipNeeded = booking.premiereVipPassengers + booking.vipPassengers;
+  const totalGuestNeeded = booking.premiereNonFlyingGuests + loungeDeluxeNfgCount(booking);
+  return {
+    vipData: padHistoryRows(
+      (booking.passengers ?? []).map(mapHistoryPassengerToVip),
+      totalVipNeeded,
+      { ...EMPTY_HISTORY_VIP },
+    ),
+    nonFlyingGuestData: padHistoryRows(
+      extractHistoryNonFlyingGuests(booking).map(mapHistoryGuestToNfg),
+      totalGuestNeeded,
+      { ...EMPTY_HISTORY_NFG },
+    ),
+  };
 }
 
 const flightDatabase: { [key: string]: { origin: string; destination: string; arrivalTime: string } } = {
@@ -3093,9 +3228,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   //     booking (premiereSuites, premiereVipPassengers,
   //     premiereNonFlyingGuests, vipPassengers, nonFlyingGuests)
   //   ✓ Replaces vipData with cloned passengers (padded to match
-  //     the new VIP count)
-  //   ✓ Resets nonFlyingGuestData to a blank-slot array sized to
-  //     the new NFG count
+  //     the new VIP count), including travel doc / membership /
+  //     age / birthday / allergies / nationality
+  //   ✓ Replaces nonFlyingGuestData from nonFlyingGuestDetails or
+  //     advanced_details (padded to the new NFG count)
   //   ✓ Loads the contact person into step2Form (name / email /
   //     phone)
   //   ✗ Does NOT touch form.date (user's step 1 date is kept)
@@ -3112,37 +3248,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       premiereVipPassengers: booking.premiereVipPassengers,
       premiereNonFlyingGuests: booking.premiereNonFlyingGuests,
       vipPassengers: booking.vipPassengers,
-      nonFlyingGuests: booking.nonFlyingGuests,
+      nonFlyingGuests: loungeDeluxeNfgCount(booking),
       // Step 1 fields are intentionally NOT overwritten — the user
       // already filled them in step 1 before opening this dialog.
     }));
-    const clonedVip: VipPassenger[] = (booking.passengers ?? []).map((p) => ({
-      vipTitle: p.title,
-      vipFirstName: p.firstName,
-      vipLastName: p.lastName,
-      vipTravelDocNo: p.travelDoc,
-      vipMembershipNo: p.membership,
-      vipAgeGroup: 'Adults (aged 12 and above)',
-      vipBirthday: '',
-      foodAllergies: '',
-        nationality: '',
-    }));
-    const totalVipNeeded = booking.premiereSuites + booking.premiereVipPassengers + booking.vipPassengers;
-    const paddedVip = clonedVip.slice(0, totalVipNeeded);
-    while (paddedVip.length < totalVipNeeded) {
-      paddedVip.push({ vipTitle: 'Mr', vipFirstName: '', vipLastName: '', vipTravelDocNo: '', vipMembershipNo: '', vipAgeGroup: '', vipBirthday: '', foodAllergies: '', nationality: '' });
-    }
-    setVipData(paddedVip);
-    const totalGuestNeeded = booking.premiereNonFlyingGuests + booking.nonFlyingGuests;
-    const blankGuests: NonFlyingGuest[] = Array.from({ length: totalGuestNeeded }, () => ({
-      guestTitle: 'Mr',
-      guestFirstName: '',
-      guestLastName: '',
-      guestAgeGroup: '',
-      foodAllergies: '',
-        nationality: '',
-    }));
-    setNonFlyingGuestData(blankGuests);
+    const { vipData: nextVip, nonFlyingGuestData: nextNfg } = buildHistoryGuestForms(booking);
+    setVipData(nextVip);
+    setNonFlyingGuestData(nextNfg);
     // 2026-06-16 (round ?) — also load the customer info (contact
     // person) into step 2's step2Form so the user doesn't have to
     // re-type the contact details when cloning a past booking.
