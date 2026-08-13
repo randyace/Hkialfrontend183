@@ -13,6 +13,8 @@ import {
   Loader2,
   Check,
   X,
+  Calendar,
+  Heart,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "./ThemeContext";
@@ -44,6 +46,14 @@ export interface SettingsProps {
       passportFirst4?: string;
       passportLast4?: string;
       regionCode?: string;
+      birthday?: string;
+      spouseTitle?: string;
+      spouseFirstName?: string;
+      spouseLastName?: string;
+      spouseEmail?: string;
+      spousePhone?: string;
+      spouseNationality?: string;
+      spousePassportFirst4?: string;
     };
     appearance?: {
       theme?: "light" | "dark";
@@ -56,6 +66,7 @@ export interface SettingsProps {
     confirmPassword?: string;
   };
   fieldErrors?: Record<string, string>;
+  highlightBirthday?: boolean;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -86,6 +97,14 @@ const MOCK_SETTINGS = {
     phone: "+852 9876 5432",
     nationality: "HK",
     passportFirst4: "1234",
+    birthday: "1988-04-20",
+    spouseTitle: "Mrs",
+    spouseFirstName: "Jane",
+    spouseLastName: "Doe",
+    spouseEmail: "jane.doe@example.com",
+    spousePhone: "+852 9123 4567",
+    spouseNationality: "HK",
+    spousePassportFirst4: "5678",
   },
   appearance: {
     theme: "light",
@@ -102,6 +121,7 @@ export function Settings({
   settings: propSettings,
   passwordFields: propPasswordFields,
   fieldErrors: propFieldErrors,
+  highlightBirthday = false,
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -578,6 +598,209 @@ export function Settings({
             />
           </div>
         </div>
+
+        {/* Date of birth — required before membership purchase */}
+        <div id="settings-birthday">
+          <label
+            className="block text-sm mb-2"
+            style={{ color: colors.textSecondary }}
+          >
+            {t("settings.birthday")}{" "}
+            <span style={{ color: "rgb(220,181,21)" }}>*</span>
+          </label>
+          <div className="relative">
+            <Calendar
+              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+              style={{ color: colors.textMuted }}
+            />
+            <input
+              type="date"
+              value={profile.birthday ?? ""}
+              max={new Intl.DateTimeFormat("en-CA", {
+                timeZone: "Asia/Hong_Kong",
+              }).format(new Date())}
+              min="1900-01-01"
+              onChange={(e) =>
+                updateSetting("profile", "birthday", e.target.value)
+              }
+              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={{
+                ...inputStyle,
+                boxShadow: highlightBirthday
+                  ? "0 0 0 2px rgba(220,181,21,0.55)"
+                  : undefined,
+              }}
+            />
+          </div>
+          <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
+            {t("settings.birthdayRequiredHint")}
+          </p>
+        </div>
+      </div>
+
+      {/* Spouse / partner — optional */}
+      <div id="settings-spouse" className="space-y-4 pt-2">
+        <div>
+          <h3
+            className="text-sm flex items-center gap-2"
+            style={{ color: colors.text }}
+          >
+            <Heart className="w-4 h-4" style={{ color: "rgb(220,181,21)" }} />
+            {t("settings.spouseSection")}{" "}
+            <span className="text-xs font-normal" style={{ color: colors.textMuted }}>
+              ({t("settings.spouseOptional")})
+            </span>
+          </h3>
+          <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
+            {t("settings.spouseHint")}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("auth.title")}
+            </label>
+            <select
+              value={profile.spouseTitle ?? "Mr"}
+              onChange={(e) =>
+                updateSetting("profile", "spouseTitle", e.target.value)
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
+              style={inputStyle}
+            >
+              <option value="Mr">{m("Mr")}</option>
+              <option value="Miss">{m("Miss")}</option>
+              <option value="Mrs">{m("Mrs")}</option>
+              <option value="Ms">{m("Ms")}</option>
+              <option value="Dr">{m("Dr")}</option>
+            </select>
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spouseFirstName")}
+            </label>
+            <input
+              type="text"
+              value={profile.spouseFirstName ?? ""}
+              onChange={(e) =>
+                updateSetting("profile", "spouseFirstName", e.target.value)
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spouseLastName")}
+            </label>
+            <input
+              type="text"
+              value={profile.spouseLastName ?? ""}
+              onChange={(e) =>
+                updateSetting("profile", "spouseLastName", e.target.value)
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spouseEmail")}
+            </label>
+            <input
+              type="email"
+              value={profile.spouseEmail ?? ""}
+              onChange={(e) =>
+                updateSetting("profile", "spouseEmail", e.target.value)
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spousePhone")}
+            </label>
+            <input
+              type="tel"
+              value={profile.spousePhone ?? ""}
+              onChange={(e) =>
+                updateSetting("profile", "spousePhone", e.target.value)
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spouseNationality")}
+            </label>
+            <NationalityTypeahead
+              id="settings-spouse-nationality"
+              value={profile.spouseNationality ?? ""}
+              onChange={(code) =>
+                updateSetting("profile", "spouseNationality", code)
+              }
+              className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              listStyle={{
+                ...inputStyle,
+                background: isDark
+                  ? "rgba(30,30,30,0.98)"
+                  : "rgba(255,255,255,0.98)",
+              }}
+              highlightClassName={
+                isDark ? "bg-white/15" : "bg-[rgb(231,230,221)]"
+              }
+              mutedClassName={mutedColor}
+            />
+          </div>
+          <div>
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spousePassport")}
+            </label>
+            <input
+              type="text"
+              value={profile.spousePassportFirst4 ?? ""}
+              onChange={(e) =>
+                updateSetting(
+                  "profile",
+                  "spousePassportFirst4",
+                  e.target.value.slice(0, 4),
+                )
+              }
+              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              style={inputStyle}
+              placeholder="AB12"
+              maxLength={4}
+            />
+          </div>
+        </div>
+        {fieldErrors["spouseFirstName"] && (
+          <p className="text-xs" style={{ color: "#ef4444" }}>
+            {fieldErrors["spouseFirstName"]}
+          </p>
+        )}
       </div>
 
       {/* Current Password */}
