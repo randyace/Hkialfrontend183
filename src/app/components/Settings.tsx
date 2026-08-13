@@ -67,6 +67,8 @@ export interface SettingsProps {
   };
   fieldErrors?: Record<string, string>;
   highlightBirthday?: boolean;
+  /** After the first saved spouse record, fields are read-only for the member. */
+  spouseLocked?: boolean;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -122,6 +124,7 @@ export function Settings({
   passwordFields: propPasswordFields,
   fieldErrors: propFieldErrors,
   highlightBirthday = false,
+  spouseLocked = false,
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -638,7 +641,7 @@ export function Settings({
         </div>
       </div>
 
-      {/* Spouse / partner — optional */}
+      {/* Spouse / partner — optional once; locked after the first save */}
       <div id="settings-spouse" className="space-y-4 pt-2">
         <div>
           <h3
@@ -648,11 +651,11 @@ export function Settings({
             <Heart className="w-4 h-4" style={{ color: "rgb(220,181,21)" }} />
             {t("settings.spouseSection")}{" "}
             <span className="text-xs font-normal" style={{ color: colors.textMuted }}>
-              ({t("settings.spouseOptional")})
+              ({t(spouseLocked ? "settings.spouseReadOnly" : "settings.spouseOptional")})
             </span>
           </h3>
           <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
-            {t("settings.spouseHint")}
+            {t(spouseLocked ? "settings.spouseLockedHint" : "settings.spouseHint")}
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -665,10 +668,17 @@ export function Settings({
             </label>
             <select
               value={profile.spouseTitle ?? "Mr"}
-              onChange={(e) =>
-                updateSetting("profile", "spouseTitle", e.target.value)
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseTitle", e.target.value);
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none appearance-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "cursor-pointer focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
             >
               <option value="Mr">{m("Mr")}</option>
@@ -688,10 +698,18 @@ export function Settings({
             <input
               type="text"
               value={profile.spouseFirstName ?? ""}
-              onChange={(e) =>
-                updateSetting("profile", "spouseFirstName", e.target.value)
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseFirstName", e.target.value);
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
             />
           </div>
@@ -705,10 +723,18 @@ export function Settings({
             <input
               type="text"
               value={profile.spouseLastName ?? ""}
-              onChange={(e) =>
-                updateSetting("profile", "spouseLastName", e.target.value)
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseLastName", e.target.value);
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
             />
           </div>
@@ -722,10 +748,18 @@ export function Settings({
             <input
               type="email"
               value={profile.spouseEmail ?? ""}
-              onChange={(e) =>
-                updateSetting("profile", "spouseEmail", e.target.value)
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseEmail", e.target.value);
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
             />
           </div>
@@ -739,10 +773,18 @@ export function Settings({
             <input
               type="tel"
               value={profile.spousePhone ?? ""}
-              onChange={(e) =>
-                updateSetting("profile", "spousePhone", e.target.value)
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spousePhone", e.target.value);
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
             />
           </div>
@@ -756,10 +798,16 @@ export function Settings({
             <NationalityTypeahead
               id="settings-spouse-nationality"
               value={profile.spouseNationality ?? ""}
-              onChange={(code) =>
-                updateSetting("profile", "spouseNationality", code)
-              }
-              className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              disabled={spouseLocked}
+              onChange={(code) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseNationality", code);
+              }}
+              className={`w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               listStyle={{
                 ...inputStyle,
                 background: isDark
@@ -782,14 +830,22 @@ export function Settings({
             <input
               type="text"
               value={profile.spousePassportFirst4 ?? ""}
-              onChange={(e) =>
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              aria-readonly={spouseLocked ? "true" : undefined}
+              onChange={(e) => {
+                if (spouseLocked) return;
                 updateSetting(
                   "profile",
                   "spousePassportFirst4",
                   e.target.value.slice(0, 4),
-                )
-              }
-              className="w-full px-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+                );
+              }}
+              className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
               style={inputStyle}
               placeholder="AB12"
               maxLength={4}
