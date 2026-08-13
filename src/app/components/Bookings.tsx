@@ -36,6 +36,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useTheme } from './ThemeContext';
 import { translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
+import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
@@ -54,25 +55,6 @@ interface BookingsProps {
   setSearchTerm?: (v: string) => void;
   setFilterStatus?: (v: string) => void;
   setDateFilter?: (v: { start: string; end: string }) => void;
-}
-
-/** Full-invoice unpaid statuses that should show Pay on the booking list. */
-const PENDING_PAYMENT_STATUSES = new Set([
-  'pending',
-  'invoicesent',
-  'paymentlinksent',
-  'overdue',
-  'paymentfailed',
-]);
-
-function bookingNeedsPayment(booking: any): boolean {
-  const ps = String(booking?.payment_status ?? booking?.paymentStatus ?? '').toLowerCase();
-  if (PENDING_PAYMENT_STATUSES.has(ps)) return true;
-  // Approved edit difference awaiting payment (booking itself may stay Paid).
-  const crStatus = String(
-    booking?.openChangeRequest?.status ?? booking?.open_change_request?.status ?? '',
-  ).toLowerCase();
-  return crStatus === 'awaiting_payment';
 }
 
 // Mock fallback for Figma standalone preview
