@@ -1395,8 +1395,13 @@ function ContactNoSplit({
         {regionOpen && (
           <ul
             role="listbox"
-            className="absolute z-50 mt-1 w-56 max-h-60 overflow-auto rounded-xl border border-white/20 shadow-lg"
-            style={glassStyle}
+            data-theme={isDark ? 'dark' : 'light'}
+            className="absolute z-50 mt-1 w-56 max-h-60 overflow-auto rounded-xl border shadow-lg"
+            style={{
+              ...glassStyle,
+              background: isDark ? '#0a1929' : '#FFFFFF',
+              color: isDark ? '#ffffff' : 'rgb(64, 63, 52)',
+            }}
           >
             {filteredRegions.length === 0 ? (
               <li className="px-3 py-2 text-sm text-gray-400">{m('No matches')}</li>
@@ -1573,8 +1578,13 @@ function GuestNationalityTypeahead({
       {open && (
         <ul
           role="listbox"
-          className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-xl border border-white/20 shadow-lg"
-          style={glassStyle}
+          data-theme={isDark ? 'dark' : 'light'}
+          className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-xl border shadow-lg"
+          style={{
+            ...glassStyle,
+            background: isDark ? '#0a1929' : '#FFFFFF',
+            color: isDark ? '#ffffff' : 'rgb(64, 63, 52)',
+          }}
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-sm text-gray-400">{m('No matches')}</li>

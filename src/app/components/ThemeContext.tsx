@@ -130,6 +130,7 @@ const defaultGlassStyle: React.CSSProperties = {
   background: darkColors.glassBackground,
   border: `1px solid ${darkColors.glassBorder}`,
   boxShadow: darkColors.glassShadow,
+  color: darkColors.text,
 };
 
 const defaultContextValue: ThemeContextType = {
@@ -152,6 +153,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     background: colors.glassBackground,
     border: `1px solid ${colors.glassBorder}`,
     boxShadow: colors.glassShadow,
+    color: colors.text,
   };
 
   const toggleTheme = useCallback(() => {
