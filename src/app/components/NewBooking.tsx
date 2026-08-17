@@ -42,7 +42,6 @@ import {
   Loader2,
   AlertTriangle,
   Globe2,
-  Upload,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import {
@@ -87,7 +86,10 @@ import {
 } from '../../../../../utils/bookingShortNotice';
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
 import { formatAirportDisplay } from '../../../../../utils/airports';
-import { decodeQrFromImageFile } from '../../../../../utils/decodeQrFromImageFile';
+import {
+  decodeQrFromOptimizedImageFile,
+  optimizeQrImageFile,
+} from '../../../../../utils/decodeQrFromImageFile';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { DATE_INPUT_LANG, getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
@@ -1831,7 +1833,7 @@ function QRScannerModal({
     setTimeout(() => onDetected(code), 700);
   }, [onDetected, stopCamera]);
 
-  const handleImageFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -1839,17 +1841,18 @@ function QRScannerModal({
     setImageScanError('');
     setImageScanning(true);
     try {
-      const code = await decodeQrFromImageFile(file);
+      const resizedFile = await optimizeQrImageFile(file);
+      const code = await decodeQrFromOptimizedImageFile(resizedFile);
       if (code) {
         handleQrDetected(code);
       } else {
         setImageScanError(
-          m('No QR code found in the selected image. Please try again.'),
+          m('No QR code found. Please ensure the code is clearly visible.'),
         );
       }
     } catch {
       setImageScanError(
-        m('No QR code found in the selected image. Please try again.'),
+        m('No QR code found. Please ensure the code is clearly visible.'),
       );
     } finally {
       setImageScanning(false);
@@ -1871,7 +1874,11 @@ function QRScannerModal({
           setScanning(true);
         }
       } catch {
-        setCamError(m('Unable to access the camera. Please allow camera permission and try again.'));
+        setCamError(
+          m(
+            'Unable to access the camera. Please ensure camera permissions are granted. Note: Live scanning requires a secure HTTPS connection (or localhost).',
+          ),
+        );
       }
     };
     startCamera();
@@ -2044,47 +2051,48 @@ function QRScannerModal({
             </>
           )}
         </div>
-        <canvas ref={canvasRef} className="hidden" />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          aria-hidden
-          onChange={handleImageFileChange}
-        />
 
-        {/* Upload from gallery / file */}
-        {!camError && !detected && (
-          <div
-            className="px-5 py-4"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        <div className="mt-4 flex flex-col items-center justify-center w-full px-4 pb-4">
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            className="hidden"
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            disabled={imageScanning || Boolean(detected)}
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full py-2.5 px-4 bg-gray-800 hover:bg-gray-700 text-white rounded-lg border border-gray-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <button
-              type="button"
-              disabled={imageScanning}
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60"
-              style={{
-                background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: '#e5e7eb',
-              }}
-            >
-              {imageScanning ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Upload className="w-4 h-4" />
-              )}
-              {imageScanning ? m('Scanning image…') : m('Select from Gallery')}
-            </button>
-            {imageScanError && (
-              <p className="text-xs text-center mt-2" style={{ color: '#f87171' }}>
-                {imageScanError}
-              </p>
+            {imageScanning ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
+              </svg>
             )}
-          </div>
-        )}
+            {imageScanning ? m('Scanning image…') : 'Upload from Gallery'}
+          </button>
+          {imageScanError && (
+            <p className="text-xs text-center mt-2 text-red-400">{imageScanError}</p>
+          )}
+        </div>
+
+        <canvas ref={canvasRef} className="hidden" />
 
         {/* Footer */}
         {!camError && !detected && (
