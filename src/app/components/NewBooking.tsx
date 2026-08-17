@@ -87,7 +87,7 @@ import {
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
 import { formatAirportDisplay } from '../../../../../utils/airports';
 import { useMsg } from '../../../../../i18n/useMsg';
-import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
+import { DATE_INPUT_LANG, getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
 import { translatePriceLineLabel } from '../../../../../lib/addons/translatePriceLineLabel';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
@@ -2512,7 +2512,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1TimeValid =
     !isArrivalOrDeparture || leg1FlightTime !== '';
   // 2026-06-30 (round ? — Sky) — date+time must be in the future.
-  // The native `<input type="date" lang={toBcp47Locale(getAppLocale())} min={today}>` (line ~5422) only
+  // The native `<input type="date" lang={DATE_INPUT_LANG} min={today}>` (line ~5422) only
   // blocks past DATES through the picker UI; it does NOT block (a)
   // typed / pasted past dates, OR (b) past TIMES on today's date.
   // Add a combined datetime check so the hint list catches every
@@ -4610,6 +4610,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </p>
         </div>
 
+        {error ? (
+          <div
+            className="rounded-xl px-4 py-3 text-sm font-medium border border-red-400/40"
+            style={{ background: 'rgba(185,28,28,0.18)', color: isDark ? '#fecaca' : 'rgb(153,27,27)' }}
+            role="alert"
+          >
+            {m(error)}
+          </div>
+        ) : null}
+
         {/* ── Book for Member Banner ──────────────────────────────────────── */}
         {prefillMember && (
           <div
@@ -4627,11 +4637,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
             <div>
               <p className="text-sm" style={{ color: isDark ? '#93c5fd' : 'rgb(37,99,235)' }}>
-                Booking on behalf of{' '}
+                {m('Booking on behalf of')}{' '}
                 <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
               </p>
               <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                Membership: {prefillMember.membershipLabel} · Vouchers deducted from this member&apos;s account
+                {m('Membership:')} {prefillMember.membershipLabel} · {m("Vouchers deducted from this member's account")}
               </p>
             </div>
           </div>
@@ -6463,14 +6473,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm" style={{ color: memberBannerTextS1 }}>
-                  Booking on behalf of{' '}
+                  {m('Booking on behalf of')}{' '}
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: memberBannerSubS1 }}>
-                  Membership: {prefillMember.membershipLabel}
+                  {m('Membership:')} {prefillMember.membershipLabel}
                   {' · '}
-                  Voucher balance: {prefillMember.voucherCount} voucher{prefillMember.voucherCount !== 1 ? 's' : ''}
-                  {' '}(booking vouchers deducted from this member&apos;s account)
+                  {m('Voucher balance:')} {prefillMember.voucherCount}{' '}
+                  {prefillMember.voucherCount !== 1 ? m('vouchers') : m('voucher')}
+                  {' '}{m("(booking vouchers deducted from this member's account)")}
                 </p>
               </div>
             </div>
@@ -6536,7 +6547,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </label>
               <div className="relative">
                 <input
-                  type="date" lang={toBcp47Locale(getAppLocale())}
+                  type="date" lang={DATE_INPUT_LANG}
                   value={form.date}
                   min={hktTodayYmd()}
                   onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
@@ -6746,7 +6757,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <label className={labelClass}>{m('Leg 2 Departure Date')} <span>*</span></label>
                   <div className="relative">
                     <input
-                      type="date" lang={toBcp47Locale(getAppLocale())}
+                      type="date" lang={DATE_INPUT_LANG}
                       value={leg2ArrivalDate?.split('T')[0] || ''}
                       min={form.date ? form.date : hktTodayYmd()}
                       onChange={(e) => {
@@ -7433,7 +7444,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
-                      type="date" lang={toBcp47Locale(getAppLocale())}
+                      type="date" lang={DATE_INPUT_LANG}
                       value={passenger.vipBirthday}
                       onChange={(e) => handleVipChange(index, 'vipBirthday', e.target.value)}
                       style={fieldStyle}

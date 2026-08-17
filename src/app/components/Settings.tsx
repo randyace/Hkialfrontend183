@@ -21,6 +21,7 @@ import { useTheme } from "./ThemeContext";
 import { NationalityTypeahead } from "../../../../../components/NationalityTypeahead";
 import { isValidCountryCode } from "../../../../../utils/countries";
 import {
+  DATE_INPUT_LANG,
   LOCALE_LABELS,
   SUPPORTED_LOCALES,
   normalizeLocale,
@@ -618,6 +619,7 @@ export function Settings({
             />
             <input
               type="date"
+              lang={DATE_INPUT_LANG}
               value={profile.birthday ?? ""}
               max={new Intl.DateTimeFormat("en-CA", {
                 timeZone: "Asia/Hong_Kong",

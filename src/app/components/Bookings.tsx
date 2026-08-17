@@ -34,7 +34,7 @@ import { toast } from 'sonner@2.0.3';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { useTheme } from './ThemeContext';
-import { translateStatus } from '../../../../../i18n';
+import { DATE_INPUT_LANG, translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 
@@ -954,6 +954,7 @@ export function Bookings({
             <div className="flex items-center gap-2">
               <input
                 type="date"
+                lang={DATE_INPUT_LANG}
                 value={dateFilter.start}
                  onChange={(e) => handleSetDateFilter({ ...dateFilter, start: e.target.value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
@@ -962,6 +963,7 @@ export function Bookings({
               <span className="flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>{m('to')}</span>
               <input
                 type="date"
+                lang={DATE_INPUT_LANG}
                 value={dateFilter.end}
                  onChange={(e) => handleSetDateFilter({ ...dateFilter, end: e.target.value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
@@ -1300,6 +1302,7 @@ export function Bookings({
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
                     <input
                       type="date"
+                      lang={DATE_INPUT_LANG}
                       name="date"
                       value={bookingForm.date}
                       onChange={handleBookingFormChange}
