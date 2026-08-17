@@ -1017,6 +1017,20 @@ function getPriceSectionPrices(pricePreview?: {
   };
 }
 
+function securityEscortPreviewAmount(
+  pricePreview: {
+    breakdown?: Array<{ label: string; subtotal: number }>;
+  } | null | undefined,
+  enabled: boolean,
+): number {
+  if (!enabled) return 0;
+  const line = (pricePreview?.breakdown ?? []).find((l) =>
+    /security escort/i.test(l.label ?? ''),
+  );
+  if (line && Number(line.subtotal) > 0) return Number(line.subtotal);
+  return 1200;
+}
+
 // Lane B catalog lines only — Lane A specials keep dedicated step2Form rows.
 function filterLaneBCatalogAddonLines(
   addonLines: Array<{
@@ -4531,7 +4545,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form.loungeExtension > 0 ||
       step2Form.limousineService > 0 ||
       step2Form.wheelchairService > 0 ||
+      step2Form.securityService ||
       reviewCatalogAddonLines.length > 0;
+    const securityReviewAmount = securityEscortPreviewAmount(
+      pricePreview,
+      step2Form.securityService,
+    );
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
     const suiteCount = form.premiereSuites || 1;
@@ -5022,6 +5041,36 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
               ))}
+
+              {step2Form.securityService && (
+                <div
+                  className="rounded-lg px-4 py-3"
+                  style={addonItemBg}
+                  data-testid="final-review-security-addon-row"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <Shield className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-xs" style={textMuted}>
+                          {m('Security Escort Service')}
+                        </div>
+                        <div className="text-sm mt-0.5" style={textPrimary}>
+                          {m('Qty')} 1
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <div className="text-xs" style={textMuted}>
+                        HK${securityReviewAmount.toLocaleString()} × 1
+                      </div>
+                      <div className="text-sm mt-0.5" style={textPrimary}>
+                        HK${securityReviewAmount.toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Add-on total row */}
               <div
@@ -5650,13 +5699,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {step2Form.securityService && (
               <div
                 className="mt-3 p-3 rounded-lg text-sm"
+                data-testid="security-escort-price-note"
                 style={{
                   background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.15)',
                   border: isDark ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(220,181,21,0.4)',
                   color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
                 }}
               >
-                💰 {m('Separate charges are required for security service. Our team will contact you for pricing details.')}
+                💰 HK${securityEscortPreviewAmount(pricePreview, true).toLocaleString()}
               </div>
             )}
           </div>
@@ -6308,7 +6358,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {step2Form.securityService && (
                   <SummaryRow
                     label="Security Escort Service"
-                    value="Yes"
+                    value={`HK$${securityEscortPreviewAmount(pricePreview, true).toLocaleString()}`}
                   />
                 )}
                 {step2Form.luggageCount > 0 && (
