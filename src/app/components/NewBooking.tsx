@@ -978,7 +978,7 @@ function getPriceSectionPrices(pricePreview?: {
     .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Lounge Deluxe/i.test(l.label))
     .reduce((sum, l) => sum + l.subtotal, 0);
   const ppAddonsSubtotal = ppBreakdown
-    .filter((l) => ADDON_KEYS.has(l.key))
+    .filter((l) => ADDON_KEYS.has(l.key) && !/security escort/i.test(l.label ?? ''))
     .reduce((sum, l) => sum + l.subtotal, 0);
   const membershipDiscounts = ppBreakdown
     .filter((l) => MEMBERSHIP_DISCOUNT_KEYS.has(l.key));
@@ -999,7 +999,12 @@ function getPriceSectionPrices(pricePreview?: {
   // three step2Form steppers, so Lane B names were missing while the
   // Add-on Services Subtotal still included them.
   const addonLines = ppHasLoaded
-    ? ppBreakdown.filter((l) => ADDON_KEYS.has(l.key) && l.subtotal !== 0)
+    ? ppBreakdown.filter(
+        (l) =>
+          ADDON_KEYS.has(l.key) &&
+          l.subtotal !== 0 &&
+          !/security escort/i.test(l.label ?? ''),
+      )
     : [];
   return {
     psSectionPrice: ppHasLoaded ? ppPsSectionSubtotal : 0,
@@ -1015,20 +1020,6 @@ function getPriceSectionPrices(pricePreview?: {
     ppHasLoaded,
     finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
   };
-}
-
-function securityEscortPreviewAmount(
-  pricePreview: {
-    breakdown?: Array<{ label: string; subtotal: number }>;
-  } | null | undefined,
-  enabled: boolean,
-): number {
-  if (!enabled) return 0;
-  const line = (pricePreview?.breakdown ?? []).find((l) =>
-    /security escort/i.test(l.label ?? ''),
-  );
-  if (line && Number(line.subtotal) > 0) return Number(line.subtotal);
-  return 1200;
 }
 
 // Lane B catalog lines only — Lane A specials keep dedicated step2Form rows.
@@ -1140,6 +1131,10 @@ function useThemedStyles() {
   };
 
   const optionBg = isDark ? 'bg-gray-900' : 'bg-white';
+  const optionStyle: React.CSSProperties = {
+    backgroundColor: isDark ? '#0a1929' : '#ffffff',
+    color: isDark ? '#ffffff' : 'rgb(64, 63, 52)',
+  };
 
   // Back / secondary navigation button style (Step 2 & 3)
   const backBtnStyle: React.CSSProperties = {
@@ -1195,7 +1190,7 @@ function useThemedStyles() {
   return {
     isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle,
     textPrimary, textSecondary, textMuted, stepperCardBg, stepperBtnStyle, stepperIconColor,
-    reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg,
+    reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, optionStyle,
     addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg,
     dividerClass, borderSubtle, borderMedium, borderDivider,
     backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg,
@@ -2139,7 +2134,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const m = useMsg();
   const priceLineLabel = (label: string) =>
     translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
-  const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
+  const { isDark, colors, card, fieldStyle, fieldClass, labelClass, labelStyle, textPrimary, textSecondary, textMuted, stepperCardBg, reviewSectionBg, reviewHeaderBg, secondaryBtnStyle, optionBg, optionStyle, addonItemBg, summaryBoxBg, summaryPurpleBg, addonTotalBg, dividerClass, borderSubtle, borderMedium, borderDivider, backBtnStyle, summaryBoxGoldBg, summaryBoxGoldHeaderBg, guestBadgeBg, taInfoBoxBg, creditTermsBoxBg, priceBreakdownTotalBg, iconMutedClass } = useThemedStyles();
   const { glassStyle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2305,12 +2300,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const freeLdRemaining = memberData.freeLoungeDeluxeEntriesRemaining;
   const freePsRemaining = memberData.freePremiereSuiteUpgradesRemaining;
+  const bookingIncludesPremiereSuite =
+    form.premiereSuites > 0
+    || (form.premiereVipPassengers ?? 0) > 0
+    || (form.premiereNonFlyingGuests ?? 0) > 0;
   const canUseFreeLd = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
-  // Free Premiere Suite upgrade is dual-quota: needs free PS voucher AND a free Lounge Deluxe entry (or unlimited).
+  // Free Premiere Suite upgrade is dual-quota: needs PS on the booking,
+  // free PS voucher, LD remaining, and the LD credit checkbox on.
+  // Cannot use free PS credit alone.
   const canUseFreePs =
     isEligibleIndividualMembership
+    && bookingIncludesPremiereSuite
     && hasFreeCreditAvailable(freePsRemaining)
-    && hasFreeCreditAvailable(freeLdRemaining);
+    && hasFreeCreditAvailable(freeLdRemaining)
+    && useMembershipLdFree;
 
   // Keep toggles honest when quotas are exhausted (Sky Q5: disable when remaining = 0).
   useEffect(() => {
@@ -4217,7 +4220,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // Gate the Add-on Services section on a non-zero subtotal. The
     // helper already zero-gates on `ppHasLoaded` so the section
     // stays hidden until the backend returns a real number.
-    const hasAddonSection = addonsAmtFinal > 0 || addonLines.length > 0;
+    const hasAddonSection =
+      addonsAmtFinal > 0 || addonLines.length > 0 || step2Form.securityService;
 
     return (
       <div className="rounded-xl overflow-hidden" style={summaryBoxGoldBg}>
@@ -4366,6 +4370,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
               ))}
+              {step2Form.securityService && (
+                <div
+                  className="flex items-center justify-between"
+                  data-testid="booking-summary-security-row"
+                >
+                  <span className="text-xs" style={{ color: colors.textMuted }}>
+                    {m('Security Escort Service')}
+                  </span>
+                  <span className="text-xs font-medium" style={textPrimary}>
+                    {m('To be confirmed')}
+                  </span>
+                </div>
+              )}
               <div
                 className="flex items-center justify-between pt-1.5 mt-1"
                 style={{ borderTop: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}
@@ -4547,10 +4564,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form.wheelchairService > 0 ||
       step2Form.securityService ||
       reviewCatalogAddonLines.length > 0;
-    const securityReviewAmount = securityEscortPreviewAmount(
-      pricePreview,
-      step2Form.securityService,
-    );
 
     // ── Accommodation grid pre-computation ──────────────────────────────────
     const suiteCount = form.premiereSuites || 1;
@@ -4660,7 +4673,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
               </p>
               <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                {m('Membership:')} {prefillMember.membershipLabel} · {m("Vouchers deducted from this member's account")}
+                {m('Membership:')} {m(prefillMember.membershipLabel)} · {m("Vouchers deducted from this member's account")}
               </p>
             </div>
           </div>
@@ -5062,10 +5075,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </div>
                     <div className="text-right flex-shrink-0">
                       <div className="text-xs" style={textMuted}>
-                        HK${securityReviewAmount.toLocaleString()} × 1
-                      </div>
-                      <div className="text-sm mt-0.5" style={textPrimary}>
-                        HK${securityReviewAmount.toLocaleString()}
+                        {m('To be confirmed')}
                       </div>
                     </div>
                   </div>
@@ -5640,7 +5650,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   }
                   return (
                   <div key={i}>
-                    <label className={labelClass}>{m('Passenger {n} Name').replace('{n}', String(i + 1))} *</label>
+                    <label className={labelClass} style={labelStyle}>{m('Passenger {n} Name').replace('{n}', String(i + 1))} *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <select
@@ -5660,7 +5670,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         style={fieldStyle}
                         className={fieldClass + ' appearance-none pl-10 pr-10 cursor-pointer'}
                       >
-                        <option value="" className={optionBg}>
+                        <option value="" className={optionBg} style={optionStyle}>
                           {bookingGuestNames.length === 0
                             ? m('No named guests yet — add names in Step 2')
                             : m('Select guest name')}
@@ -5670,6 +5680,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                             key={name}
                             value={name}
                             className={optionBg}
+                            style={optionStyle}
                             disabled={takenNames.has(name)}
                           >
                             {name}
@@ -5701,12 +5712,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 className="mt-3 p-3 rounded-lg text-sm"
                 data-testid="security-escort-price-note"
                 style={{
-                  background: isDark ? 'rgba(220,181,21,0.1)' : 'rgba(220,181,21,0.15)',
-                  border: isDark ? '1px solid rgba(220,181,21,0.3)' : '1px solid rgba(220,181,21,0.4)',
-                  color: isDark ? 'rgba(220,181,21,1)' : 'rgba(180,145,17,1)',
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(231,230,221,0.5)',
+                  border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)',
+                  color: colors.textSecondary,
                 }}
               >
-                💰 HK${securityEscortPreviewAmount(pricePreview, true).toLocaleString()}
+                {m('To be confirmed')}
               </div>
             )}
           </div>
@@ -5963,7 +5974,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="use-membership-ld-free"
                   checked={useMembershipLdFree}
                   disabled={!canUseFreeLd}
-                  onChange={(e) => setUseMembershipLdFree(e.target.checked)}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    setUseMembershipLdFree(on);
+                    if (!on) setUseMembershipPsFree(false);
+                  }}
                 />
                 <span>
                   <span className="font-medium" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</span>
@@ -5988,8 +6003,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <span>
                   <span className="font-medium" style={textPrimary}>{m('Use free Premiere Suite upgrade on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
-                    {m('For a Premiere Suite-only booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry together. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry). If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.')}
-                    {!canUseFreePs ? ` ${m('Free Premiere Suite upgrade is not available right now (no free upgrade and/or no free Lounge Deluxe entry left).')}` : ''}
+                    {m('For a Premiere Suite booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry together — you cannot use the Suite credit alone. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry). If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.')}
+                    {!bookingIncludesPremiereSuite ? ` ${m('Add a Premiere Suite to this booking to use a free Suite upgrade.')}` : ''}
+                    {bookingIncludesPremiereSuite && canUseFreeLd && !useMembershipLdFree ? ` ${m('Check the Lounge Deluxe credit above first — a free Suite upgrade cannot be used on its own.')}` : ''}
+                    {bookingIncludesPremiereSuite && useMembershipLdFree && !hasFreeCreditAvailable(freePsRemaining) ? ` ${m('You have no free Premiere Suite upgrades left.')}` : ''}
                   </span>
                 </span>
               </label>
@@ -5997,7 +6014,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             {(form.premiereSuites > 0 && (form.vipPassengers > 0 || form.nonFlyingGuests > 0)) && (
               <p className="text-xs mt-3" style={textMuted}>
-                {m('Note: free membership credits apply to Lounge Deluxe-only or Premiere Suite-only bookings, not when both are on the same booking.')}
+                {m('Note: when this booking includes both Lounge Deluxe and Premiere Suite and both credits are on, only the free Premiere Suite upgrade applies (the Lounge Deluxe room is charged). That upgrade uses one Suite credit and one Lounge Deluxe entry together.')}
               </p>
             )}
           </div>
@@ -6357,8 +6374,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 ))}
                 {step2Form.securityService && (
                   <SummaryRow
-                    label="Security Escort Service"
-                    value={`HK$${securityEscortPreviewAmount(pricePreview, true).toLocaleString()}`}
+                    label={m('Security Escort Service')}
+                    value={m('To be confirmed')}
                   />
                 )}
                 {step2Form.luggageCount > 0 && (
@@ -6527,7 +6544,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: memberBannerSubS1 }}>
-                  {m('Membership:')} {prefillMember.membershipLabel}
+                  {m('Membership:')} {m(prefillMember.membershipLabel)}
                   {' · '}
                   {m('Voucher balance:')} {prefillMember.voucherCount}{' '}
                   {prefillMember.voucherCount !== 1 ? m('vouchers') : m('voucher')}
@@ -7131,7 +7148,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
               </p>
               <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                {m('Membership:')} {prefillMember.membershipLabel}
+                {m('Membership:')} {m(prefillMember.membershipLabel)}
                 {' · '}
                 {m('Voucher balance:')} {prefillMember.voucherCount}{' '}
                 {prefillMember.voucherCount !== 1 ? m('vouchers') : m('voucher')}
