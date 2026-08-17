@@ -1069,6 +1069,7 @@ export function GroupAdmin({
                     }
                   }}
                   className="w-full pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
+                  inputStyle={fieldStyle}
                   listStyle={{
                     ...fieldStyle,
                     background: mode === 'dark' ? 'rgba(30,30,30,0.98)' : 'rgba(255,255,255,0.98)',
@@ -1134,7 +1135,12 @@ export function GroupAdmin({
                 </div>
                 <div>
                   <h3 className="text-xl font-bold" style={{ color: colors.text }}>{m('Edit Member')}</h3>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>Update {selectedMember.title} {selectedMember.firstName} {selectedMember.lastName}'s details</p>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    {m("Update {name}'s details").replace(
+                      '{name}',
+                      `${selectedMember.title} ${selectedMember.firstName} ${selectedMember.lastName}`,
+                    )}
+                  </p>
                 </div>
               </div>
               <button
@@ -1239,6 +1245,7 @@ export function GroupAdmin({
                     }
                   }}
                   className="w-full pl-10 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
+                  inputStyle={fieldStyle}
                   listStyle={{
                     ...fieldStyle,
                     background: mode === 'dark' ? 'rgba(30,30,30,0.98)' : 'rgba(255,255,255,0.98)',

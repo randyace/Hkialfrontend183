@@ -514,7 +514,7 @@ export function MembershipFlowModal({
 
         <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Membership Activated!')}</p>
         <p className="text-sm mb-2 max-w-xs" style={{ color: subText }}>
-          <strong style={{ color: 'rgb(220,181,21)' }}>{selectedTier.name} {selectedTier.memberType} Membership</strong>
+          <strong style={{ color: 'rgb(220,181,21)' }}>{m(selectedTier.name)} {m(selectedTier.memberType)} {m('Membership')}</strong>
           {' '}has been assigned to
         </p>
         <p className="text-sm mb-8" style={{ color: pageText }}>{memberFullName}</p>
@@ -527,7 +527,7 @@ export function MembershipFlowModal({
                 <TierIcon className="w-6 h-6 text-white" />
               </div>
               <div className="text-left">
-                <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} {selectedTier.memberType} Membership</p>
+                <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m(selectedTier.memberType)} {m('Membership')}</p>
                 <p className="text-xs" style={{ color: subText }}>{selectedTier.tagline}</p>
               </div>
             </div>
@@ -560,9 +560,9 @@ export function MembershipFlowModal({
     const TierIcon = selectedTier.Icon;
 
     const priceRows = [
-      { label: 'Plan Price', value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
-      { label: 'Duration', value: '1 year' },
-      { label: 'Processing Fee', value: 'Waived', green: true },
+      { label: m('Plan Price'), value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
+      { label: m('Duration'), value: m('1 year') },
+      { label: m('Processing Fee'), value: m('Waived'), green: true },
     ];
 
     return (
@@ -604,7 +604,7 @@ export function MembershipFlowModal({
               <div className="overflow-y-auto p-5 space-y-5" style={{ maxHeight: '320px' }}>
                 {termsAndConditions.map((section) => (
                   <div key={section.title}>
-                    <p className="text-xs mb-2" style={{ color: 'rgb(220,181,21)' }}>{section.title}</p>
+                    <p className="text-xs mb-2" style={{ color: 'rgb(220,181,21)' }}>{m(section.title)}</p>
                     <p className="text-xs leading-relaxed" style={{ color: subText }}>{m(section.body)}</p>
                   </div>
                 ))}
@@ -641,8 +641,8 @@ export function MembershipFlowModal({
                     <TierIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm" style={{ color: pageText }}>{selectedTier.name} {m('Membership')}</p>
-                    <p className="text-xs" style={{ color: subText }}>{selectedTier.memberType} · {selectedTier.tagline}</p>
+                    <p className="text-sm" style={{ color: pageText }}>{m(selectedTier.name)} {m('Membership')}</p>
+                    <p className="text-xs" style={{ color: subText }}>{m(selectedTier.memberType)} · {selectedTier.tagline}</p>
                   </div>
                 </div>
 
@@ -875,7 +875,7 @@ export function MembershipFlowModal({
                 <div className="p-6 flex flex-col flex-1">
                   {tier.badge && (
                     <div className="mb-3">
-                      <span className="text-xs px-2.5 py-1 rounded-full" style={badgeStyle}>{tier.badge}</span>
+                      <span className="text-xs px-2.5 py-1 rounded-full" style={badgeStyle}>{m(tier.badge)}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-3 mb-4">
@@ -925,7 +925,7 @@ export function MembershipFlowModal({
                     className="w-full py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
                     style={ctaStyle}
                   >
-                    Select Plan
+                    {m('Select Plan')}
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
