@@ -3198,7 +3198,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       const res = await flightsApi.lookupFlight({
         flight_no: flightNo,
         date: form.date,
-        flight_type: form.flightType,
+        flight_type: form.flightType as 'Arrival' | 'Departure' | 'Transit',
       });
       const data = res.data;
       if (!data) {
