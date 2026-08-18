@@ -42,6 +42,7 @@ import {
   Loader2,
   AlertTriangle,
   Globe2,
+  Search,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import {
@@ -95,6 +96,15 @@ import { DATE_INPUT_LANG, getAppLocale, toBcp47Locale } from '../../../../../i18
 import { useTranslation } from 'react-i18next';
 import { translatePriceLineLabel } from '../../../../../lib/addons/translatePriceLineLabel';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
+// 2026-08-18 (round — Cirium Sky API migration, Task 11). Step 1
+// Lookup button calls `flightsApi.lookupFlight` (auth.api, member
+// Bearer). The helper handles the Laravel envelope unwrap + Bearer
+// token read at request time (INV-X4 / INV-X5).
+import { flightsApi } from '../../../../../services/api';
+// 2026-08-18 (round — Cirium Sky API migration, Task 11). The Step 1
+// Lookup button surfaces success/error toasts via the same sonner
+// API the admin figma-ui uses for the same affordance.
+import { toast } from 'sonner@2.0.3';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -2247,6 +2257,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // api.ts). Kept as separate useState (not packed into `form`) for
   // the same reason as the leg2* cluster below.
   const [leg1FlightTime, setLeg1FlightTime] = useState('');
+  // 2026-08-18 (round — Cirium Sky API migration, Task 11). Local
+  // loading state for the Step 1 Lookup button. Mirrors the admin
+  // figma-ui's `flightLookupLoading`. Prevents double-submit while
+  // `flightsApi.lookupFlight` is in flight.
+  const [flightLookupLoading, setFlightLookupLoading] = useState(false);
   // 2026-06-08 — Transit 2nd leg fields (I-T2, Q4A reuse). The 1st leg
   // uses date/flightNumber/flightClass above; the 2nd leg is collected
   // here. Only meaningful when flightType === 'Transit' — the backend's
@@ -3151,6 +3166,76 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     const fd = flightDatabase[upper] ?? null;
     setFlightDetails(fd);
     setForm((p) => ({ ...p, flightNumber: upper, origin: fd?.origin ?? p.origin }));
+  };
+
+  // 2026-08-18 (round — Cirium Sky API migration, Task 11). Step 1
+  // Lookup button handler. Mirrors the admin figma-ui's
+  // `onFlightLookup` shape (line 2701-2742 of admin
+  // CreateBooking.tsx) but with member-side wiring:
+  //   - Auth: `flightsApi.lookupFlight` uses `auth.api` Bearer
+  //     (read fresh from localStorage on every call → INV-X4).
+  //   - Envelope: `request()` returns `{ data: laravelEnvelope, success }`
+  //     → resource is unwrapped at `response.data.data` (INV-X5).
+  //   - Transit: the backend returns `cirium_transit_unsupported` (400)
+  //     and the form's Step 1 toggle currently only renders
+  //     Arrival/Departure, so the guard is defensive (matches the
+  //     brief's contract for parity with the admin surface).
+  //   - Error toast: `error_code` + `message` are surfaced via the
+  //     structured error fields the `request()` helper exposes on
+  //     the thrown Error instance.
+  //   - Success: populates `leg1FlightTime` (HH:MM), `form.origin`,
+  //     `form.destination`, and the `flightDetails` summary so the
+  //     "Flight Information Found" card lights up.
+  const handleFlightLookup = async () => {
+    const flightNo = form.flightNumber.trim();
+    if (!flightNo || !form.date) return;
+    if (form.flightType === 'Transit') {
+      toast.error(m('Transit lookup is not supported in v1 — enter leg 1 and leg 2 manually.'));
+      return;
+    }
+    setFlightLookupLoading(true);
+    try {
+      const res = await flightsApi.lookupFlight({
+        flight_no: flightNo,
+        date: form.date,
+        flight_type: form.flightType,
+      });
+      const data = res.data;
+      if (!data) {
+        toast.error(m('Flight lookup returned no data.'));
+        return;
+      }
+      if (data.flight_no) {
+        setForm((p) => ({ ...p, flightNumber: data.flight_no.toUpperCase() }));
+      }
+      if (data.flight_time) {
+        // Backend returns HH:MM (or HH:MM:SS) — Time5MinSelect expects
+        // HH:MM. Slice defensively so a 3-segment value still works.
+        const hhmm = data.flight_time.length >= 5
+          ? data.flight_time.slice(0, 5)
+          : data.flight_time;
+        setLeg1FlightTime(hhmm);
+      }
+      if (data.origin) {
+        setForm((p) => ({ ...p, origin: data.origin }));
+      }
+      if (data.destination) {
+        setForm((p) => ({ ...p, destination: data.destination }));
+      }
+      setFlightDetails({
+        origin: data.origin ?? '',
+        destination: data.destination ?? '',
+        arrivalTime: data.flight_time ?? '',
+      });
+      const cachedSuffix = data.cached ? ' (cached)' : '';
+      toast.success(m('Flight details loaded') + cachedSuffix);
+    } catch (err) {
+      const e = err as { error_code?: string; message?: string };
+      const code = e?.error_code ? `${e.error_code}: ` : '';
+      toast.error(m(code + (e?.message ?? 'Flight lookup failed.')));
+    } finally {
+      setFlightLookupLoading(false);
+    }
   };
 
   const updateCount = (
@@ -6669,20 +6754,43 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             {/* Flight Number — 2026-06-08 (round 6.2.7): moved to the top
                 of the section, right after the Flight Type toggle. The
                 user wanted Flight Number to be the first field the user
-                sees / fills, so it sits above date/time/origin. */}
+                sees / fills, so it sits above date/time/origin.
+                2026-08-18 (round — Cirium Sky API migration, Task 11):
+                Lookup button added next to the input. Mirrors the
+                admin CreateBooking.tsx shape (testid
+                `create-flight-lookup` → `customer-lookup-flight` for
+                the customer surface). Gated on `flightNumber` trim
+                + `form.date` (the backend's `date_format:Y-m-d`
+                validator). Calls `flightsApi.lookupFlight` and
+                populates flight_time / origin / destination on success. */}
             <div className="mb-4">
               <label className={labelClass}>{m('Flight Number *')}</label>
-              <div className="relative">
-                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  value={form.flightNumber}
-                  onChange={(e) => handleFlightNumber(e.target.value)}
-                  required
-                  placeholder={m('e.g. CX888')}
-                  style={fieldStyle}
-                  className={fieldClass + ' pl-10 uppercase'}
-                />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={form.flightNumber}
+                    onChange={(e) => handleFlightNumber(e.target.value)}
+                    required
+                    placeholder={m('e.g. CX888')}
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10 uppercase'}
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-testid="customer-lookup-flight"
+                  disabled={flightLookupLoading || !form.flightNumber.trim() || !form.date}
+                  title={!form.date ? m('Select flight date first') : m('Lookup flight details')}
+                  onClick={handleFlightLookup}
+                  className="shrink-0 px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                >
+                  {flightLookupLoading
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Search className="w-3.5 h-3.5" />}
+                  {m('Lookup')}
+                </button>
               </div>
             </div>
 
