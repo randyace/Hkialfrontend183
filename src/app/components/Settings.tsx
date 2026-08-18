@@ -55,6 +55,7 @@ export interface SettingsProps {
       spousePhone?: string;
       spouseNationality?: string;
       spousePassportFirst4?: string;
+      spouseBirthday?: string;
     };
     appearance?: {
       theme?: "light" | "dark";
@@ -108,6 +109,7 @@ const MOCK_SETTINGS = {
     spousePhone: "+852 9123 4567",
     spouseNationality: "HK",
     spousePassportFirst4: "5678",
+    spouseBirthday: "1990-11-02",
   },
   appearance: {
     theme: "light",
@@ -853,10 +855,52 @@ export function Settings({
               maxLength={4}
             />
           </div>
+          <div id="settings-spouse-birthday">
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.spouseBirthday")}{" "}
+              <span style={{ color: "rgb(220,181,21)" }}>*</span>
+            </label>
+            <div className="relative">
+              <Calendar
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
+                style={{ color: colors.textMuted }}
+              />
+              <input
+                type="date"
+                lang={DATE_INPUT_LANG}
+                value={profile.spouseBirthday ?? ""}
+                readOnly={spouseLocked}
+                disabled={spouseLocked}
+                aria-readonly={spouseLocked ? "true" : undefined}
+                max={new Intl.DateTimeFormat("en-CA", {
+                  timeZone: "Asia/Hong_Kong",
+                }).format(new Date())}
+                min="1900-01-01"
+                onChange={(e) => {
+                  if (spouseLocked) return;
+                  updateSetting("profile", "spouseBirthday", e.target.value);
+                }}
+                className={`w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none ${
+                  spouseLocked
+                    ? "cursor-not-allowed opacity-70"
+                    : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+                }`}
+                style={inputStyle}
+              />
+            </div>
+          </div>
         </div>
         {fieldErrors["spouseFirstName"] && (
           <p className="text-xs" style={{ color: "#ef4444" }}>
             {fieldErrors["spouseFirstName"]}
+          </p>
+        )}
+        {fieldErrors["spouseBirthday"] && (
+          <p className="text-xs" style={{ color: "#ef4444" }}>
+            {fieldErrors["spouseBirthday"]}
           </p>
         )}
       </div>
