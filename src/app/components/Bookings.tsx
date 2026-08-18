@@ -40,7 +40,6 @@ import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 import {
   openBookingDocumentFromBackend,
   isBookingReceiptDocument,
-  normalizeBackendDocumentUrl,
   openBackendPdfDeliveryWindow,
   resolveBookingDocumentHref,
 } from '../../../../../utils/bookingDocumentDownload';
@@ -503,16 +502,6 @@ export function Bookings({
       return;
     }
     if (documentDownloadingId != null) return;
-
-    const directUrl = booking.document_url ?? booking.documentUrl;
-    if (directUrl) {
-      window.open(
-        normalizeBackendDocumentUrl(String(directUrl)),
-        '_blank',
-        'noopener,noreferrer',
-      );
-      return;
-    }
 
     const previewTab = openBackendPdfDeliveryWindow();
     setDocumentDownloadingId(booking.id);
