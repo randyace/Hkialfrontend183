@@ -37,6 +37,13 @@ import { useTheme } from './ThemeContext';
 import { DATE_INPUT_LANG, translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
+import {
+  openBookingDocumentFromBackend,
+  isBookingReceiptDocument,
+  normalizeBackendDocumentUrl,
+  openBackendPdfDeliveryWindow,
+  resolveBookingDocumentHref,
+} from '../../../../../utils/bookingDocumentDownload';
 
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
@@ -390,6 +397,7 @@ export function Bookings({
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState<any>(null);
   const [cancelError, setCancelError] = useState('');
+  const [documentDownloadingId, setDocumentDownloadingId] = useState<number | string | null>(null);
   const [bookingForm, setBookingForm] = useState({
     date: '',
     time: '',
@@ -483,6 +491,49 @@ export function Bookings({
   const handleShowQR = (booking: typeof bookings[number]) => {
     setSelectedBooking(booking);
     setShowQRModal(true);
+  };
+
+  const handleDownloadDocument = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    booking: typeof bookings[number],
+  ) => {
+    event.preventDefault();
+    if (booking?.id == null) {
+      toast.error(m('Document is not available for this booking.'));
+      return;
+    }
+    if (documentDownloadingId != null) return;
+
+    const directUrl = booking.document_url ?? booking.documentUrl;
+    if (directUrl) {
+      window.open(
+        normalizeBackendDocumentUrl(String(directUrl)),
+        '_blank',
+        'noopener,noreferrer',
+      );
+      return;
+    }
+
+    const previewTab = openBackendPdfDeliveryWindow();
+    setDocumentDownloadingId(booking.id);
+    try {
+      const result = await openBookingDocumentFromBackend(booking, { previewTab });
+      if (!result.ok) {
+        toast.error(m(result.message));
+        return;
+      }
+      toast.success(
+        isBookingReceiptDocument(booking)
+          ? m('Receipt download started')
+          : m('Invoice download started'),
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : m('Failed to download document'),
+      );
+    } finally {
+      setDocumentDownloadingId(null);
+    }
   };
 
   // ── Apple Wallet ──────────────────────────────────────────────────────────
@@ -1121,15 +1172,27 @@ export function Bookings({
                     </button>
                   </>
                 )}
-                {booking.status === 'completed' && (
-                  <button
-                    className="px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-sm"
-                    style={secondaryBtnStyle}
-                  >
-                    <Download className="w-4 h-4" />
-                    {m('Receipt')}
-                  </button>
-                )}
+                <a
+                  href={resolveBookingDocumentHref(booking)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="booking-list-download-document"
+                  onClick={(event) => handleDownloadDocument(event, booking)}
+                  aria-disabled={documentDownloadingId === booking.id}
+                  className="px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-sm whitespace-nowrap hover:opacity-90"
+                  style={{
+                    ...secondaryBtnStyle,
+                    pointerEvents: documentDownloadingId === booking.id ? 'none' : undefined,
+                    opacity: documentDownloadingId === booking.id ? 0.7 : 1,
+                  }}
+                >
+                  <Download className="w-4 h-4" />
+                  {documentDownloadingId === booking.id
+                    ? m('Downloading...')
+                    : isBookingReceiptDocument(booking)
+                      ? m('Download Receipt')
+                      : m('Download Invoice')}
+                </a>
               </div>
             </div>
 

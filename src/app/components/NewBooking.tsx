@@ -91,6 +91,12 @@ import {
   decodeQrFromOptimizedImageFile,
   optimizeQrImageFile,
 } from '../../../../../utils/decodeQrFromImageFile';
+import {
+  isNfgChildrenAgeGroup,
+  isNonFlyingChildAgeFilled,
+  NFG_CHILD_AGE_VALUES,
+  NFG_CHILDREN_AGE_GROUP,
+} from '../../../../../utils/bookingGuestPayload';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { DATE_INPUT_LANG, getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
@@ -712,6 +718,7 @@ interface HistoryBooking {
     firstName?: string;
     lastName?: string;
     ageGroup?: string;
+    age?: number | string | null;
     foodAllergies?: string;
     nationality?: string;
   }>;
@@ -745,6 +752,8 @@ interface NonFlyingGuest {
   guestFirstName: string;
   guestLastName: string;
   guestAgeGroup: string;
+  /** Child age (2–11) when guestAgeGroup is Children (aged 2-11). */
+  guestAge: string;
   foodAllergies: string;
   /** ISO 3166-1 alpha-2 (mandatory). */
   nationality: string;
@@ -803,6 +812,7 @@ const EMPTY_HISTORY_NFG: NonFlyingGuest = {
   guestFirstName: '',
   guestLastName: '',
   guestAgeGroup: '',
+  guestAge: '',
   foodAllergies: '',
   nationality: '',
 };
@@ -833,6 +843,10 @@ export function mapHistoryGuestToNfg(
     guestFirstName: historyNonBlank(g.firstName),
     guestLastName: historyNonBlank(g.lastName),
     guestAgeGroup: historyNonBlank(g.ageGroup) || 'Adults (aged 12 and above)',
+    guestAge:
+      g.age != null && String(g.age).trim() !== ''
+        ? String(g.age).trim()
+        : '',
     foodAllergies: historyNonBlank(g.foodAllergies),
     nationality: historyNonBlank(g.nationality).toUpperCase(),
   };
@@ -2748,6 +2762,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       g.guestFirstName.trim() !== ''
       && g.guestLastName.trim() !== ''
       && g.guestAgeGroup !== ''
+      && isNonFlyingChildAgeFilled(g.guestAgeGroup, g.guestAge)
       && isValidCountryCode(g.nationality)
   );
   // 2026-06-24 (Sky) — each PS / LD segment must include at least
@@ -2805,7 +2820,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Each Premiere Suite requires at least 1 VIP Passenger');
   }
   if (!allGuestFilled) {
-    step1Hints.push('Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group, Nationality)');
+    step1Hints.push(
+      'Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group, Nationality, and Age for children aged 2–11)',
+    );
   }
   // Legacy single-string for any caller still reading the old field.
   // The JSX hint block (line ~6149) now renders the bulleted list.
@@ -3126,6 +3143,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         guestFirstName: '',
         guestLastName: '',
         guestAgeGroup: '',
+        guestAge: '',
         foodAllergies: '',
         nationality: '',
       }));
@@ -3371,7 +3389,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const handleNonFlyingGuestChange = (idx: number, field: string, value: string) => {
     setNonFlyingGuestData((prev) => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [field]: value };
+      const row = { ...next[idx], [field]: value };
+      if (field === 'guestAgeGroup' && value !== NFG_CHILDREN_AGE_GROUP) {
+        row.guestAge = '';
+      }
+      next[idx] = row;
       return next;
     });
   };
@@ -5040,6 +5062,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     />
                     {g.guestAgeGroup && (
                       <ReviewField label="Age Group" value={g.guestAgeGroup} />
+                    )}
+                    {isNfgChildrenAgeGroup(g.guestAgeGroup) && g.guestAge && (
+                      <ReviewField
+                        label="Age"
+                        value={m('{n} years old').replace('{n}', g.guestAge)}
+                      />
                     )}
                     <ReviewField
                       label="Nationality"
@@ -7847,6 +7875,30 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
+
+                {isNfgChildrenAgeGroup(guest.guestAgeGroup) && (
+                  <div>
+                    <label className={labelClass}>{m('Age *')}</label>
+                    <div className="relative">
+                      <Cake className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      <select
+                        value={guest.guestAge}
+                        onChange={(e) => handleNonFlyingGuestChange(index, 'guestAge', e.target.value)}
+                        required
+                        style={fieldStyle}
+                        className={fieldClass + ' pl-10 appearance-none pr-10 cursor-pointer'}
+                      >
+                        <option value="" disabled className={optionBg}>{m('Select age')}</option>
+                        {NFG_CHILD_AGE_VALUES.map((n) => (
+                          <option key={n} value={String(n)} className={optionBg}>
+                            {m('{n} years old').replace('{n}', String(n))}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                )}
 
                 {/* Nationality */}
                 <div>
