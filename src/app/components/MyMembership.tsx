@@ -158,8 +158,6 @@ const TIER_CONFIG: Record<string, {
       'Complimentary refreshments & Wi-Fi',
       'Shower & rest facilities',
       '3 booking vouchers upon joining (account holder & spouse only)',
-      'Digital membership card',
-      '24/7 member support',
     ],
     membershipNumber: 'HKIAL-SLV-2847',
   },
