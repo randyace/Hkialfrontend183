@@ -2109,7 +2109,7 @@ function QRScannerModal({
                 />
               </svg>
             )}
-            {imageScanning ? m('Scanning image…') : 'Upload from Gallery'}
+            {imageScanning ? m('Scanning image…') : m('Upload from Gallery')}
           </button>
           {imageScanError && (
             <p className="text-xs text-center mt-2 text-red-400">{imageScanError}</p>
@@ -3245,12 +3245,34 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         destination: data.destination ?? '',
         arrivalTime: data.flight_time ?? '',
       });
-      const cachedSuffix = data.cached ? ' (cached)' : '';
-      toast.success(m('Flight details loaded') + cachedSuffix);
+      toast.success(
+        data.cached ? m('Flight details loaded (cached)') : m('Flight details loaded'),
+      );
     } catch (err) {
       const e = err as { error_code?: string; message?: string };
-      const code = e?.error_code ? `${e.error_code}: ` : '';
-      toast.error(m(code + (e?.message ?? 'Flight lookup failed.')));
+      const byCode: Record<string, string> = {
+        cirium_flight_not_found:
+          'No scheduled flight found for the given carrier, number, and date.',
+        cirium_transit_unsupported:
+          'Transit lookup is not supported in v1 — enter leg 1 and leg 2 manually.',
+        cirium_ambiguous:
+          'Multiple scheduled flights matched the request (multi-leg codeshare).',
+        cirium_disabled:
+          'Flight lookup is temporarily unavailable. Please enter details manually.',
+        cirium_not_configured:
+          'Flight lookup is temporarily unavailable. Please enter details manually.',
+        cirium_invalid_response:
+          'Flight lookup failed. Please try again or enter details manually.',
+        cirium_upstream_4xx:
+          'Flight lookup failed. Please try again or enter details manually.',
+        cirium_upstream:
+          'Flight lookup failed. Please try again or enter details manually.',
+        validation_failed:
+          'Flight lookup failed. Check the number and date, or try again.',
+      };
+      const english =
+        (e?.error_code && byCode[e.error_code]) || e?.message || 'Flight lookup failed.';
+      toast.error(m(english));
     } finally {
       setFlightLookupLoading(false);
     }
