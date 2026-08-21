@@ -542,9 +542,9 @@ interface BookForMemberData {
   title: string;
   firstName: string;
   lastName: string;
-  /** End-customer contact email (booking contact, not the agency payer). */
+  /** Group member profile email (VIP passenger identity, not booking contact). */
   email?: string;
-  /** End-customer contact phone (booking contact, not the agency payer). */
+  /** Group member profile phone (VIP passenger identity, not booking contact). */
   phone?: string;
   /** ISO 3166-1 alpha-2 nationality from the group member profile. */
   nationality?: string;
@@ -2519,14 +2519,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     privateTransport: 0,
     vehicles: [] as Array<{ driverName: string; driverContact: string; carPlateNo: string }>,
     promotionCode: '',
-    // Book-for-member: contact = end customer; account (payer) stays the agency.
-    // Without prefill, contact defaults to the logged-in member (agency self-book).
-    contactName: prefillMember
-      ? `${prefillMember.title} ${prefillMember.firstName} ${prefillMember.lastName}`.trim()
-      : (memberData.name || ''),
-    contactEmail: (prefillMember?.email && prefillMember.email.trim())
-      || memberData.email
-      || '',
+    // Book-for-member: contact = Group Admin who placed the booking.
+    // End customer is the VIP passenger / booked_for_account_id.
+    // Notifications must not go to the booked-for member.
+    contactName: memberData.name || '',
+    contactEmail: memberData.email || '',
     // 2026-06-24 (Sky) — split the contact number into a region
     // code combobox + a digits/dash number input. `contactNo` is
     // kept as a derived wire-shape field maintained in sync via
@@ -2544,14 +2541,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // (older accounts or local previews), splitContactPhone falls
     // back to region='+852' + empty number — same as the previous
     // hardcoded default.
-    //
-    // Book-for-member: prefer the end-customer's phone from Group Admin.
     ...(() => {
-      const phoneSource =
-        (prefillMember?.phone && prefillMember.phone.trim() && prefillMember.phone !== '—')
-          ? prefillMember.phone
-          : memberData.contactNumber;
-      const split = splitContactPhone(phoneSource);
+      const split = splitContactPhone(memberData.contactNumber);
       return {
         regionCode: split.regionCode,
         contactNumber: split.contactNumber,
