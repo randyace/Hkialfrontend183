@@ -1332,7 +1332,13 @@ export function Bookings({
             ? m('Select Receipt')
             : m('Select Invoice')
         }
+        description={
+          documentSelection?.kind === 'receipt'
+            ? m('Select a paid receipt to download.')
+            : m('Select an unpaid invoice to download.')
+        }
         downloadLabel={m('Download')}
+        closeLabel={m('Close')}
         typeLabelFor={invoiceTypeLabel}
         onClose={() => setDocumentSelection(null)}
         onDownload={async (invoice) => {

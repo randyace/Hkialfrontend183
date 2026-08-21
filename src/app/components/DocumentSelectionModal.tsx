@@ -10,7 +10,9 @@ export interface DocumentSelectionModalProps {
   invoices: BookingActiveInvoice[];
   downloadingInvoiceId?: number | null;
   title: string;
+  description: string;
   downloadLabel: string;
+  closeLabel?: string;
   typeLabelFor: (invoice: BookingActiveInvoice) => string;
   onClose: () => void;
   onDownload: (invoice: BookingActiveInvoice) => void | Promise<void>;
@@ -32,7 +34,9 @@ export function DocumentSelectionModal({
   invoices,
   downloadingInvoiceId = null,
   title,
+  description,
   downloadLabel,
+  closeLabel = 'Close',
   typeLabelFor,
   onClose,
   onDownload,
@@ -51,6 +55,7 @@ export function DocumentSelectionModal({
       aria-modal="true"
       aria-labelledby="document-selection-title"
       data-testid="document-selection-modal"
+      data-kind={kind}
       onClick={onClose}
     >
       <div
@@ -64,16 +69,14 @@ export function DocumentSelectionModal({
               {title}
             </h3>
             <p className="text-sm mt-1" style={{ color: mutedColor }}>
-              {kind === 'receipt'
-                ? 'Select a paid receipt to download.'
-                : 'Select an unpaid invoice to download.'}
+              {description}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-black/5 transition-colors"
-            aria-label="Close"
+            aria-label={closeLabel}
           >
             <X className="w-5 h-5" style={{ color: mutedColor }} />
           </button>
