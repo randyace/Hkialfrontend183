@@ -71,6 +71,8 @@ export interface BookForMemberData {
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
+  /** Group member account id — membership benefits must use this row, not the Group Admin payer. */
+  accountId: number;
 }
 
 // ── Membership package types ────────────────────────────────────────────────
@@ -503,6 +505,7 @@ export function GroupAdmin({
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
+      accountId: member.id,
     }) : navigate('/newbooking', { state: { prefillMember: {
       title: member.title,
       firstName: member.firstName,
@@ -513,6 +516,7 @@ export function GroupAdmin({
       passportPrefix: member.passportPrefix,
       voucherCount,
       membershipLabel,
+      accountId: member.id,
     }}});
   }
 

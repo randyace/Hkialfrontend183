@@ -551,6 +551,12 @@ interface BookForMemberData {
   passportPrefix: string;
   voucherCount: number;
   membershipLabel: string;
+  /** Group member account id. Membership fold/quota use this row, not the logged-in Group Admin. */
+  accountId?: number;
+  membershipType?: string | null;
+  membershipExpiryDate?: string | null;
+  freeLoungeDeluxeEntriesRemaining?: number | null;
+  freePremiereSuiteUpgradesRemaining?: number | null;
 }
 
 interface NewBookingProps {
@@ -2394,23 +2400,37 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     return value === -1 || value > 0;
   }
 
-  const membershipExpiryOk = (() => {
-    const exp = memberData.membershipExpiryDate;
+  const membershipExpiryOk = (exp: string | null | undefined): boolean => {
     if (!exp) return false;
     const d = new Date(`${exp}T00:00:00`);
     if (Number.isNaN(d.getTime())) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return d.getTime() >= today.getTime();
-  })();
+  };
 
-  const isEligibleIndividualMembership =
+  const bookedForAccountId =
+    typeof prefillMember?.accountId === 'number' && prefillMember.accountId > 0
+      ? prefillMember.accountId
+      : null;
+  const isEligibleBookedForMembership =
+    bookedForAccountId != null
+    && Boolean(prefillMember?.membershipType)
+    && membershipExpiryOk(prefillMember?.membershipExpiryDate);
+  const isEligibleLoggedInMembership =
     (memberData.memberType === 'Individual' || memberData.memberType === 'individual')
     && Boolean(memberData.membershipType)
-    && membershipExpiryOk;
+    && membershipExpiryOk(memberData.membershipExpiryDate);
+  const isEligibleIndividualMembership = bookedForAccountId != null
+    ? isEligibleBookedForMembership
+    : isEligibleLoggedInMembership;
 
-  const freeLdRemaining = memberData.freeLoungeDeluxeEntriesRemaining;
-  const freePsRemaining = memberData.freePremiereSuiteUpgradesRemaining;
+  const freeLdRemaining = bookedForAccountId != null
+    ? (prefillMember?.freeLoungeDeluxeEntriesRemaining ?? null)
+    : memberData.freeLoungeDeluxeEntriesRemaining;
+  const freePsRemaining = bookedForAccountId != null
+    ? (prefillMember?.freePremiereSuiteUpgradesRemaining ?? null)
+    : memberData.freePremiereSuiteUpgradesRemaining;
   const bookingIncludesPremiereSuite =
     form.premiereSuites > 0
     || (form.premiereVipPassengers ?? 0) > 0
@@ -4884,7 +4904,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
               </p>
               <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                {m('Membership:')} {m(prefillMember.membershipLabel)} · {m("Vouchers deducted from this member's account")}
+                {m('Membership:')} {m(prefillMember.membershipLabel)}
+                {isEligibleBookedForMembership
+                  ? <> · {m("Vouchers deducted from this member's account")}</>
+                  : null}
               </p>
             </div>
           </div>
@@ -5678,7 +5701,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                  {m("Vouchers deducted from this member's account")} · {m('Balance:')} {prefillMember.voucherCount} {m('vouchers')}
+                  {m('Membership:')} {m(prefillMember.membershipLabel)}
+                  {isEligibleBookedForMembership
+                    ? <> · {m("Vouchers deducted from this member's account")}</>
+                    : null}
                 </p>
               </div>
             </div>
@@ -6032,7 +6058,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <strong>{prefillMember.title} {prefillMember.firstName} {prefillMember.lastName}</strong>
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: isDark ? 'rgba(147,197,253,0.75)' : 'rgba(37,99,235,0.7)' }}>
-                  {m("Vouchers deducted from this member's account")} · {m('Balance:')} {prefillMember.voucherCount} {m('vouchers')}
+                  {m('Membership:')} {m(prefillMember.membershipLabel)}
+                  {isEligibleBookedForMembership
+                    ? <> · {m("Vouchers deducted from this member's account")}</>
+                    : null}
                 </p>
               </div>
             </div>
