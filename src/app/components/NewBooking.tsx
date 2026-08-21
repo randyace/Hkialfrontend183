@@ -1000,10 +1000,15 @@ function getPriceSectionPrices(pricePreview?: {
     'promo_discount',
   ]);
   // Spec §9 — Agency / Corporate account % off (PricingService +
-  // postFoldAddonsAndDiscount). Same display treatment as promo /
-  // membership: keep section subtotals gross and show a green row.
+  // postFoldAddonsAndDiscount). Discount contracts emit
+  // `contract_discount` (per-part % / fixed / waive). Same display
+  // treatment as promo / membership: keep section subtotals gross
+  // and show a green row so Total Charge is not a silent drop.
+  // Q12: contracted rates stay staff-only — rows show the amount,
+  // not the catalog key / percent.
   const ACCOUNT_DISCOUNT_KEYS = new Set([
     'account_discount',
+    'contract_discount',
   ]);
   const ppPsSectionSubtotal = ppBreakdown
     .filter((l) => PS_LD_SECTION_KEYS.has(l.key) && /Premiere Suite/i.test(l.label))
@@ -1054,6 +1059,13 @@ function getPriceSectionPrices(pricePreview?: {
     ppHasLoaded,
     finalTotal: pricePreview?.total != null ? pricePreview.total : 0,
   };
+}
+
+/** Q12: customer sees the HKD off, not staff catalog keys like (ld.base). */
+function customerDiscountLineLabel(line: { key: string; label: string }): string {
+  if (line.key !== 'contract_discount') return line.label;
+  const stripped = line.label.replace(/\s+\([^)]+\)\s*$/, '').trim();
+  return stripped || line.label;
 }
 
 // Lane B catalog lines only — Lane A specials keep dedicated step2Form rows.
@@ -4557,7 +4569,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   data-testid="booking-summary-account-discount-row"
                 >
                   <span className="text-xs" style={{ color: colors.textMuted }}>
-                    {priceLineLabel(d.label)}
+                    {priceLineLabel(customerDiscountLineLabel(d))}
                   </span>
                   <span className="text-xs font-medium" style={{ color: 'rgb(16,185,129)' }}>
                     −HK${Math.abs(d.subtotal).toLocaleString()}
