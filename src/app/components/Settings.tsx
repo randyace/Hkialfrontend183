@@ -20,6 +20,7 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "./ThemeContext";
 import { NationalityTypeahead } from "../../../../../components/NationalityTypeahead";
 import { isValidCountryCode } from "../../../../../utils/countries";
+import { sanitizeEnglishName } from "../../../../../utils/englishName";
 import {
   DATE_INPUT_LANG,
   LOCALE_LABELS,
@@ -432,7 +433,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.firstName")}
+            {m('First Name (in English)')}
           </label>
           <div className="relative">
             <User
@@ -446,7 +447,7 @@ export function Settings({
                 updateSetting(
                   "profile",
                   "firstName",
-                  e.target.value,
+                  sanitizeEnglishName(e.target.value),
                 )
               }
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
@@ -461,7 +462,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.lastName")}
+            {m('Last Name (in English)')}
           </label>
           <div className="relative">
             <User
@@ -475,7 +476,7 @@ export function Settings({
                 updateSetting(
                   "profile",
                   "lastName",
-                  e.target.value,
+                  sanitizeEnglishName(e.target.value),
                 )
               }
               className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
@@ -697,7 +698,7 @@ export function Settings({
               className="block text-sm mb-2"
               style={{ color: colors.textSecondary }}
             >
-              {t("settings.spouseFirstName")}
+              {m('First Name (in English)')}
             </label>
             <input
               type="text"
@@ -707,7 +708,7 @@ export function Settings({
               aria-readonly={spouseLocked ? "true" : undefined}
               onChange={(e) => {
                 if (spouseLocked) return;
-                updateSetting("profile", "spouseFirstName", e.target.value);
+                updateSetting("profile", "spouseFirstName", sanitizeEnglishName(e.target.value));
               }}
               className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
                 spouseLocked
@@ -722,7 +723,7 @@ export function Settings({
               className="block text-sm mb-2"
               style={{ color: colors.textSecondary }}
             >
-              {t("settings.spouseLastName")}
+              {m('Last Name (in English)')}
             </label>
             <input
               type="text"
@@ -732,7 +733,7 @@ export function Settings({
               aria-readonly={spouseLocked ? "true" : undefined}
               onChange={(e) => {
                 if (spouseLocked) return;
-                updateSetting("profile", "spouseLastName", e.target.value);
+                updateSetting("profile", "spouseLastName", sanitizeEnglishName(e.target.value));
               }}
               className={`w-full px-4 py-2 rounded-xl focus:outline-none ${
                 spouseLocked

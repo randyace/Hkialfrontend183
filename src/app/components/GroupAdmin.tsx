@@ -31,6 +31,7 @@ import { MembershipFlowModal } from './MembershipFlowModal';
 import { NationalityTypeahead } from '../../../../../components/NationalityTypeahead';
 import { isValidCountryCode } from '../../../../../utils/countries';
 import { useMsg } from '../../../../../i18n/useMsg';
+import { sanitizeEnglishName } from '../../../../../utils/englishName';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -1006,11 +1007,11 @@ export function GroupAdmin({
                   </select>
                 </FormField>
                 <div className="flex-1">
-                  <FormField label="First Name" required error={addErrors.firstName}>
+                  <FormField label="First Name (in English)" required error={addErrors.firstName}>
                     <input
                       type="text"
                       value={addForm.firstName}
-                      onChange={(e) => setAddForm(f => ({ ...f, firstName: e.target.value }))}
+                      onChange={(e) => setAddForm(f => ({ ...f, firstName: sanitizeEnglishName(e.target.value) }))}
                       placeholder={m('e.g. Thomas')}
                       className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                       style={fieldStyle}
@@ -1018,11 +1019,11 @@ export function GroupAdmin({
                   </FormField>
                 </div>
               </div>
-              <FormField label="Last Name" required error={addErrors.lastName}>
+              <FormField label="Last Name (in English)" required error={addErrors.lastName}>
                 <input
                   type="text"
                   value={addForm.lastName}
-                  onChange={(e) => setAddForm(f => ({ ...f, lastName: e.target.value }))}
+                  onChange={(e) => setAddForm(f => ({ ...f, lastName: sanitizeEnglishName(e.target.value) }))}
                   placeholder={m('e.g. Leung')}
                   className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                   style={fieldStyle}
@@ -1182,11 +1183,11 @@ export function GroupAdmin({
                   </select>
                 </FormField>
                 <div className="flex-1">
-                  <FormField label="First Name" required error={editErrors.firstName}>
+                  <FormField label="First Name (in English)" required error={editErrors.firstName}>
                     <input
                       type="text"
                       value={editForm.firstName}
-                      onChange={(e) => setEditForm(f => ({ ...f, firstName: e.target.value }))}
+                      onChange={(e) => setEditForm(f => ({ ...f, firstName: sanitizeEnglishName(e.target.value) }))}
                       placeholder={m('First name')}
                       className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                       style={fieldStyle}
@@ -1194,11 +1195,11 @@ export function GroupAdmin({
                   </FormField>
                 </div>
               </div>
-              <FormField label="Last Name" required error={editErrors.lastName}>
+              <FormField label="Last Name (in English)" required error={editErrors.lastName}>
                 <input
                   type="text"
                   value={editForm.lastName}
-                  onChange={(e) => setEditForm(f => ({ ...f, lastName: e.target.value }))}
+                  onChange={(e) => setEditForm(f => ({ ...f, lastName: sanitizeEnglishName(e.target.value) }))}
                   placeholder={m('Last name')}
                   className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]"
                   style={fieldStyle}

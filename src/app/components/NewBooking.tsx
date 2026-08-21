@@ -107,6 +107,8 @@ import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonC
 // Bearer). The helper handles the Laravel envelope unwrap + Bearer
 // token read at request time (INV-X4 / INV-X5).
 import { flightsApi } from '../../../../../services/api';
+import { REGION_CODES } from '../../../../../utils/regionCodes';
+import { sanitizeEnglishName } from '../../../../../utils/englishName';
 // 2026-08-18 (round — Cirium Sky API migration, Task 11). The Step 1
 // Lookup button surfaces success/error toasts via the same sonner
 // API the admin figma-ui uses for the same affordance.
@@ -133,228 +135,8 @@ const VALID_PROMO_CODES = ['HKIAL2024', 'SUMMER2024', 'VIP10OFF', 'WELCOME2024']
 const USED_PROMO_CODES = ['EXPIRED2023', 'USED123'];
 
 // ── Region codes (2026-06-24, Sky) ────────────────────────────────────────────
-// Used by the Contact Person "Contact No." field, which is split into a
-// type-ahead region code combobox + a digits/dash number input. The
-// list mirrors the canonical ../../../../utils/regionCodes list
-// (synced to the backend LookupController::regionCodes list). This
-// figma-ui copy is intentionally duplicated for self-preview
-// (the figma-ui submodule is a separate import boundary, per INV-X1).
-const REGION_CODES: { code: string; name: string }[] = [
-  { code: '+1', name: 'United States/Canada' },
-  { code: '+1-345', name: 'Cayman Islands' },
-  { code: '+1-264', name: 'Anguilla' },
-  { code: '+1-268', name: 'Antigua and Barbuda' },
-  { code: '+1-284', name: 'British Virgin Islands' },
-  { code: '+1-340', name: 'US Virgin Islands' },
-  { code: '+1-671', name: 'Guam' },
-  { code: '+1-758', name: 'St. Lucia' },
-  { code: '+1-784', name: 'St. Vincent and the Grenadines' },
-  { code: '+1-809', name: 'Dominican Republic' },
-  { code: '+20', name: 'Egypt' },
-  { code: '+27', name: 'South Africa' },
-  { code: '+30', name: 'Greece' },
-  { code: '+31', name: 'Netherlands' },
-  { code: '+32', name: 'Belgium' },
-  { code: '+33', name: 'France' },
-  { code: '+34', name: 'Spain' },
-  { code: '+36', name: 'Hungary' },
-  { code: '+39', name: 'Italy' },
-  { code: '+40', name: 'Romania' },
-  { code: '+41', name: 'Switzerland' },
-  { code: '+44', name: 'United Kingdom' },
-  { code: '+45', name: 'Denmark' },
-  { code: '+46', name: 'Sweden' },
-  { code: '+47', name: 'Norway' },
-  { code: '+48', name: 'Poland' },
-  { code: '+49', name: 'Germany' },
-  { code: '+51', name: 'Peru' },
-  { code: '+52', name: 'Mexico' },
-  { code: '+53', name: 'Cuba' },
-  { code: '+54', name: 'Argentina' },
-  { code: '+55', name: 'Brazil' },
-  { code: '+56', name: 'Chile' },
-  { code: '+57', name: 'Colombia' },
-  { code: '+58', name: 'Venezuela' },
-  { code: '+60', name: 'Malaysia' },
-  { code: '+61', name: 'Australia' },
-  { code: '+62', name: 'Indonesia' },
-  { code: '+63', name: 'Philippines' },
-  { code: '+64', name: 'New Zealand' },
-  { code: '+65', name: 'Singapore' },
-  { code: '+66', name: 'Thailand' },
-  { code: '+7', name: 'Russia/Kazakhstan' },
-  { code: '+81', name: 'Japan' },
-  { code: '+82', name: 'South Korea' },
-  { code: '+84', name: 'Vietnam' },
-  { code: '+90', name: 'Turkey' },
-  { code: '+91', name: 'India' },
-  { code: '+92', name: 'Pakistan' },
-  { code: '+93', name: 'Afghanistan' },
-  { code: '+94', name: 'Sri Lanka' },
-  { code: '+95', name: 'Myanmar' },
-  { code: '+98', name: 'Iran' },
-  { code: '+212', name: 'Morocco' },
-  { code: '+213', name: 'Algeria' },
-  { code: '+216', name: 'Tunisia' },
-  { code: '+218', name: 'Libya' },
-  { code: '+220', name: 'Gambia' },
-  { code: '+221', name: 'Senegal' },
-  { code: '+222', name: 'Mauritania' },
-  { code: '+223', name: 'Mali' },
-  { code: '+224', name: 'Guinea' },
-  { code: '+225', name: 'Ivory Coast' },
-  { code: '+226', name: 'Burkina Faso' },
-  { code: '+227', name: 'Niger' },
-  { code: '+228', name: 'Togo' },
-  { code: '+229', name: 'Benin' },
-  { code: '+230', name: 'Mauritius' },
-  { code: '+231', name: 'Liberia' },
-  { code: '+232', name: 'Sierra Leone' },
-  { code: '+233', name: 'Ghana' },
-  { code: '+234', name: 'Nigeria' },
-  { code: '+235', name: 'Chad' },
-  { code: '+236', name: 'Central African Republic' },
-  { code: '+237', name: 'Cameroon' },
-  { code: '+238', name: 'Cape Verde' },
-  { code: '+239', name: 'São Tomé and Príncipe' },
-  { code: '+240', name: 'Equatorial Guinea' },
-  { code: '+241', name: 'Gabon' },
-  { code: '+242', name: 'Republic of the Congo' },
-  { code: '+243', name: 'Democratic Republic of the Congo' },
-  { code: '+244', name: 'Angola' },
-  { code: '+245', name: 'Guinea-Bissau' },
-  { code: '+246', name: 'Diego Garcia' },
-  { code: '+247', name: 'Saint Helena' },
-  { code: '+248', name: 'Seychelles' },
-  { code: '+249', name: 'Sudan' },
-  { code: '+250', name: 'Rwanda' },
-  { code: '+251', name: 'Ethiopia' },
-  { code: '+252', name: 'Somalia' },
-  { code: '+253', name: 'Djibouti' },
-  { code: '+254', name: 'Kenya' },
-  { code: '+255', name: 'Tanzania' },
-  { code: '+256', name: 'Uganda' },
-  { code: '+257', name: 'Burundi' },
-  { code: '+258', name: 'Mozambique' },
-  { code: '+260', name: 'Zambia' },
-  { code: '+261', name: 'Madagascar' },
-  { code: '+262', name: 'Réunion/Mayotte' },
-  { code: '+263', name: 'Zimbabwe' },
-  { code: '+264', name: 'Namibia' },
-  { code: '+265', name: 'Malawi' },
-  { code: '+266', name: 'Lesotho' },
-  { code: '+267', name: 'Botswana' },
-  { code: '+268', name: 'Eswatini' },
-  { code: '+269', name: 'Comoros' },
-  { code: '+290', name: 'St. Helena' },
-  { code: '+291', name: 'Eritrea' },
-  { code: '+297', name: 'Aruba' },
-  { code: '+298', name: 'Faroe Islands' },
-  { code: '+299', name: 'Greenland' },
-  { code: '+350', name: 'Gibraltar' },
-  { code: '+351', name: 'Portugal' },
-  { code: '+352', name: 'Luxembourg' },
-  { code: '+353', name: 'Ireland' },
-  { code: '+354', name: 'Iceland' },
-  { code: '+355', name: 'Albania' },
-  { code: '+356', name: 'Malta' },
-  { code: '+357', name: 'Cyprus' },
-  { code: '+358', name: 'Finland' },
-  { code: '+359', name: 'Bulgaria' },
-  { code: '+370', name: 'Lithuania' },
-  { code: '+371', name: 'Latvia' },
-  { code: '+372', name: 'Estonia' },
-  { code: '+373', name: 'Moldova' },
-  { code: '+374', name: 'Armenia' },
-  { code: '+375', name: 'Belarus' },
-  { code: '+376', name: 'Andorra' },
-  { code: '+377', name: 'Monaco' },
-  { code: '+378', name: 'San Marino' },
-  { code: '+380', name: 'Ukraine' },
-  { code: '+381', name: 'Serbia' },
-  { code: '+382', name: 'Montenegro' },
-  { code: '+383', name: 'Kosovo' },
-  { code: '+385', name: 'Croatia' },
-  { code: '+386', name: 'Slovenia' },
-  { code: '+387', name: 'Bosnia and Herzegovina' },
-  { code: '+389', name: 'North Macedonia' },
-  { code: '+420', name: 'Czech Republic' },
-  { code: '+421', name: 'Slovakia' },
-  { code: '+423', name: 'Liechtenstein' },
-  { code: '+424', name: 'Wallis and Futuna' },
-  { code: '+500', name: 'Falkland Islands' },
-  { code: '+501', name: 'Belize' },
-  { code: '+502', name: 'Guatemala' },
-  { code: '+503', name: 'El Salvador' },
-  { code: '+504', name: 'Honduras' },
-  { code: '+505', name: 'Nicaragua' },
-  { code: '+506', name: 'Costa Rica' },
-  { code: '+507', name: 'Panama' },
-  { code: '+508', name: 'St. Pierre and Miquelon' },
-  { code: '+509', name: 'Haiti' },
-  { code: '+590', name: 'Guadeloupe' },
-  { code: '+591', name: 'Bolivia' },
-  { code: '+592', name: 'Guyana' },
-  { code: '+593', name: 'Ecuador' },
-  { code: '+594', name: 'French Guiana' },
-  { code: '+595', name: 'Paraguay' },
-  { code: '+596', name: 'Martinique' },
-  { code: '+597', name: 'Suriname' },
-  { code: '+598', name: 'Uruguay' },
-  { code: '+599', name: 'Netherlands Antilles' },
-  { code: '+670', name: 'Timor-Leste' },
-  { code: '+672', name: 'Norfolk Island' },
-  { code: '+673', name: 'Brunei' },
-  { code: '+674', name: 'Nauru' },
-  { code: '+675', name: 'Papua New Guinea' },
-  { code: '+676', name: 'Tonga' },
-  { code: '+677', name: 'Solomon Islands' },
-  { code: '+678', name: 'Vanuatu' },
-  { code: '+679', name: 'Fiji' },
-  { code: '+680', name: 'Palau' },
-  { code: '+681', name: 'Wallis and Futuna' },
-  { code: '+682', name: 'Cook Islands' },
-  { code: '+683', name: 'Niue' },
-  { code: '+685', name: 'Kiribati' },
-  { code: '+686', name: 'Tuvalu' },
-  { code: '+687', name: 'New Caledonia' },
-  { code: '+688', name: 'Tokelau' },
-  { code: '+689', name: 'French Polynesia' },
-  { code: '+690', name: 'Tokelau' },
-  { code: '+691', name: 'Micronesia' },
-  { code: '+692', name: 'Marshall Islands' },
-  { code: '+850', name: 'North Korea' },
-  { code: '+852', name: 'Hong Kong' },
-  { code: '+853', name: 'Macau' },
-  { code: '+855', name: 'Cambodia' },
-  { code: '+856', name: 'Laos' },
-  { code: '+86', name: 'China' },
-  { code: '+880', name: 'Bangladesh' },
-  { code: '+886', name: 'Taiwan' },
-  { code: '+960', name: 'Maldives' },
-  { code: '+961', name: 'Lebanon' },
-  { code: '+962', name: 'Jordan' },
-  { code: '+963', name: 'Syria' },
-  { code: '+964', name: 'Iraq' },
-  { code: '+965', name: 'Kuwait' },
-  { code: '+966', name: 'Saudi Arabia' },
-  { code: '+967', name: 'Yemen' },
-  { code: '+968', name: 'Oman' },
-  { code: '+970', name: 'Palestine' },
-  { code: '+971', name: 'United Arab Emirates' },
-  { code: '+972', name: 'Israel' },
-  { code: '+973', name: 'Bahrain' },
-  { code: '+974', name: 'Qatar' },
-  { code: '+975', name: 'Bhutan' },
-  { code: '+976', name: 'Mongolia' },
-  { code: '+977', name: 'Nepal' },
-  { code: '+992', name: 'Tajikistan' },
-  { code: '+993', name: 'Turkmenistan' },
-  { code: '+994', name: 'Azerbaijan' },
-  { code: '+995', name: 'Georgia' },
-  { code: '+996', name: 'Kyrgyzstan' },
-  { code: '+998', name: 'Uzbekistan' },
-];
+// Canonical list: ../../../../../utils/regionCodes (LookupController).
+// Must include +852 Hong Kong. Do not keep a second copy in this file.
 
 // Splits a stored contact phone into the region code + number pair
 // the split input uses. Longest known prefix — the old
@@ -1334,25 +1116,33 @@ function StepperCard({
       <div className="flex items-center justify-between px-4 py-2.5">
         <button
           type="button"
-          onClick={onDecrement}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDecrement();
+          }}
           aria-label={`${m('Decrease')} ${titleLabel}`}
           data-hkial-stepper-decrement={testId}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80"
+          className="relative w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80 before:absolute before:content-[''] before:-inset-2 before:rounded-full"
           style={stepperBtnStyle}
         >
-          <Minus className="w-3 h-3" style={stepperIconColor} />
+          <Minus className="w-3 h-3 pointer-events-none" style={stepperIconColor} />
         </button>
         <span className="text-xl tabular-nums" style={textPrimary} data-hkial-stepper-value={testId}>{value}</span>
         <button
           type="button"
-          onClick={onIncrement}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onIncrement();
+          }}
           disabled={incrementDisabled}
           aria-label={`${m('Increase')} ${titleLabel}`}
           data-hkial-stepper-increment={testId}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="relative w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed before:absolute before:content-[''] before:-inset-2 before:rounded-full"
           style={stepperBtnStyle}
         >
-          <Plus className="w-3 h-3" style={stepperIconColor} />
+          <Plus className="w-3 h-3 pointer-events-none" style={stepperIconColor} />
         </button>
       </div>
       {/* Helper text */}
@@ -3424,9 +3214,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   };
 
   const handleVipChange = (idx: number, field: string, value: string) => {
+    const nextValue =
+      field === 'vipFirstName' || field === 'vipLastName' ? sanitizeEnglishName(value) : value;
     setVipData((prev) => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [field]: value };
+      next[idx] = { ...next[idx], [field]: nextValue };
       return next;
     });
   };
@@ -3434,7 +3226,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const handleNonFlyingGuestChange = (idx: number, field: string, value: string) => {
     setNonFlyingGuestData((prev) => {
       const next = [...prev];
-      const row = { ...next[idx], [field]: value };
+      const sanitized =
+        field === 'guestFirstName' || field === 'guestLastName' ? sanitizeEnglishName(value) : value;
+      const row = { ...next[idx], [field]: sanitized };
       if (field === 'guestAgeGroup' && value !== NFG_CHILDREN_AGE_GROUP) {
         row.guestAge = '';
       }
@@ -3785,8 +3579,17 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     advanceStep(noAddonRequired ? 4 : 3);
   };
 
-  const handleNextFromStep3 = (e: React.FormEvent) => {
+  const handleNextFromStep3 = (e: React.SyntheticEvent<HTMLElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+    // Explicit Next click only. Implicit form submit (Enter in the
+    // catalog search, WebKit/Edge activating the default submit
+    // button when a stepper SVG is the event target) must not
+    // advance the wizard.
+    const form = (e.currentTarget as HTMLButtonElement).form;
+    if (form && typeof form.reportValidity === 'function' && !form.reportValidity()) {
+      return;
+    }
     advanceStep(4);
   };
 
@@ -4085,10 +3888,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       data-testid="history-dialog-diagnostics"
                     >
                       <div>
-                        Loaded {historyDiagnostics.totalReceived} booking
-                        {historyDiagnostics.totalReceived === 1 ? '' : 's'}
-                        , but {historyDiagnostics.rejectedCount} didn&apos;t
-                        match the expected shape{historyDiagnostics.sampleReason ? ` (first: ${historyDiagnostics.sampleReason})` : ''}.
+                        {m(
+                          historyDiagnostics.totalReceived === 1
+                            ? "Loaded {total} booking, but {rejected} didn't match the expected shape"
+                            : "Loaded {total} bookings, but {rejected} didn't match the expected shape",
+                        )
+                          .replace('{total}', String(historyDiagnostics.totalReceived))
+                          .replace('{rejected}', String(historyDiagnostics.rejectedCount))}
+                        {historyDiagnostics.sampleReason
+                          ? m(' (first: {reason})').replace('{reason}', historyDiagnostics.sampleReason)
+                          : ''}
                       </div>
                       <div className="mt-1" style={{ opacity: 0.75 }}>
                         {m('Open the browser console for full per-row details.')}
@@ -4103,10 +3912,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
                   };
                   const sc = statusColors[booking.status] || statusColors.completed;
-                  const statusLabel = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
-                  const guestSummary = booking.nonFlyingGuests > 0
-                    ? booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites + ' VIP  +  ' + booking.nonFlyingGuests + ' guest(s)'
-                    : (booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites) + ' VIP passenger(s)';
+                  const statusLabel = m(booking.status.charAt(0).toUpperCase() + booking.status.slice(1));
+                  const vipCount = booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites;
+                  const nfgCount = booking.nonFlyingGuests;
+                  const vipLabel = m('{n} VIP').replace('{n}', String(vipCount));
+                  const nfgLabel =
+                    nfgCount === 1
+                      ? m('1 Non-Flying')
+                      : m('{n} Non-Flying').replace('{n}', String(nfgCount));
+                  const guestSummary = nfgCount > 0 ? `${vipLabel}  +  ${nfgLabel}` : vipLabel;
                   const cardBg: React.CSSProperties = {
                     background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(248,247,242,0.9)',
                     border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(200,199,190,0.5)',
@@ -4162,7 +3976,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                             <div className="flex items-center gap-1.5">
                               <Plane className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
                               <span className="text-xs" style={textSecondary}>
-                                {[booking.flightNumber, booking.flightType].filter(Boolean).join('  ·  ')}
+                                {[booking.flightNumber, booking.flightType ? m(booking.flightType) : '']
+                                  .filter(Boolean)
+                                  .join('  ·  ')}
                               </span>
                             </div>
                           )}
@@ -5660,7 +5476,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   if (currentStep === 3) {
     return (
       <>
-      <form onSubmit={handleNextFromStep3} data-hkial-step="3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+        }}
+        data-hkial-step="3"
+      >
         <div className="space-y-4 pb-8" data-hkial-step="3">
           {/* Progress bar */}
           <BookingStepProgress skipAddons={noAddonRequired} />
@@ -5722,7 +5543,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               section. */}
 
           {/* ── Add-on Services ─────────────────────────────────────────── */}
-          <div className="p-5" style={card}>
+          <div className="p-5 relative z-10" style={card}>
             <SectionHeader
               title={m('Add-on Services')}
               subtitle={m('Enhance your experience with optional services')}
@@ -5766,6 +5587,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               onDecrement={() => updateStep2Count('limousineService', -1)}
               onIncrement={() => updateStep2Count('limousineService', 1)}
               addonKey="limousine"
+              testId="limousine-service"
             />
 
             {step2Form.limousineService > 0 && (
@@ -5971,7 +5793,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           {catalogAddonSlot}
 
           {/* ── Navigation Buttons ──────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 relative z-0">
             <button
               type="button"
               onClick={handleBackToStep2}
@@ -5982,7 +5804,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               {m('Back')}
             </button>
             <button
-              type="submit"
+              type="button"
+              data-hkial-step3-next=""
+              onClick={handleNextFromStep3}
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
@@ -7702,7 +7526,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* First Name */}
                 <div>
-                  <label className={labelClass}>{m('First Name *')}</label>
+                  <label className={labelClass}>{m('First Name (in English)')} *</label>
                   <input
                     type="text"
                     value={passenger.vipFirstName}
@@ -7716,7 +7540,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Last Name */}
                 <div>
-                  <label className={labelClass}>{m('Last Name *')}</label>
+                  <label className={labelClass}>{m('Last Name (in English)')} *</label>
                   <input
                     type="text"
                     value={passenger.vipLastName}
@@ -7877,7 +7701,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* First Name */}
                 <div>
-                  <label className={labelClass}>{m('First Name *')}</label>
+                  <label className={labelClass}>{m('First Name (in English)')} *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
@@ -7894,7 +7718,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
                 {/* Last Name */}
                 <div>
-                  <label className={labelClass}>{m('Last Name *')}</label>
+                  <label className={labelClass}>{m('Last Name (in English)')} *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
