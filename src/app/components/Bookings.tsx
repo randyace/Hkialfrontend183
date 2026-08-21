@@ -39,10 +39,14 @@ import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 import {
   openBookingDocumentFromBackend,
-  isBookingReceiptDocument,
   openBackendPdfDeliveryWindow,
   resolveBookingDocumentHref,
 } from '../../../../../utils/bookingDocumentDownload';
+import type { BookingActiveInvoice } from '../../../../../types/api';
+import {
+  DocumentSelectionModal,
+  type DocumentSelectionKind,
+} from './DocumentSelectionModal';
 
 interface BookingsProps {
   setActiveTab?: (tab: string) => void;
@@ -397,6 +401,12 @@ export function Bookings({
   const [bookingToCancel, setBookingToCancel] = useState<any>(null);
   const [cancelError, setCancelError] = useState('');
   const [documentDownloadingId, setDocumentDownloadingId] = useState<number | string | null>(null);
+  const [documentSelection, setDocumentSelection] = useState<{
+    booking: (typeof bookings)[number];
+    kind: DocumentSelectionKind;
+    invoices: BookingActiveInvoice[];
+  } | null>(null);
+  const [selectionDownloadingInvoiceId, setSelectionDownloadingInvoiceId] = useState<number | null>(null);
   const [bookingForm, setBookingForm] = useState({
     date: '',
     time: '',
@@ -511,8 +521,42 @@ export function Bookings({
         toast.error(m(result.message));
         return;
       }
+      toast.success(m('Invoice download started'));
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : m('Failed to download document'),
+      );
+    } finally {
+      setDocumentDownloadingId(null);
+    }
+  };
+
+  const downloadInvoiceDocument = async (
+    booking: typeof bookings[number],
+    kind: DocumentSelectionKind,
+    invoice: BookingActiveInvoice,
+  ) => {
+    if (booking?.id == null) {
+      toast.error(m('Document is not available for this booking.'));
+      return;
+    }
+
+    const previewTab = openBackendPdfDeliveryWindow();
+    setSelectionDownloadingInvoiceId(invoice.id);
+    setDocumentDownloadingId(booking.id);
+    try {
+      const result = await openBookingDocumentFromBackend(booking, {
+        previewTab,
+        kind,
+        invoiceId: invoice.id,
+        invoiceNo: invoice.invoice_no,
+      });
+      if (!result.ok) {
+        toast.error(m(result.message));
+        return;
+      }
       toast.success(
-        isBookingReceiptDocument(booking)
+        kind === 'receipt'
           ? m('Receipt download started')
           : m('Invoice download started'),
       );
@@ -521,8 +565,34 @@ export function Bookings({
         err instanceof Error ? err.message : m('Failed to download document'),
       );
     } finally {
+      setSelectionDownloadingInvoiceId(null);
       setDocumentDownloadingId(null);
     }
+  };
+
+  const handleDocumentActionClick = (
+    event: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>,
+    booking: typeof bookings[number],
+    kind: DocumentSelectionKind,
+    invoices: BookingActiveInvoice[],
+  ) => {
+    event.preventDefault();
+    if (invoices.length === 0) {
+      void handleDownloadDocument(event as React.MouseEvent<HTMLAnchorElement>, booking);
+      return;
+    }
+    if (invoices.length === 1) {
+      void downloadInvoiceDocument(booking, kind, invoices[0]);
+      return;
+    }
+    setDocumentSelection({ booking, kind, invoices });
+  };
+
+  const invoiceTypeLabel = (invoice: BookingActiveInvoice): string => {
+    if (invoice.invoice_type === 'pos_fnb') {
+      return m('F&B');
+    }
+    return m('Booking Fee');
   };
 
   // ── Apple Wallet ──────────────────────────────────────────────────────────
@@ -1161,27 +1231,87 @@ export function Bookings({
                     </button>
                   </>
                 )}
-                <a
-                  href={resolveBookingDocumentHref(booking)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid="booking-list-download-document"
-                  onClick={(event) => handleDownloadDocument(event, booking)}
-                  aria-disabled={documentDownloadingId === booking.id}
-                  className="px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-sm whitespace-nowrap hover:opacity-90"
-                  style={{
-                    ...secondaryBtnStyle,
-                    pointerEvents: documentDownloadingId === booking.id ? 'none' : undefined,
-                    opacity: documentDownloadingId === booking.id ? 0.7 : 1,
-                  }}
-                >
-                  <Download className="w-4 h-4" />
-                  {documentDownloadingId === booking.id
-                    ? m('Downloading...')
-                    : isBookingReceiptDocument(booking)
-                      ? m('Download Receipt')
-                      : m('Download Invoice')}
-                </a>
+                {(() => {
+                  const invoiceRows: BookingActiveInvoice[] = Array.isArray(booking.invoices)
+                    ? booking.invoices
+                    : Array.isArray(booking.active_invoices)
+                      ? booking.active_invoices
+                      : Array.isArray(booking.activeInvoices)
+                        ? booking.activeInvoices
+                        : [];
+                  const paidInvoices = invoiceRows.filter((inv) => inv.status === 'Paid');
+                  const unpaidInvoices = invoiceRows.filter(
+                    (inv) => inv.status === 'Sent' || inv.status === 'Pending',
+                  );
+                  const busy = documentDownloadingId === booking.id;
+                  const btnClass =
+                    'px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-sm whitespace-nowrap hover:opacity-90 disabled:opacity-70';
+
+                  if (paidInvoices.length === 0 && unpaidInvoices.length === 0) {
+                    return (
+                      <a
+                        href={resolveBookingDocumentHref(booking)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        data-testid="booking-list-download-document"
+                        onClick={(event) => handleDownloadDocument(event, booking)}
+                        aria-disabled={busy}
+                        className={btnClass}
+                        style={{
+                          ...secondaryBtnStyle,
+                          pointerEvents: busy ? 'none' : undefined,
+                          opacity: busy ? 0.7 : 1,
+                        }}
+                      >
+                        <Download className="w-4 h-4" />
+                        {busy ? m('Downloading...') : m('Download Invoice')}
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {unpaidInvoices.length > 0 && (
+                        <button
+                          type="button"
+                          data-testid="booking-list-download-invoice"
+                          onClick={(event) =>
+                            handleDocumentActionClick(event, booking, 'invoice', unpaidInvoices)
+                          }
+                          disabled={busy}
+                          className={btnClass}
+                          style={secondaryBtnStyle}
+                        >
+                          <Download className="w-4 h-4" />
+                          {busy
+                            ? m('Downloading...')
+                            : unpaidInvoices.length > 1
+                              ? `${m('Download Invoice')} (${unpaidInvoices.length})`
+                              : m('Download Invoice')}
+                        </button>
+                      )}
+                      {paidInvoices.length > 0 && (
+                        <button
+                          type="button"
+                          data-testid="booking-list-download-receipt"
+                          onClick={(event) =>
+                            handleDocumentActionClick(event, booking, 'receipt', paidInvoices)
+                          }
+                          disabled={busy}
+                          className={btnClass}
+                          style={secondaryBtnStyle}
+                        >
+                          <Download className="w-4 h-4" />
+                          {busy
+                            ? m('Downloading...')
+                            : paidInvoices.length > 1
+                              ? `${m('Download Receipt')} (${paidInvoices.length})`
+                              : m('Download Receipt')}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1191,6 +1321,32 @@ export function Bookings({
         ))}
       </div>
       )}
+
+      <DocumentSelectionModal
+        open={documentSelection != null}
+        kind={documentSelection?.kind ?? 'invoice'}
+        invoices={documentSelection?.invoices ?? []}
+        downloadingInvoiceId={selectionDownloadingInvoiceId}
+        title={
+          documentSelection?.kind === 'receipt'
+            ? m('Select Receipt')
+            : m('Select Invoice')
+        }
+        downloadLabel={m('Download')}
+        typeLabelFor={invoiceTypeLabel}
+        onClose={() => setDocumentSelection(null)}
+        onDownload={async (invoice) => {
+          if (!documentSelection) return;
+          await downloadInvoiceDocument(
+            documentSelection.booking,
+            documentSelection.kind,
+            invoice,
+          );
+        }}
+        glassStyle={modalBg}
+        textColor={colors.text}
+        mutedColor={colors.textMuted}
+      />
 
       {!isLoading && filteredBookings.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
