@@ -983,7 +983,7 @@ export function GroupAdmin({
                 style={{ background: 'rgba(185,28,28,0.35)' }}
                 role="alert"
               >
-                {error}
+                {m(error)}
               </div>
             )}
 
@@ -1159,7 +1159,7 @@ export function GroupAdmin({
                 style={{ background: 'rgba(185,28,28,0.35)' }}
                 role="alert"
               >
-                {error}
+                {m(error)}
               </div>
             )}
 
