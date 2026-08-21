@@ -1116,6 +1116,19 @@ function StepperCard({
       <div className="flex items-center justify-between px-4 py-2.5">
         <button
           type="button"
+          onPointerDown={(e) => {
+            // Keep mouseup/click on this control if the limo/wheelchair
+            // extra fields insert and the button moves under the cursor
+            // (Safari 18 / Edge ghost-click). Do not preventDefault —
+            // that would swallow the subsequent click in some engines.
+            if (typeof e.currentTarget.setPointerCapture === 'function') {
+              try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+              } catch {
+                /* jsdom / non-pointer */
+              }
+            }
+          }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -1131,6 +1144,15 @@ function StepperCard({
         <span className="text-xl tabular-nums" style={textPrimary} data-hkial-stepper-value={testId}>{value}</span>
         <button
           type="button"
+          onPointerDown={(e) => {
+            if (typeof e.currentTarget.setPointerCapture === 'function') {
+              try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+              } catch {
+                /* jsdom / non-pointer */
+              }
+            }
+          }}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2054,6 +2076,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const location = useLocation();
   const prefillMember = prefillMemberProp ?? (location.state?.prefillMember ?? null);
   const [currentStep, setCurrentStep] = useState(1);
+  // Step 3 Next must see pointerdown on itself. Safari 18 can fire click
+  // on the yellow Next bar when the user pressed limo + (hit-test retarget
+  // / lower-viewport bug). That path never runs onIncrement — qty stays 0
+  // and the wizard advances ("kick死"). Keyboard activation uses detail=0.
+  const step3NextArmedRef = useRef(false);
 
   // ── Step 1 state ──────────────────────────────────────────────────────────
   const [form, setForm] = useState({
@@ -3582,15 +3609,26 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const handleNextFromStep3 = (e: React.SyntheticEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    // Explicit Next click only. Implicit form submit (Enter in the
-    // catalog search, WebKit/Edge activating the default submit
-    // button when a stepper SVG is the event target) must not
-    // advance the wizard.
     const form = (e.currentTarget as HTMLButtonElement).form;
     if (form && typeof form.reportValidity === 'function' && !form.reportValidity()) {
       return;
     }
     advanceStep(4);
+  };
+
+  const handleStep3NextClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pointerType = (e.nativeEvent as PointerEvent).pointerType;
+    const fromKeyboard = e.detail === 0 && !pointerType;
+    if (!fromKeyboard && !step3NextArmedRef.current) {
+      // Stolen click: mousedown was on + (or nowhere on Next), click
+      // landed on Next. Do not advance — that was Randy's "0→1 都做唔到，
+      // 直接 kick 死" path.
+      return;
+    }
+    step3NextArmedRef.current = false;
+    handleNextFromStep3(e);
   };
 
   const handleBackFromStep4 = () => {
@@ -5806,7 +5844,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <button
               type="button"
               data-hkial-step3-next=""
-              onClick={handleNextFromStep3}
+              onPointerDown={(e) => {
+                if (e.button === 0) step3NextArmedRef.current = true;
+              }}
+              onPointerCancel={() => {
+                step3NextArmedRef.current = false;
+              }}
+              onClick={handleStep3NextClick}
               className="py-3 px-6 rounded-xl text-white text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2"
               style={{ background: 'linear-gradient(90deg, rgb(220, 181, 21) 0%, rgb(180, 140, 10) 100%)' }}
             >
