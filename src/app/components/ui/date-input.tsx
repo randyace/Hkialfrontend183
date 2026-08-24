@@ -4,7 +4,12 @@ import { CalendarDays } from "lucide-react";
 import type { Formatters, Labels, Matcher } from "react-day-picker";
 
 import { Calendar } from "./calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "./popover";
 import { cn } from "./utils";
 import { useTheme } from "../ThemeContext";
 
@@ -302,6 +307,13 @@ export function DateInput({
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") setOpen(false);
+    if (
+      (event.key === "Enter" || event.key === "ArrowDown") &&
+      !disabled &&
+      !readOnly
+    ) {
+      setOpen(true);
+    }
     onKeyDown?.(event);
   };
 
@@ -311,56 +323,63 @@ export function DateInput({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div className="relative min-w-0 flex-1">
-        <input
-          {...inputProps}
-          ref={inputRef}
-          id={inputProps.id}
-          name={name ? `${name}-display` : undefined}
-          type="text"
-          inputMode="numeric"
-          autoComplete={inputProps.autoComplete ?? "off"}
-          value={draft}
-          placeholder={placeholder}
-          disabled={disabled}
-          readOnly={readOnly}
-          required={required}
-          maxLength={10}
-          data-date-value={value ?? ""}
-          aria-invalid={invalid ? "true" : inputProps["aria-invalid"]}
-          className={cn(className, "w-full pr-10")}
-          style={style}
-          onChange={(event) => {
-            if (!readOnly) emitDraft(event.target.value);
-          }}
-          onFocus={(event) => {
-            setFocused(true);
-            setInvalid(false);
-            onFocus?.(event);
-          }}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-        />
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            tabIndex={disabled || readOnly ? -1 : 0}
-            disabled={disabled || readOnly}
-            aria-label={
-              calendarLocale === "zh-CN"
-                ? "打开日历"
-                : calendarLocale.startsWith("zh")
-                  ? "開啟日曆"
-                  : "Open calendar"
-            }
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </PopoverTrigger>
-      </div>
+      <PopoverAnchor asChild>
+        <div className="relative min-w-0 flex-1">
+          <input
+            {...inputProps}
+            ref={inputRef}
+            id={inputProps.id}
+            name={name ? `${name}-display` : undefined}
+            type="text"
+            inputMode="numeric"
+            autoComplete={inputProps.autoComplete ?? "off"}
+            value={draft}
+            placeholder={placeholder}
+            disabled={disabled}
+            readOnly={readOnly}
+            required={required}
+            maxLength={10}
+            data-date-value={value ?? ""}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-invalid={invalid ? "true" : inputProps["aria-invalid"]}
+            className={cn(className, "w-full pr-10")}
+            style={style}
+            onChange={(event) => {
+              if (!readOnly) emitDraft(event.target.value);
+            }}
+            onClick={() => {
+              if (!disabled && !readOnly) setOpen(true);
+            }}
+            onFocus={(event) => {
+              setFocused(true);
+              setInvalid(false);
+              onFocus?.(event);
+            }}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+          />
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              tabIndex={disabled || readOnly ? -1 : 0}
+              disabled={disabled || readOnly}
+              aria-label={
+                calendarLocale === "zh-CN"
+                  ? "打开日历"
+                  : calendarLocale.startsWith("zh")
+                    ? "開啟日曆"
+                    : "Open calendar"
+              }
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </PopoverTrigger>
+        </div>
+      </PopoverAnchor>
       {name && <input type="hidden" name={name} value={value ?? ""} />}
-      <PopoverContent align="start" className={popupClass}>
+      <PopoverContent side="bottom" align="start" className={popupClass}>
         <Calendar
           mode="single"
           selected={selectedDate ?? undefined}
