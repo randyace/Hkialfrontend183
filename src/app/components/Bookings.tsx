@@ -37,6 +37,7 @@ import { useTheme } from './ThemeContext';
 import { DATE_INPUT_LANG, translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
+import { customerBookingStatusLabel } from '../../../../../utils/customerBookingStatus';
 import {
   openBookingDocumentFromBackend,
   openBackendPdfDeliveryWindow,
@@ -611,7 +612,7 @@ export function Bookings({
     if (!selectedBooking) return;
 
     const b = selectedBooking;
-    const statusLabel = b.status.charAt(0).toUpperCase() + b.status.slice(1);
+    const statusLabel = m(customerBookingStatusLabel(b.status));
     const dateLabel = formatDateDDMMYYYY(b.date);
 
     // 2026-06-27 (round 6.2.95 — Sky): drop the Terminal row when
@@ -619,15 +620,15 @@ export function Bookings({
     // subtitle + QR-modal fix (this same file). The customer app
     // no longer surfaces terminal anywhere.
     const detailRows: Array<[string, string]> = [
-      ['Lounge',    b.lounge],
-      ...(b.terminal ? [['Terminal', b.terminal] as [string, string]] : []),
-      ['Date',      dateLabel],
-      ['Time',      b.time],
-      ['Flight',    b.flight],
-      ['Flight No', b.flightNumber],
-      ['Class',     b.flightClass],
-      ['Type',      b.flightType],
-      ['Status',    statusLabel],
+      [m('Lounge'),    b.lounge],
+      ...(b.terminal ? [[m('Terminal'), b.terminal] as [string, string]] : []),
+      [m('Date'),      dateLabel],
+      [m('Time'),      b.time],
+      [m('Flight'),    b.flight],
+      [m('Flight No'), b.flightNumber],
+      [m('Class'),     m(b.flightClass || '')],
+      [m('Type'),      m(b.flightType || '')],
+      [m('Status'),    statusLabel],
     ];
 
     const passengerRows = b.passengers.map((p: any, i: number) =>
@@ -674,9 +675,9 @@ export function Bookings({
 </head>
 <body>
   <div class="header">
-    <div class="header-title">{m('HONG KONG INTERNATIONAL AIRPORT')}</div>
-    <div class="header-sub">{m('Exclusive Lounge — Entry Pass')}</div>
-    <div class="header-note">{m('This pass grants access to HKIA Premium Lounges. Present at entrance.')}</div>
+    <div class="header-title">${m('HONG KONG INTERNATIONAL AIRPORT')}</div>
+    <div class="header-sub">${m('Exclusive Lounge — Entry Pass')}</div>
+    <div class="header-note">${m('This pass grants access to HKIA Premium Lounges. Present at entrance.')}</div>
   </div>
   <div class="body">
     <div class="qr-section">
@@ -723,20 +724,20 @@ export function Bookings({
           }</div>`;
         })()}
       </div>
-      <div class="qr-label">{m('Scan to verify at lounge entrance')}</div>
+      <div class="qr-label">${m('Scan to verify at lounge entrance')}</div>
     </div>
     <div class="ref-badge">${b.bookingRef}</div>
     <div class="section">
-      <div class="section-header">{m('Booking Details')}</div>
+      <div class="section-header">${m('Booking Details')}</div>
       <table>${detailRowsHtml}</table>
     </div>
     <div class="section">
-      <div class="section-header">{m('Passengers')}</div>
+      <div class="section-header">${m('Passengers')}</div>
       <table>
         <thead><tr style="background:#f5f4ee">
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Name')}</th>
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Travel Document')}</th>
-          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">{m('Membership')}</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">${m('Name')}</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">${m('Travel Document')}</th>
+          <th style="padding:8px 12px;text-align:left;font-size:11px;color:#64646e;font-weight:600">${m('Membership')}</th>
         </tr></thead>
         <tbody>${passengerRows}</tbody>
       </table>
@@ -744,7 +745,7 @@ export function Bookings({
   </div>
   <div class="footer">
     HKIA PREMIUM LOUNGE SERVICES &nbsp;·&nbsp; Hong Kong International Airport &nbsp;·&nbsp; Lantau Island, Hong Kong
-    <div class="footer-sub">{m('This document is system-generated. For assistance call +852 2181 8888.')}</div>
+    <div class="footer-sub">${m('This document is system-generated. For assistance call +852 2181 8888.')}</div>
   </div>
   <script>window.onload = function(){ window.print(); }</script>
 </body>
