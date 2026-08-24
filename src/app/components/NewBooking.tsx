@@ -108,7 +108,7 @@ import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonC
 // token read at request time (INV-X4 / INV-X5).
 import { flightsApi } from '../../../../../services/api';
 import { REGION_CODES } from '../../../../../utils/regionCodes';
-import { sanitizeEnglishName } from '../../../../../utils/englishName';
+import { isEnglishName, sanitizeEnglishName } from '../../../../../utils/englishName';
 import {
   customerBookingStatusKey,
   customerBookingStatusLabel,
@@ -2142,8 +2142,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const prefillVipEntry: VipPassenger | null = prefillMember
     ? {
         vipTitle: prefillMember.title,
-        vipFirstName: prefillMember.firstName,
-        vipLastName: prefillMember.lastName,
+        vipFirstName: sanitizeEnglishName(prefillMember.firstName),
+        vipLastName: sanitizeEnglishName(prefillMember.lastName),
         vipTravelDocNo: prefillMember.passportPrefix || '',
         vipMembershipNo: '',
         vipAgeGroup: 'Adults (aged 12 and above)',
@@ -2596,15 +2596,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const allVipFilled = vipData.every(
     (v) =>
-      v.vipFirstName.trim() !== ''
-      && v.vipLastName.trim() !== ''
+      isEnglishName(v.vipFirstName)
+      && isEnglishName(v.vipLastName)
       && v.vipAgeGroup !== ''
       && isValidCountryCode(v.nationality)
   );
   const allGuestFilled = nonFlyingGuestData.every(
     (g) =>
-      g.guestFirstName.trim() !== ''
-      && g.guestLastName.trim() !== ''
+      isEnglishName(g.guestFirstName)
+      && isEnglishName(g.guestLastName)
       && g.guestAgeGroup !== ''
       && isNonFlyingChildAgeFilled(g.guestAgeGroup, g.guestAge)
       && isValidCountryCode(g.nationality)
