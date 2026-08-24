@@ -109,6 +109,10 @@ import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonC
 import { flightsApi } from '../../../../../services/api';
 import { REGION_CODES } from '../../../../../utils/regionCodes';
 import { sanitizeEnglishName } from '../../../../../utils/englishName';
+import {
+  customerBookingStatusKey,
+  customerBookingStatusLabel,
+} from '../../../../../utils/customerBookingStatus';
 // 2026-08-18 (round — Cirium Sky API migration, Task 11). The Step 1
 // Lookup button surfaces success/error toasts via the same sonner
 // API the admin figma-ui uses for the same affordance.
@@ -3948,9 +3952,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   const statusColors: { [key: string]: { bg: string; text: string; border: string } } = {
                     confirmed: { bg: 'rgba(34,197,94,0.12)', text: 'rgb(22,163,74)', border: 'rgba(34,197,94,0.3)' },
                     completed: { bg: 'rgba(59,130,246,0.12)', text: 'rgb(37,99,235)', border: 'rgba(59,130,246,0.3)' },
+                    reviewing: { bg: 'rgba(147,51,234,0.12)', text: 'rgb(126,34,206)', border: 'rgba(147,51,234,0.3)' },
+                    processing: { bg: 'rgba(234,179,8,0.16)', text: 'rgb(161,98,7)', border: 'rgba(234,179,8,0.35)' },
+                    cancelled: { bg: 'rgba(239,68,68,0.12)', text: 'rgb(185,28,28)', border: 'rgba(239,68,68,0.3)' },
+                    rejected: { bg: 'rgba(249,115,22,0.12)', text: 'rgb(194,65,12)', border: 'rgba(249,115,22,0.3)' },
                   };
-                  const sc = statusColors[booking.status] || statusColors.completed;
-                  const statusLabel = m(booking.status.charAt(0).toUpperCase() + booking.status.slice(1));
+                  const viewStatus = customerBookingStatusKey(booking.status);
+                  const sc = statusColors[viewStatus] || statusColors.completed;
+                  const statusLabel = m(customerBookingStatusLabel(booking.status));
                   const vipCount = booking.vipPassengers + booking.premiereVipPassengers + booking.premiereSuites;
                   const nfgCount = booking.nonFlyingGuests;
                   const vipLabel = m('{n} VIP').replace('{n}', String(vipCount));
