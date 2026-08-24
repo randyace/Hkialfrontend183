@@ -22,13 +22,13 @@ import { NationalityTypeahead } from "../../../../../components/NationalityTypea
 import { isValidCountryCode } from "../../../../../utils/countries";
 import { sanitizeEnglishName } from "../../../../../utils/englishName";
 import {
-  DATE_INPUT_LANG,
   LOCALE_LABELS,
   SUPPORTED_LOCALES,
   normalizeLocale,
   type AppLocale,
 } from "../../../../../i18n";
 import { useMsg } from '../../../../../i18n/useMsg';
+import { DateInput } from './ui/date-input';
 
 // ── Props interface ─────────────────────────────────────────────────────────
 export interface SettingsProps {
@@ -620,18 +620,16 @@ export function Settings({
               className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
               style={{ color: colors.textMuted }}
             />
-            <input
-              type="date"
-              lang={DATE_INPUT_LANG}
+            <DateInput
               value={profile.birthday ?? ""}
               max={new Intl.DateTimeFormat("en-CA", {
                 timeZone: "Asia/Hong_Kong",
               }).format(new Date())}
               min="1900-01-01"
-              onChange={(e) =>
-                updateSetting("profile", "birthday", e.target.value)
+              onChange={(value) =>
+                updateSetting("profile", "birthday", value)
               }
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={{
                 ...inputStyle,
                 boxShadow: highlightBirthday
@@ -869,9 +867,7 @@ export function Settings({
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
                 style={{ color: colors.textMuted }}
               />
-              <input
-                type="date"
-                lang={DATE_INPUT_LANG}
+              <DateInput
                 value={profile.spouseBirthday ?? ""}
                 readOnly={spouseLocked}
                 disabled={spouseLocked}
@@ -880,11 +876,11 @@ export function Settings({
                   timeZone: "Asia/Hong_Kong",
                 }).format(new Date())}
                 min="1900-01-01"
-                onChange={(e) => {
+                onChange={(value) => {
                   if (spouseLocked) return;
-                  updateSetting("profile", "spouseBirthday", e.target.value);
+                  updateSetting("profile", "spouseBirthday", value);
                 }}
-                className={`w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none ${
+                className={`w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none ${
                   spouseLocked
                     ? "cursor-not-allowed opacity-70"
                     : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"

@@ -6,6 +6,7 @@
 import React from 'react';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { palette } from './tokens';
+import { DateInput } from '../ui/date-input';
 
 export type InputType =
   | 'text'
@@ -232,7 +233,20 @@ export function GlassInputField({
           />
         )}
 
-        {as === 'input' && (
+        {as === 'input' && (type === 'date' ? (
+          <DateInput
+            id={inputId}
+            value={value}
+            placeholder={placeholder}
+            disabled={disabled}
+            required={required}
+            onChange={(nextValue) => onChange?.(nextValue)}
+            onFocus={onFocus}
+            onBlur={onBlur}
+            className={fieldClass}
+            style={inputTextStyle}
+          />
+        ) : (
           <input
             id={inputId}
             type={resolvedType}
@@ -245,7 +259,7 @@ export function GlassInputField({
             className={fieldClass}
             style={inputTextStyle}
           />
-        )}
+        ))}
 
         {/* Error icon */}
         {error && (

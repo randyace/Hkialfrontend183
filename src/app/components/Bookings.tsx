@@ -34,10 +34,11 @@ import { toast } from 'sonner@2.0.3';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { useTheme } from './ThemeContext';
-import { DATE_INPUT_LANG, translateStatus } from '../../../../../i18n';
+import { translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 import { customerBookingStatusLabel } from '../../../../../utils/customerBookingStatus';
+import { DateInput } from './ui/date-input';
 import {
   openBookingDocumentFromBackend,
   openBackendPdfDeliveryWindow,
@@ -1063,20 +1064,16 @@ export function Bookings({
               <span className="text-sm font-medium">{t('bookings.filterByDate')}:</span>
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="date"
-                lang={DATE_INPUT_LANG}
+              <DateInput
                 value={dateFilter.start}
-                 onChange={(e) => handleSetDateFilter({ ...dateFilter, start: e.target.value })}
+                onChange={(value) => handleSetDateFilter({ ...dateFilter, start: value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
                 style={inputStyle}
               />
               <span className="flex-shrink-0 text-sm" style={{ color: colors.textSecondary }}>{m('to')}</span>
-              <input
-                type="date"
-                lang={DATE_INPUT_LANG}
+              <DateInput
                 value={dateFilter.end}
-                 onChange={(e) => handleSetDateFilter({ ...dateFilter, end: e.target.value })}
+                onChange={(value) => handleSetDateFilter({ ...dateFilter, end: value })}
                 className="flex-1 min-w-0 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 text-sm"
                 style={inputStyle}
               />
@@ -1515,13 +1512,11 @@ export function Bookings({
                   <label className="block text-sm mb-2" style={{ color: colors.textSecondary }}>{m('Date')}</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 pointer-events-none" style={{ color: colors.textMuted }} />
-                    <input
-                      type="date"
-                      lang={DATE_INPUT_LANG}
+                    <DateInput
                       name="date"
                       value={bookingForm.date}
-                      onChange={handleBookingFormChange}
-                      className="w-full pl-11 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+                      onChange={(value) => setBookingForm((prev) => ({ ...prev, date: value }))}
+                      className="w-full pl-11 pr-11 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
                       style={inputStyle}
                       required
                     />

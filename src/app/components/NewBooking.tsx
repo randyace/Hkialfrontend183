@@ -98,10 +98,11 @@ import {
   NFG_CHILDREN_AGE_GROUP,
 } from '../../../../../utils/bookingGuestPayload';
 import { useMsg } from '../../../../../i18n/useMsg';
-import { DATE_INPUT_LANG, getAppLocale, toBcp47Locale } from '../../../../../i18n';
+import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
 import { translatePriceLineLabel } from '../../../../../lib/addons/translatePriceLineLabel';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
+import { DateInput } from './ui/date-input';
 // 2026-08-18 (round — Cirium Sky API migration, Task 11). Step 1
 // Lookup button calls `flightsApi.lookupFlight` (auth.api, member
 // Bearer). The helper handles the Laravel envelope unwrap + Bearer
@@ -2584,9 +2585,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1TimeValid =
     !isArrivalOrDeparture || leg1FlightTime !== '';
   // 2026-06-30 (round ? — Sky) — date+time must be in the future.
-  // The native `<input type="date" lang={DATE_INPUT_LANG} min={today}>` (line ~5422) only
-  // blocks past DATES through the picker UI; it does NOT block (a)
-  // typed / pasted past dates, OR (b) past TIMES on today's date.
+  // The DateInput min bound blocks past dates through its calendar UI; it
+  // does NOT block (a) typed / pasted past dates, OR (b) past TIMES on
+  // today's date.
   // Add a combined datetime check so the hint list catches every
   // past-datetime case (leg 1 for all flight types + leg 2 for
   // Transit). Both checks return `true` when the relevant inputs are
@@ -6862,16 +6863,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {form.flightType === 'Departure' ? m('Departure Date') : m('Arrival Date')} *
               </label>
               <div className="relative">
-                <input
-                  type="date" lang={DATE_INPUT_LANG}
+                <DateInput
                   value={form.date}
                   min={hktTodayYmd()}
-                  onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
+                  onChange={(value) => setForm((p) => ({ ...p, date: value }))}
                   required
                   style={fieldStyle}
-                  className={fieldClass + ' pr-10'}
+                  className={fieldClass}
                 />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
@@ -7072,12 +7071,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 <div className="mb-4">
                   <label className={labelClass}>{m('Leg 2 Departure Date')} <span>*</span></label>
                   <div className="relative">
-                    <input
-                      type="date" lang={DATE_INPUT_LANG}
+                    <DateInput
                       value={leg2ArrivalDate?.split('T')[0] || ''}
                       min={form.date ? form.date : hktTodayYmd()}
-                      onChange={(e) => {
-                        const datePart = e.target.value;
+                      onChange={(datePart) => {
                         const timePart = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
                         const next = timePart ? `${datePart}T${timePart}` : datePart;
                         setLeg2ArrivalDate(next);
@@ -7109,10 +7106,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                         }
                       }}
                       style={fieldStyle}
-                      className={fieldClass + ' pr-10'}
+                      className={fieldClass}
                       data-testid="leg2-arrivalDate"
                     />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
 
@@ -7759,14 +7755,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <label className={labelClass}>{m('Birthday (Date / Month / Year)')}</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <input
-                      type="date" lang={DATE_INPUT_LANG}
+                    <DateInput
                       value={passenger.vipBirthday}
-                      onChange={(e) => handleVipChange(index, 'vipBirthday', e.target.value)}
+                      onChange={(value) => handleVipChange(index, 'vipBirthday', value)}
                       style={fieldStyle}
-                      className={fieldClass + ' pl-10 pr-10'}
+                      className={fieldClass + ' pl-10'}
                     />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
