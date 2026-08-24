@@ -16,6 +16,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -182,11 +183,18 @@ function getBatchStatus(batch: VoucherBatch): 'active' | 'expired' | 'exhausted'
 }
 
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-GB', {
+  const locale = toBcp47Locale(getAppLocale());
+  const opts: Intl.DateTimeFormatOptions = {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  });
+  };
+  const ymd = String(dateStr).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    const dt = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+    return dt.toLocaleDateString(locale, opts);
+  }
+  return new Date(dateStr).toLocaleDateString(locale, opts);
 }
 
 // ── Pure-JS download helpers ───────────────────────────────────────────────────
@@ -490,7 +498,9 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
             </div>
             <p className="text-sm" style={{ color: colors.textMuted }}>{batch.voucherName}</p>
             <p className="text-xs mt-1" style={{ color: colors.textMuted }}>
-              Valid: {formatDate(batch.validFrom)} — {formatDate(batch.validUntil)}
+              {m('Valid: {from} — {until}')
+                .replace('{from}', formatDate(batch.validFrom))
+                .replace('{until}', formatDate(batch.validUntil))}
             </p>
           </div>
           <button
@@ -591,7 +601,7 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
             const statusBg     = isAvailable ? 'rgba(52,211,153,0.1)'             : isUsed ? 'rgba(99,102,241,0.1)'             : 'rgba(156,163,175,0.08)';
             const statusBorder = isAvailable ? '1px solid rgba(52,211,153,0.25)'  : isUsed ? '1px solid rgba(99,102,241,0.25)'  : '1px solid rgba(156,163,175,0.2)';
             const statusColor  = isAvailable ? (isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)') : isUsed ? (isDark ? 'rgb(165,180,252)' : 'rgb(79,70,229)') : colors.textMuted;
-            const statusLabel  = isAvailable ? 'Available' : isUsed ? 'Used' : 'Expired';
+            const statusLabel  = isAvailable ? m('Available') : isUsed ? m('Used') : m('Expired');
             const StatusIcon   = isAvailable ? CheckCircle : isUsed ? CheckCheck : Clock;
 
             return (
@@ -629,7 +639,10 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
         {totalPages > 1 && (
           <div className="px-6 py-3 flex items-center justify-between" style={{ borderTop: hdrBorder }}>
             <span className="text-xs" style={{ color: colors.textMuted }}>
-              Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+              {m('Showing {from}–{to} of {total}')
+                .replace('{from}', String(page * PAGE_SIZE + 1))
+                .replace('{to}', String(Math.min((page + 1) * PAGE_SIZE, filtered.length)))
+                .replace('{total}', String(filtered.length))}
             </span>
             <div className="flex gap-2">
               <button
@@ -935,7 +948,7 @@ export function VoucherBatches({
           const badgeBg     = isStatusActive ? 'rgba(52,211,153,0.12)'          : isStatusExpired ? 'rgba(239,68,68,0.1)'           : 'rgba(156,163,175,0.1)';
           const badgeBorder = isStatusActive ? '1px solid rgba(52,211,153,0.3)' : isStatusExpired ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(156,163,175,0.25)';
           const badgeColor  = isStatusActive ? (isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)') : isStatusExpired ? (isDark ? 'rgb(248,113,113)' : 'rgb(185,28,28)') : metaColor;
-          const statusLabel = isStatusActive ? 'Active' : isStatusExpired ? 'Expired' : 'Exhausted';
+          const statusLabel = isStatusActive ? m('Active') : isStatusExpired ? m('Expired') : m('Exhausted');
           const StatusBadgeIcon = isStatusActive ? CheckCircle : isStatusExpired ? XCircle : CheckCheck;
 
           const progressColor = isStatusActive ? 'rgb(220,181,21)' : 'rgb(156,163,175)';
@@ -1039,7 +1052,9 @@ export function VoucherBatches({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs" style={{ color: metaColor }}>
-                      Redemption rate — {batch.usedCount.toLocaleString()} of {batch.totalCount.toLocaleString()} redeemed
+                      {m('Redemption rate — {used} of {total} redeemed')
+                        .replace('{used}', batch.usedCount.toLocaleString())
+                        .replace('{total}', batch.totalCount.toLocaleString())}
                     </span>
                     <span className="text-xs" style={{ color: isStatusActive ? accentColor : metaColor }}>
                       {usagePercent}%
