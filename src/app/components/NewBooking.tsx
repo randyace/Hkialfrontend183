@@ -642,6 +642,23 @@ export function memberIsLoungeVipGuest(
   return false;
 }
 
+/**
+ * Credit eligibility must re-check the VIP names the customer currently
+ * sees. Hidden leftover rows (Quick Fill / reduced count after going back)
+ * must not keep a previous match alive, and credits stay off until the
+ * customer reaches the membership-credit step (so going back re-checks).
+ */
+export function memberIsLoungeVipGuestForCredit(
+  member: { firstName?: string; lastName?: string; name?: string },
+  vipRows: Array<{ vipFirstName?: string; vipLastName?: string }>,
+  activeVipCount: number,
+  namesStepConfirmed: boolean,
+): boolean {
+  if (!namesStepConfirmed) return false;
+  const n = Number.isFinite(activeVipCount) ? Math.max(0, Math.trunc(activeVipCount)) : 0;
+  return memberIsLoungeVipGuest(member, vipRows.slice(0, n));
+}
+
 function historyNonBlank(...candidates: unknown[]): string {
   for (const c of candidates) {
     if (typeof c === 'string' && c.trim() !== '') return c.trim();
@@ -2342,7 +2359,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         lastName: memberData.lastName,
         name: memberData.name,
       };
-  const memberIsVipGuest = memberIsLoungeVipGuest(membershipHolder, vipData);
+  const activeVipCount = form.premiereVipPassengers + form.vipPassengers;
+  const activeVipRows = vipData.slice(0, activeVipCount);
+  const memberIsVipGuest = memberIsLoungeVipGuestForCredit(
+    membershipHolder,
+    vipData,
+    activeVipCount,
+    currentStep >= 4,
+  );
   const hasLdQuota = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
   const canUseFreeLd = hasLdQuota && memberIsVipGuest;
   // Free Premiere Suite upgrade is dual-quota: needs PS on the booking,
@@ -2412,7 +2436,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const limoRate = 1500;
   // Wheelchair Assistance is a complimentary service (bookable_items.price = 0).
   const wheelchairRate = 0;
-  const bookingGuestNames = collectBookingGuestNames(vipData, nonFlyingGuestData);
+  const bookingGuestNames = collectBookingGuestNames(activeVipRows, nonFlyingGuestData);
 
   // ── Step 2 state ──────────────────────────────────────────────────────────
   const [step2Form, setStep2Form] = useState({
@@ -2670,7 +2694,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       : m('Please complete all required fields to proceed');
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
-  const allVipFilled = vipData.every(
+  const allVipFilled = activeVipRows.every(
     (v) =>
       isEnglishName(v.vipFirstName)
       && isEnglishName(v.vipLastName)
@@ -3019,12 +3043,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     onFormChangeRef.current?.({
       form: form as unknown as Record<string, unknown>,
       step2Form: step2Form as unknown as Record<string, unknown>,
-      vipData: vipData as unknown as Array<Record<string, unknown>>,
+      vipData: activeVipRows as unknown as Array<Record<string, unknown>>,
       nonFlyingGuestData: nonFlyingGuestData as unknown as Array<Record<string, unknown>>,
-      useMembershipLdFree,
-      useMembershipPsFree,
+      useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
+      useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
     });
-  }, [form, step2Form, vipData, nonFlyingGuestData, useMembershipLdFree, useMembershipPsFree]);
+  }, [form, step2Form, vipData, nonFlyingGuestData, useMembershipLdFree, useMembershipPsFree, memberIsVipGuest, currentStep]);
 
   // Sync non-flying guest array length with totalNonFlying
   //
@@ -3625,7 +3649,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       onSubmit({
         form,
         step2Form,
-        vipData,
+        vipData: activeVipRows,
         nonFlyingGuestData,
         memberData,
         flightDetails,
@@ -3647,8 +3671,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         // `legs[1].destination` for future use.
         leg2Destination,
         transitGapError,
-        useMembershipLdFree,
-        useMembershipPsFree,
+        useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
+        useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
       });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
@@ -3871,7 +3895,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 onSubmit({
                   form,
                   step2Form,
-                  vipData,
+                  vipData: activeVipRows,
                   nonFlyingGuestData,
                   memberData,
                   flightDetails,
@@ -3882,8 +3906,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   leg2FlightClass,
                   leg2Destination,
                   transitGapError,
-                  useMembershipLdFree,
-                  useMembershipPsFree,
+                  useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
+                  useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
                 });
               } else {
                 const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
@@ -4981,7 +5005,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         </ReviewSection>
 
         {/* ── VIP Passengers ─────────────────────────────────────────────── */}
-        {vipData.map((p, i) => (
+        {activeVipRows.map((p, i) => (
           <ReviewSection
             key={i}
             icon={<User className="w-4 h-4 text-white" />}
