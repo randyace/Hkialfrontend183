@@ -4291,7 +4291,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className={'text-xs mt-1.5 text-center whitespace-nowrap' + alignClass}
                   style={{ color: labelCol, lineHeight: '1.2', maxWidth: '64px', fontSize: '10px' }}
                 >
-                  {isSkipped ? 'Skipped' : label}
+                  {isSkipped ? m('Skipped') : label}
                 </span>
               </div>
             );

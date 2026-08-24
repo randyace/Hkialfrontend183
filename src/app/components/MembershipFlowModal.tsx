@@ -497,10 +497,10 @@ export function MembershipFlowModal({
     const summaryRows = [
       { label: 'Member', value: memberFullName },
       { label: 'Order Reference', value: orderRef },
-      { label: 'Payment Method', value: isOnCredit ? 'On Credit' : 'Card' },
+      { label: 'Payment Method', value: isOnCredit ? m('On Credit') : m('Card') },
       { label: 'Amount Paid', value: `${selectedTier.currency} ${selectedTier.price.toLocaleString()}` },
       { label: 'Valid Until', value: validUntil },
-      { label: 'Status', value: 'Active' },
+      { label: 'Status', value: m('Active') },
     ];
 
     return (
@@ -515,7 +515,7 @@ export function MembershipFlowModal({
         <p className="text-2xl mb-2" style={{ color: pageText }}>{m('Membership Activated!')}</p>
         <p className="text-sm mb-2 max-w-xs" style={{ color: subText }}>
           <strong style={{ color: 'rgb(220,181,21)' }}>{m(selectedTier.name)} {m(selectedTier.memberType)} {m('Membership')}</strong>
-          {' '}has been assigned to
+          {' '}{m('has been assigned to')}
         </p>
         <p className="text-sm mb-8" style={{ color: pageText }}>{memberFullName}</p>
 
@@ -535,7 +535,7 @@ export function MembershipFlowModal({
               const valueColor = row.label === 'Status' ? 'rgb(52,199,89)' : row.label === 'Amount Paid' ? 'rgb(220,181,21)' : pageText;
               return (
                 <div key={row.label} className="flex items-center justify-between py-3" style={{ borderTop: rowTopBorder }}>
-                  <span className="text-xs" style={{ color: subText }}>{row.label}</span>
+                  <span className="text-xs" style={{ color: subText }}>{m(row.label)}</span>
                   <span className="text-xs" style={{ color: valueColor }}>{row.value}</span>
                 </div>
               );
@@ -667,7 +667,7 @@ export function MembershipFlowModal({
                     const valColor = row.green ? 'rgb(52,199,89)' : pageText;
                     return (
                       <div key={row.label} className="flex items-center justify-between px-3 py-2.5 rounded-lg" style={{ background: rowBg, border: rowBorder }}>
-                        <span className="text-xs" style={{ color: subText }}>{row.label}</span>
+                        <span className="text-xs" style={{ color: subText }}>{m(row.label)}</span>
                         <span className="text-xs" style={{ color: valColor }}>{row.value}</span>
                       </div>
                     );

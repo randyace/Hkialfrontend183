@@ -316,7 +316,7 @@ export function Services() {
                       }
                 }
               >
-                {category === 'all' ? 'All Services' : category}
+                {category === 'all' ? m('All Services') : m(category)}
               </button>
             );
           })}

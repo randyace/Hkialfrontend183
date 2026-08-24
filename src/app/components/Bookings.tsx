@@ -1451,7 +1451,7 @@ export function Bookings({
                   className="flex-1 px-4 py-3 rounded-xl transition-all text-sm text-white disabled:opacity-50"
                   style={{ background: cancelLoading ? 'rgba(180,30,30,0.5)' : 'linear-gradient(to right, rgb(210,55,55), rgb(180,30,30))' }}
                 >
-                  {cancelLoading ? 'Cancelling…' : 'Yes, Cancel Booking'}
+                  {cancelLoading ? m('Cancelling…') : m('Yes, Cancel Booking')}
                 </button>
               </div>
             </div>
