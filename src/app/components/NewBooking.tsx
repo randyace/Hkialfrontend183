@@ -320,6 +320,8 @@ interface MemberData {
   membershipExpiryDate?: string;
   freeLoungeDeluxeEntriesRemaining?: number | null;
   freePremiereSuiteUpgradesRemaining?: number | null;
+  firstName?: string;
+  lastName?: string;
   /** Spec §9 — travel_agencies.agency_code for Agency Billing Reference prefill. */
   agencyCode?: string | null;
 }
@@ -578,6 +580,61 @@ export function collectBookingGuestNames(
     push(formatBookingGuestName(g.guestTitle, g.guestFirstName, g.guestLastName));
   }
   return names;
+}
+
+function lettersOnlyGuestName(value: string): string {
+  return value.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function membershipHolderNameKeys(member: {
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+}): string[] {
+  const first = typeof member.firstName === 'string' ? member.firstName.trim() : '';
+  const last = typeof member.lastName === 'string' ? member.lastName.trim() : '';
+  const full = typeof member.name === 'string' ? member.name.trim() : '';
+  const keys = new Set<string>();
+  const addPair = (f: string, l: string) => {
+    const fl = lettersOnlyGuestName(f);
+    const ll = lettersOnlyGuestName(l);
+    if (!fl || !ll) return;
+    keys.add(fl + ll);
+    keys.add(ll + fl);
+    const firstToken = lettersOnlyGuestName(f.split(/\s+/)[0] ?? '');
+    if (firstToken && firstToken !== fl) {
+      keys.add(firstToken + ll);
+      keys.add(ll + firstToken);
+    }
+  };
+  addPair(first, last);
+  if (full) {
+    const letters = lettersOnlyGuestName(full);
+    if (letters) keys.add(letters);
+    const parts = full.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      addPair(parts.slice(0, -1).join(' '), parts[parts.length - 1]);
+    }
+  }
+  return [...keys];
+}
+
+/** Free LD / PS credits apply only when the membership holder is a named VIP. */
+export function memberIsLoungeVipGuest(
+  member: { firstName?: string; lastName?: string; name?: string },
+  vipRows: Array<{ vipFirstName?: string; vipLastName?: string }>,
+): boolean {
+  const memberKeys = membershipHolderNameKeys(member);
+  if (memberKeys.length === 0) return false;
+  const memberSet = new Set(memberKeys);
+  for (const row of vipRows) {
+    const guestKeys = membershipHolderNameKeys({
+      firstName: row.vipFirstName,
+      lastName: row.vipLastName,
+    });
+    if (guestKeys.some((key) => memberSet.has(key))) return true;
+  }
+  return false;
 }
 
 function historyNonBlank(...candidates: unknown[]): string {
@@ -2268,7 +2325,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     form.premiereSuites > 0
     || (form.premiereVipPassengers ?? 0) > 0
     || (form.premiereNonFlyingGuests ?? 0) > 0;
-  const canUseFreeLd = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
+  const membershipHolder = bookedForAccountId != null
+    ? {
+        firstName: prefillMember?.firstName,
+        lastName: prefillMember?.lastName,
+        name: [prefillMember?.firstName, prefillMember?.lastName].filter(Boolean).join(' '),
+      }
+    : {
+        firstName: memberData.firstName,
+        lastName: memberData.lastName,
+        name: memberData.name,
+      };
+  const memberIsVipGuest = memberIsLoungeVipGuest(membershipHolder, vipData);
+  const hasLdQuota = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
+  const canUseFreeLd = hasLdQuota && memberIsVipGuest;
   // Free Premiere Suite upgrade is dual-quota: needs PS on the booking,
   // free PS voucher, LD remaining, and the LD credit checkbox on.
   // Cannot use free PS credit alone.
@@ -6110,7 +6180,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="font-medium" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</span>
                   <span className="block text-xs mt-0.5" style={textMuted}>
                     {m('For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.')}
-                    {!canUseFreeLd ? ` ${m('You have no free Lounge Deluxe entries left.')}` : ''}
+                    {!hasLdQuota ? ` ${m('You have no free Lounge Deluxe entries left.')}` : !memberIsVipGuest ? ` ${m('This credit can only be used when the member is listed as a VIP passenger.')}` : ''}
                       </span>
                       </span>
               </label>
