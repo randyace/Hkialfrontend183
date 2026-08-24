@@ -471,6 +471,11 @@ interface NewBookingProps {
   catalogAddonSlot?: React.ReactNode;
   /** Staff-owned bookable-item names (name_trad / name_simp) for summary labels. */
   catalogAddonOptions?: CatalogAddonOption[];
+  /**
+   * Wrapper-owned leftover D2: free LD/PS follow membership species, not
+   * Individual type. When omitted (Figma standalone), fall back to Individual.
+   */
+  showMembershipBenefits?: boolean;
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -2127,7 +2132,7 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp }: NewBookingProps) {
   const m = useMsg();
   const priceLineLabel = (label: string) =>
     translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
@@ -2307,10 +2312,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     bookedForAccountId != null
     && Boolean(prefillMember?.membershipType)
     && membershipExpiryOk(prefillMember?.membershipExpiryDate);
-  const isEligibleLoggedInMembership =
-    (memberData.memberType === 'Individual' || memberData.memberType === 'individual')
-    && Boolean(memberData.membershipType)
-    && membershipExpiryOk(memberData.membershipExpiryDate);
+  const isEligibleLoggedInMembership = showMembershipBenefitsProp !== undefined
+    ? showMembershipBenefitsProp
+    : (memberData.memberType === 'Individual' || memberData.memberType === 'individual')
+      && Boolean(memberData.membershipType)
+      && membershipExpiryOk(memberData.membershipExpiryDate);
   const isEligibleIndividualMembership = bookedForAccountId != null
     ? isEligibleBookedForMembership
     : isEligibleLoggedInMembership;
