@@ -1,10 +1,12 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   CustomDatePicker,
   formatDateValue,
   parseDateValue,
 } from "@/components/ui/CustomDatePicker";
+import { getAppLocale, toBcp47Locale } from "@/i18n";
 
 export const DATE_INPUT_PLACEHOLDER = "dd/mm/yyyy";
 
@@ -26,7 +28,7 @@ export interface DateInputProps
   /** Canonical `YYYY-MM-DD` bounds. */
   min?: string;
   max?: string;
-  /** Optional BCP-47 tag for the calendar popup. */
+  /** Optional BCP-47 / app locale tag for the calendar popup. */
   locale?: string;
   placeholder?: string;
 }
@@ -107,7 +109,7 @@ export function DateInput({
   onChange,
   min,
   max,
-  locale: _locale,
+  locale,
   placeholder = DATE_INPUT_PLACEHOLDER,
   className,
   style,
@@ -120,6 +122,10 @@ export function DateInput({
   onFocus,
   onKeyDown,
 }: DateInputProps) {
+  const { i18n } = useTranslation();
+  const resolvedLocale =
+    locale ?? toBcp47Locale(i18n.language || getAppLocale());
+
   return (
     <>
       <CustomDatePicker
@@ -135,6 +141,7 @@ export function DateInput({
         placeholderText={placeholder}
         className={className}
         style={style}
+        locale={resolvedLocale}
         onFocus={onFocus}
         onBlur={onBlur}
         onKeyDown={onKeyDown}

@@ -854,6 +854,9 @@ function getPriceSectionPrices(pricePreview?: {
     'membership_ps_free',
     'membership_ps_discount',
     'membership_flying_guest_discount',
+    // Mixed booking: member sits at PS, flying guest pays 40% of the LD
+    // base (MembershipBenefitFolder::KEY_LD_GUEST_ENTRY_DISCOUNT).
+    'membership_ld_guest_entry_discount',
     'membership_non_flying_guest_discount',
     'membership_limousine_discount',
   ]);
