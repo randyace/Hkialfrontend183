@@ -3474,15 +3474,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // (leg2ArrivalDate — when the customer actually needs to be
   // at the lounge for the next flight); non-Transit uses the
   // single flight event (leg1FlightTime + form.date).
-  const isWithin48Hours = (): boolean => {
-    const startIso = deriveBookingStartIso({
+  // 2026-08-26: also drives the inline warning under the date
+  // input on step 1 (same gate as the Confirm dialog).
+  const isShortNoticeBooking = isBookingStartWithin48Hours(
+    deriveBookingStartIso({
       flightType: form.flightType,
       date: form.date,
       leg1FlightTime,
       leg2ArrivalDate,
-    });
-    return isBookingStartWithin48Hours(startIso);
-  };
+    }),
+  );
 
   const handleFinalConfirm = () => {
     // 2026-06-27 (round 6.2.97 — Sky): intercept <48h bookings
@@ -3492,7 +3493,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     // If any required piece is missing (startIso is null), skip
     // the gate — the step-1 required-field gate in step1Valid
     // already blocks that case at advance-to-step-2 time.
-    if (isWithin48Hours()) {
+    if (isShortNoticeBooking) {
       setShowShortNoticeWarning(true);
       return;
     }
@@ -6736,6 +6737,30 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className={fieldClass}
                 />
               </div>
+              {/* 2026-08-26 — inline short-notice (<48h) warning under
+                  the visit date for Arrival/Departure. Transit uses the
+                  leg-2 date (see below). Same copy as the Confirm dialog. */}
+              {isShortNoticeBooking && form.flightType !== 'Transit' && (
+                <div
+                  className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
+                  style={{ background: hintBgS1, border: hintBorderS1 }}
+                  data-testid="short-notice-inline-warning"
+                  role="status"
+                >
+                  <AlertTriangle
+                    className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: hintColorS1 }}
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium" style={{ color: hintColorS1 }}>
+                      {m('Short-Notice Booking')}
+                    </p>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: hintColorS1 }}>
+                      {m('The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.')}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Arrival Time / Departure Time — 2026-06-08 (reactive fix)
@@ -6974,6 +6999,29 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       data-testid="leg2-arrivalDate"
                     />
                   </div>
+                  {/* 2026-08-26 — Transit short-notice gate uses leg 2
+                      (outbound) start; warn under that date input. */}
+                  {isShortNoticeBooking && form.flightType === 'Transit' && (
+                    <div
+                      className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
+                      style={{ background: hintBgS1, border: hintBorderS1 }}
+                      data-testid="short-notice-inline-warning"
+                      role="status"
+                    >
+                      <AlertTriangle
+                        className="w-4 h-4 flex-shrink-0 mt-0.5"
+                        style={{ color: hintColorS1 }}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium" style={{ color: hintColorS1 }}>
+                          {m('Short-Notice Booking')}
+                        </p>
+                        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: hintColorS1 }}>
+                          {m('The booking may not be able to fullfill, further confiration will be made by HKIAL staffs.')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Leg 2 Departure Time — full width. 2026-06-08 (round
