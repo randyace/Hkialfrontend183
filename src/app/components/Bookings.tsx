@@ -38,6 +38,7 @@ import { translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
 import { customerBookingStatusLabel } from '../../../../../utils/customerBookingStatus';
+import { escapeHtml } from '../../../../../utils/escapeHtml';
 import { DateInput } from './ui/date-input';
 import {
   openBookingDocumentFromBackend,
@@ -621,22 +622,22 @@ export function Bookings({
     // subtitle + QR-modal fix (this same file). The customer app
     // no longer surfaces terminal anywhere.
     const detailRows: Array<[string, string]> = [
-      [m('Lounge'),    b.lounge],
-      ...(b.terminal ? [[m('Terminal'), b.terminal] as [string, string]] : []),
-      [m('Date'),      dateLabel],
-      [m('Time'),      b.time],
-      [m('Flight'),    b.flight],
-      [m('Flight No'), b.flightNumber],
-      [m('Class'),     m(b.flightClass || '')],
-      [m('Type'),      m(b.flightType || '')],
-      [m('Status'),    statusLabel],
+      [m('Lounge'),    escapeHtml(b.lounge)],
+      ...(b.terminal ? [[m('Terminal'), escapeHtml(b.terminal)] as [string, string]] : []),
+      [m('Date'),      escapeHtml(dateLabel)],
+      [m('Time'),      escapeHtml(b.time)],
+      [m('Flight'),    escapeHtml(b.flight)],
+      [m('Flight No'), escapeHtml(b.flightNumber)],
+      [m('Class'),     escapeHtml(m(b.flightClass || ''))],
+      [m('Type'),      escapeHtml(m(b.flightType || ''))],
+      [m('Status'),    escapeHtml(statusLabel)],
     ];
 
     const passengerRows = b.passengers.map((p: any, i: number) =>
       `<tr style="background:${i % 2 === 0 ? '#f5f4ee' : '#ffffff'}">
-        <td style="padding:8px 12px;color:#141929;font-weight:600">${p.title} ${p.firstName} ${p.lastName}</td>
-        <td style="padding:8px 12px;color:#64646e">${p.travelDoc}</td>
-        <td style="padding:8px 12px;color:#64646e">${p.membership}</td>
+        <td style="padding:8px 12px;color:#141929;font-weight:600">${escapeHtml(p.title)} ${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</td>
+        <td style="padding:8px 12px;color:#64646e">${escapeHtml(p.travelDoc)}</td>
+        <td style="padding:8px 12px;color:#64646e">${escapeHtml(p.membership)}</td>
       </tr>`
     ).join('');
 
@@ -651,7 +652,7 @@ export function Bookings({
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>HKIA Entry Pass – ${b.bookingRef}</title>
+  <title>HKIA Entry Pass – ${escapeHtml(b.bookingRef)}</title>
   <style>
     @media print { @page { margin: 0; size: A4; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -704,7 +705,7 @@ export function Bookings({
             const payload = String(hash).startsWith('HKIAL-') ? String(hash) : `HKIAL-${hash}`;
             const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=6&data='
               + encodeURIComponent(payload);
-            return `<img src="${qrUrl}" alt="QR ${payload}" style="width:160px;height:160px;display:block" />`;
+            return `<img src="${qrUrl}" alt="QR ${escapeHtml(payload)}" style="width:160px;height:160px;display:block" />`;
           }
           return `<div class="qr-grid">${
             [
@@ -727,7 +728,7 @@ export function Bookings({
       </div>
       <div class="qr-label">${m('Scan to verify at lounge entrance')}</div>
     </div>
-    <div class="ref-badge">${b.bookingRef}</div>
+    <div class="ref-badge">${escapeHtml(b.bookingRef)}</div>
     <div class="section">
       <div class="section-header">${m('Booking Details')}</div>
       <table>${detailRowsHtml}</table>
