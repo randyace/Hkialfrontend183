@@ -83,6 +83,7 @@ import {
 // so the figma Make copy-paste flow keeps working.
 import {
   deriveBookingStartIso,
+  isBookingDatePossiblyWithin48Hours,
   isBookingStartWithin48Hours,
 } from '../../../../../utils/bookingShortNotice';
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
@@ -3660,14 +3661,22 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // at the lounge for the next flight); non-Transit uses the
   // single flight event (leg1FlightTime + form.date).
   // 2026-08-26: also drives the inline warning under the date
-  // input on step 1 (same gate as the Confirm dialog).
+  // input on step 1 (same copy as the Confirm dialog).
+  // 2026-08-27: inline uses the date-possibly helper so the banner
+  // appears as soon as the visit/leg-2 date can still start within
+  // 48h — do not wait for Cirium lookup (800ms debounce + network)
+  // to fill flight time. Confirm still uses the exact start time.
+  const bookingStartInput = {
+    flightType: form.flightType,
+    date: form.date,
+    leg1FlightTime,
+    leg2ArrivalDate,
+  };
   const isShortNoticeBooking = isBookingStartWithin48Hours(
-    deriveBookingStartIso({
-      flightType: form.flightType,
-      date: form.date,
-      leg1FlightTime,
-      leg2ArrivalDate,
-    }),
+    deriveBookingStartIso(bookingStartInput),
+  );
+  const showShortNoticeInline = isBookingDatePossiblyWithin48Hours(
+    bookingStartInput,
   );
 
   const handleFinalConfirm = () => {
@@ -6889,8 +6898,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
               {/* 2026-08-26 — inline short-notice (<48h) warning under
                   the visit date for Arrival/Departure. Transit uses the
-                  leg-2 date (see below). Same copy as the Confirm dialog. */}
-              {isShortNoticeBooking && form.flightType !== 'Transit' && (
+                  leg-2 date (see below). Same copy as the Confirm dialog.
+                  2026-08-27: date-possibly gate (showShortNoticeInline)
+                  so this does not wait on lookup/time. */}
+              {showShortNoticeInline && form.flightType !== 'Transit' && (
                 <div
                   className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
                   style={{ background: hintBgS1, border: hintBorderS1 }}
@@ -7194,8 +7205,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     />
                   </div>
                   {/* 2026-08-26 — Transit short-notice gate uses leg 2
-                      (outbound) start; warn under that date input. */}
-                  {isShortNoticeBooking && form.flightType === 'Transit' && (
+                      (outbound) start; warn under that date input.
+                      2026-08-27: date-possibly gate so a date-only pick
+                      (time still empty) still shows immediately. */}
+                  {showShortNoticeInline && form.flightType === 'Transit' && (
                     <div
                       className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
                       style={{ background: hintBgS1, border: hintBorderS1 }}
