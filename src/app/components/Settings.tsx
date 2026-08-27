@@ -118,6 +118,20 @@ const MOCK_SETTINGS = {
   },
 };
 
+function RequiredStar() {
+  return <span style={{ color: "rgb(220,181,21)" }}>*</span>;
+}
+
+function SettingsFieldError({ msg }: { msg?: string }) {
+  const m = useMsg();
+  if (!msg) return null;
+  return (
+    <p className="mt-1 text-xs" style={{ color: "#ef4444" }}>
+      {m(msg)}
+    </p>
+  );
+}
+
 export function Settings({
   isLoading = false,
   isSaving = false,
@@ -399,7 +413,8 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.title")}
+            {t("auth.title")}{" "}
+            <RequiredStar />
           </label>
           <div className="relative">
             <User
@@ -433,7 +448,8 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {m('First Name (in English)')}
+            {m('First Name (in English)')}{" "}
+            <RequiredStar />
           </label>
           <div className="relative">
             <User
@@ -454,6 +470,7 @@ export function Settings({
               style={inputStyle}
             />
           </div>
+          <SettingsFieldError msg={fieldErrors["firstName"]} />
         </div>
 
         {/* Last Name */}
@@ -462,7 +479,8 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {m('Last Name (in English)')}
+            {m('Last Name (in English)')}{" "}
+            <RequiredStar />
           </label>
           <div className="relative">
             <User
@@ -483,6 +501,7 @@ export function Settings({
               style={inputStyle}
             />
           </div>
+          <SettingsFieldError msg={fieldErrors["lastName"]} />
         </div>
 
         {/* Email — read-only (2026-06-24, Sky). Email is managed by
@@ -524,7 +543,8 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.phone")}
+            {t("auth.phone")}{" "}
+            <RequiredStar />
           </label>
           <div className="relative">
             <Phone
@@ -545,6 +565,7 @@ export function Settings({
               style={inputStyle}
             />
           </div>
+          <SettingsFieldError msg={fieldErrors["phone"]} />
         </div>
 
         {/* Nationality — ISO 3166-1 alpha-2 typeahead (mandatory) */}
@@ -554,7 +575,7 @@ export function Settings({
             style={{ color: colors.textSecondary }}
           >
             {t("auth.nationality")}{" "}
-            <span style={{ color: "rgb(220,181,21)" }}>*</span>
+            <RequiredStar />
           </label>
           <NationalityTypeahead
             id="settings-nationality"
@@ -576,6 +597,7 @@ export function Settings({
               {m('Select a nationality from the list (ISO country code).')}
             </p>
           )}
+          <SettingsFieldError msg={fieldErrors["nationality"]} />
         </div>
 
         {/* Passport First 4 Digits */}
@@ -613,7 +635,7 @@ export function Settings({
             style={{ color: colors.textSecondary }}
           >
             {t("settings.birthday")}{" "}
-            <span style={{ color: "rgb(220,181,21)" }}>*</span>
+            <RequiredStar />
           </label>
           <div className="relative">
             <Calendar
@@ -641,6 +663,7 @@ export function Settings({
           <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
             {t("settings.birthdayRequiredHint")}
           </p>
+          <SettingsFieldError msg={fieldErrors["birthday"]} />
         </div>
       </div>
 
@@ -696,7 +719,8 @@ export function Settings({
               className="block text-sm mb-2"
               style={{ color: colors.textSecondary }}
             >
-              {m('First Name (in English)')}
+              {m('First Name (in English)')}{" "}
+              <RequiredStar />
             </label>
             <input
               type="text"
@@ -715,13 +739,15 @@ export function Settings({
               }`}
               style={inputStyle}
             />
+            <SettingsFieldError msg={fieldErrors["spouseFirstName"]} />
           </div>
           <div>
             <label
               className="block text-sm mb-2"
               style={{ color: colors.textSecondary }}
             >
-              {m('Last Name (in English)')}
+              {m('Last Name (in English)')}{" "}
+              <RequiredStar />
             </label>
             <input
               type="text"
@@ -740,6 +766,7 @@ export function Settings({
               }`}
               style={inputStyle}
             />
+            <SettingsFieldError msg={fieldErrors["spouseLastName"]} />
           </div>
           <div>
             <label
@@ -765,6 +792,7 @@ export function Settings({
               }`}
               style={inputStyle}
             />
+            <SettingsFieldError msg={fieldErrors["spouseEmail"]} />
           </div>
           <div>
             <label
@@ -822,6 +850,7 @@ export function Settings({
               }
               mutedClassName={mutedColor}
             />
+            <SettingsFieldError msg={fieldErrors["spouseNationality"]} />
           </div>
           <div>
             <label
@@ -860,7 +889,7 @@ export function Settings({
               style={{ color: colors.textSecondary }}
             >
               {t("settings.spouseBirthday")}{" "}
-              <span style={{ color: "rgb(220,181,21)" }}>*</span>
+              <RequiredStar />
             </label>
             <div className="relative">
               <Calendar
@@ -888,18 +917,9 @@ export function Settings({
                 style={inputStyle}
               />
             </div>
+            <SettingsFieldError msg={fieldErrors["spouseBirthday"]} />
           </div>
         </div>
-        {fieldErrors["spouseFirstName"] && (
-          <p className="text-xs" style={{ color: "#ef4444" }}>
-            {fieldErrors["spouseFirstName"]}
-          </p>
-        )}
-        {fieldErrors["spouseBirthday"] && (
-          <p className="text-xs" style={{ color: "#ef4444" }}>
-            {fieldErrors["spouseBirthday"]}
-          </p>
-        )}
       </div>
 
       {/* Current Password */}
@@ -938,14 +958,7 @@ export function Settings({
             )}
           </button>
         </div>
-        {fieldErrors["current_password"] && (
-          <p
-            className="mt-1 text-xs"
-            style={{ color: "#ef4444" }}
-          >
-            {fieldErrors["current_password"]}
-          </p>
-        )}
+        <SettingsFieldError msg={fieldErrors["current_password"]} />
       </div>
 
       {/* New Password */}
@@ -982,14 +995,7 @@ export function Settings({
             )}
           </button>
         </div>
-        {fieldErrors["password"] && (
-          <p
-            className="mt-1 text-xs"
-            style={{ color: "#ef4444" }}
-          >
-            {fieldErrors["password"]}
-          </p>
-        )}
+        <SettingsFieldError msg={fieldErrors["password"]} />
         {newPasswordValue && (
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
@@ -1327,7 +1333,7 @@ export function Settings({
                           : "#ef4444",
                     }}
                   >
-                    {saveMessage}
+                    {m(saveMessage)}
                   </span>
                 )}
                 <button
