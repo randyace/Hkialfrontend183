@@ -124,6 +124,13 @@ import { toast } from 'sonner@2.0.3';
 const hktTodayYmd = (d: Date = new Date()): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Hong_Kong' }).format(d);
 
+// Cirium ident: 2–3 char carrier + 1–4 digits, optional letter suffix (CX888, BA1, DL045B).
+const CIRIUM_FLIGHT_IDENT_RE = /^[A-Z0-9]{2,3}?\d{1,4}[A-Z]?$/;
+function isCiriumFlightIdent(flightNo: string): boolean {
+  return CIRIUM_FLIGHT_IDENT_RE.test(flightNo.trim().toUpperCase());
+}
+const FLIGHT_LOOKUP_DEBOUNCE_MS = 800;
+
 // ── Travel Agency pre-negotiated billing (R6.2.100d) ────────────────────────
 // R6.2.100d (2026-07-02, Sky): Travel Agency MOCK addon discount percentages
 // (15/20/10%) were removed. Account discount still comes from
@@ -324,6 +331,8 @@ interface MemberData {
   freePremiereSuiteUpgradesRemaining?: number | null;
   firstName?: string;
   lastName?: string;
+  spouseFirstName?: string;
+  spouseLastName?: string;
   /** Spec §9 — travel_agencies.agency_code for Agency Billing Reference prefill. */
   agencyCode?: string | null;
 }
@@ -347,6 +356,8 @@ interface BookForMemberData {
   membershipExpiryDate?: string | null;
   freeLoungeDeluxeEntriesRemaining?: number | null;
   freePremiereSuiteUpgradesRemaining?: number | null;
+  spouseFirstName?: string;
+  spouseLastName?: string;
 }
 
 interface NewBookingProps {
@@ -370,6 +381,7 @@ interface NewBookingProps {
     /** Round 6.2.140 — free membership credit opt-in. */
     useMembershipLdFree?: boolean;
     useMembershipPsFree?: boolean;
+    useMembershipLdUnits?: number;
   }) => void;
   isSubmitting?: boolean;
   error?: string;
@@ -429,6 +441,7 @@ interface NewBookingProps {
     /** Round 6.2.140 — free membership credit opt-in. */
     useMembershipLdFree?: boolean;
     useMembershipPsFree?: boolean;
+    useMembershipLdUnits?: number;
   }) => void;
   // 2026-06-30 (Pilot 2 Bug 4 follow-up) — Container-supplied
   // promo code validator. The useEffect at ~line 2058 calls
@@ -659,6 +672,43 @@ export function memberIsLoungeVipGuestForCredit(
   if (!namesStepConfirmed) return false;
   const n = Number.isFinite(activeVipCount) ? Math.max(0, Math.trunc(activeVipCount)) : 0;
   return memberIsLoungeVipGuest(member, vipRows.slice(0, n));
+}
+
+function membershipSittingFromVipSegments(
+  member: { firstName?: string; lastName?: string; name?: string },
+  spouse: { firstName?: string; lastName?: string; name?: string } | null | undefined,
+  suiteRows: Array<{ vipFirstName?: string; vipLastName?: string }>,
+  loungeRows: Array<{ vipFirstName?: string; vipLastName?: string }>,
+) {
+  const hasSpouse = Boolean(
+    (spouse?.firstName && spouse.firstName.trim())
+    || (spouse?.lastName && spouse.lastName.trim())
+    || (spouse?.name && spouse.name.trim()),
+  );
+  return {
+    memberAtLd: memberIsLoungeVipGuest(member, loungeRows),
+    memberAtPs: memberIsLoungeVipGuest(member, suiteRows),
+    spouseAtLd: hasSpouse && spouse ? memberIsLoungeVipGuest(spouse, loungeRows) : false,
+    spouseAtPs: hasSpouse && spouse ? memberIsLoungeVipGuest(spouse, suiteRows) : false,
+  };
+}
+
+function eligibleLdCreditSlots(
+  sitting: {
+    memberAtLd: boolean;
+    memberAtPs: boolean;
+    spouseAtLd: boolean;
+    spouseAtPs: boolean;
+  },
+  remaining: number | null | undefined,
+  includesPs: boolean,
+): number {
+  const sitters = (sitting.memberAtLd ? 1 : 0) + (sitting.spouseAtLd ? 1 : 0);
+  const psSlot = includesPs && (sitting.memberAtPs || sitting.spouseAtPs) ? 1 : 0;
+  const eligible = sitters + psSlot;
+  if (remaining === -1) return eligible;
+  if (remaining == null || remaining <= 0) return 0;
+  return Math.min(eligible, remaining);
 }
 
 function historyNonBlank(...candidates: unknown[]): string {
@@ -1002,6 +1052,77 @@ function SubSectionLabel({ label }: { label: string }) {
   // Auto-translate: callers may pass English source or already-m()'d text.
   return (
     <div className="text-xs mb-2 mt-4" style={textMuted}>{m(label)}</div>
+  );
+}
+
+function CreditQuantityBar({
+  value,
+  max,
+  onChange,
+  accent,
+  disabled,
+  testId,
+  decreaseLabel,
+  increaseLabel,
+}: {
+  value: number;
+  max: number;
+  onChange: (next: number) => void;
+  accent: string;
+  disabled?: boolean;
+  testId?: string;
+  decreaseLabel: string;
+  increaseLabel: string;
+}) {
+  const { isDark, textMuted, stepperBtnStyle, stepperIconColor } = useThemedStyles();
+  const cap = Math.max(0, max);
+  const current = Math.min(Math.max(0, value), cap);
+  const minusDisabled = disabled || current <= 0;
+  const plusDisabled = disabled || current >= cap;
+  const barBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)';
+  const barBorder = isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(200,199,190,0.7)';
+
+  return (
+    <div
+      className="flex items-center rounded-xl overflow-hidden"
+      style={{ background: barBg, border: barBorder }}
+      data-testid={testId}
+    >
+      <button
+        type="button"
+        disabled={minusDisabled}
+        aria-label={decreaseLabel}
+        data-testid={testId ? `${testId}-minus` : undefined}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!minusDisabled) onChange(current - 1);
+        }}
+        className="w-11 h-11 flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+        style={stepperBtnStyle}
+      >
+        <Minus className="w-4 h-4 pointer-events-none" style={stepperIconColor} />
+      </button>
+      <div className="flex-1 text-center text-sm tabular-nums">
+        <span style={{ color: accent }}>{current}</span>
+        <span style={textMuted}>{` / ${cap}`}</span>
+      </div>
+      <button
+        type="button"
+        disabled={plusDisabled}
+        aria-label={increaseLabel}
+        data-testid={testId ? `${testId}-plus` : undefined}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!plusDisabled) onChange(current + 1);
+        }}
+        className="w-11 h-11 flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+        style={stepperBtnStyle}
+      >
+        <Plus className="w-4 h-4 pointer-events-none" style={stepperIconColor} />
+      </button>
+    </div>
   );
 }
 
@@ -2059,6 +2180,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // figma-ui's `flightLookupLoading`. Prevents double-submit while
   // `flightsApi.lookupFlight` is in flight.
   const [flightLookupLoading, setFlightLookupLoading] = useState(false);
+  const handleFlightLookupRef = useRef<() => Promise<void>>(async () => {});
+  const lastAutoLookupKeyRef = useRef<string | null>(null);
+  const flightLookupSeqRef = useRef(0);
   // 2026-06-08 — Transit 2nd leg fields (I-T2, Q4A reuse). The 1st leg
   // uses date/flightNumber/flightClass above; the 2nd leg is collected
   // here. Only meaningful when flightType === 'Transit' — the backend's
@@ -2144,8 +2268,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // Round 6.2.140 — Individual free Lounge Deluxe / free Premiere Suite
   // upgrade opt-in (replaces mock booking/suite voucher UI). Default ON
   // when the member still has remaining credit; forced OFF + disabled when 0.
-  const [useMembershipLdFree, setUseMembershipLdFree] = useState(true);
   const [useMembershipPsFree, setUseMembershipPsFree] = useState(true);
+  const [ldUnitsRequested, setLdUnitsRequested] = useState<number | null>(null);
   const [stepLoading, setStepLoading] = useState(false);
 
   // ── Derived member flags (computed before any state that references them) ──
@@ -2224,35 +2348,69 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         lastName: memberData.lastName,
         name: memberData.name,
       };
+  const spouseHolder = bookedForAccountId != null
+    ? {
+        firstName: prefillMember?.spouseFirstName,
+        lastName: prefillMember?.spouseLastName,
+        name: [prefillMember?.spouseFirstName, prefillMember?.spouseLastName].filter(Boolean).join(' '),
+      }
+    : {
+        firstName: memberData.spouseFirstName,
+        lastName: memberData.spouseLastName,
+        name: [memberData.spouseFirstName, memberData.spouseLastName].filter(Boolean).join(' '),
+      };
   const activeVipCount = form.premiereVipPassengers + form.vipPassengers;
   const activeVipRows = vipData.slice(0, activeVipCount);
+  const namesStepConfirmed = currentStep >= 4;
+  const suiteRows = vipData.slice(0, form.premiereVipPassengers);
+  const loungeRows = vipData.slice(
+    form.premiereVipPassengers,
+    form.premiereVipPassengers + form.vipPassengers,
+  );
+  const membershipSitting = namesStepConfirmed
+    ? membershipSittingFromVipSegments(membershipHolder, spouseHolder, suiteRows, loungeRows)
+    : {
+        memberAtLd: false,
+        memberAtPs: false,
+        spouseAtLd: false,
+        spouseAtPs: false,
+      };
   const memberIsVipGuest = memberIsLoungeVipGuestForCredit(
     membershipHolder,
     vipData,
     activeVipCount,
-    currentStep >= 4,
+    namesStepConfirmed,
+  );
+  const spouseIsVipGuest = namesStepConfirmed && (
+    membershipSitting.spouseAtLd || membershipSitting.spouseAtPs
   );
   const hasLdQuota = isEligibleIndividualMembership && hasFreeCreditAvailable(freeLdRemaining);
-  const canUseFreeLd = hasLdQuota && memberIsVipGuest;
+  const canUseFreeLd = hasLdQuota && (memberIsVipGuest || spouseIsVipGuest);
+  const maxLdUnits = canUseFreeLd
+    ? eligibleLdCreditSlots(membershipSitting, freeLdRemaining, bookingIncludesPremiereSuite)
+    : 0;
+  const useMembershipLdUnits = Math.min(ldUnitsRequested ?? maxLdUnits, maxLdUnits);
+  const useMembershipLdFree = useMembershipLdUnits > 0;
   // Free Premiere Suite upgrade is dual-quota: needs PS on the booking,
-  // free PS voucher, LD remaining, and the LD credit checkbox on.
+  // free PS voucher, LD remaining, and at least one LD credit unit.
   // Cannot use free PS credit alone.
   const canUseFreePs =
     isEligibleIndividualMembership
     && bookingIncludesPremiereSuite
     && hasFreeCreditAvailable(freePsRemaining)
     && hasFreeCreditAvailable(freeLdRemaining)
-    && useMembershipLdFree;
+    && useMembershipLdFree
+    && (membershipSitting.memberAtPs || membershipSitting.spouseAtPs);
 
   // Keep toggles honest when quotas are exhausted (Sky Q5: disable when remaining = 0).
   useEffect(() => {
-    if (!canUseFreeLd && useMembershipLdFree) {
-      setUseMembershipLdFree(false);
+    if (ldUnitsRequested != null && ldUnitsRequested > maxLdUnits) {
+      setLdUnitsRequested(maxLdUnits);
     }
     if (!canUseFreePs && useMembershipPsFree) {
       setUseMembershipPsFree(false);
     }
-  }, [canUseFreeLd, canUseFreePs, useMembershipLdFree, useMembershipPsFree]);
+  }, [canUseFreePs, ldUnitsRequested, maxLdUnits, useMembershipPsFree]);
 
   function advanceStep(nextStep: number) {
     setStepLoading(true);
@@ -2910,10 +3068,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       step2Form: step2Form as unknown as Record<string, unknown>,
       vipData: activeVipRows as unknown as Array<Record<string, unknown>>,
       nonFlyingGuestData: nonFlyingGuestData as unknown as Array<Record<string, unknown>>,
-      useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
-      useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
+      useMembershipLdFree: useMembershipLdFree && (memberIsVipGuest || spouseIsVipGuest),
+      useMembershipPsFree: useMembershipPsFree && (memberIsVipGuest || spouseIsVipGuest),
+      useMembershipLdUnits: useMembershipLdUnits,
     });
-  }, [form, step2Form, vipData, nonFlyingGuestData, useMembershipLdFree, useMembershipPsFree, memberIsVipGuest, currentStep]);
+  }, [form, step2Form, vipData, nonFlyingGuestData, useMembershipLdFree, useMembershipLdUnits, useMembershipPsFree, memberIsVipGuest, spouseIsVipGuest, currentStep]);
 
   // Sync non-flying guest array length with totalNonFlying
   //
@@ -3020,6 +3179,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       toast.error(m('Transit lookup is not supported in v1 — enter leg 1 and leg 2 manually.'));
       return;
     }
+    const seq = ++flightLookupSeqRef.current;
     setFlightLookupLoading(true);
     try {
       const res = await flightsApi.lookupFlight({
@@ -3027,6 +3187,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         date: form.date,
         flight_type: form.flightType as 'Arrival' | 'Departure' | 'Transit',
       });
+      if (seq !== flightLookupSeqRef.current) return;
       const data = res.data;
       if (!data) {
         toast.error(m('Flight lookup returned no data.'));
@@ -3058,6 +3219,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         data.cached ? m('Flight details loaded (cached)') : m('Flight details loaded'),
       );
     } catch (err) {
+      if (seq !== flightLookupSeqRef.current) return;
       const e = err as { error_code?: string; message?: string };
       const byCode: Record<string, string> = {
         cirium_flight_not_found:
@@ -3083,9 +3245,32 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         (e?.error_code && byCode[e.error_code]) || e?.message || 'Flight lookup failed.';
       toast.error(m(english));
     } finally {
-      setFlightLookupLoading(false);
+      if (seq === flightLookupSeqRef.current) {
+        setFlightLookupLoading(false);
+      }
     }
   };
+  handleFlightLookupRef.current = handleFlightLookup;
+
+  // Auto-trigger Cirium lookup once date + a complete flight ident are
+  // both filled, so the user does not have to click Lookup. Debounced
+  // so typing CX888 does not fire on CX / CX8. Same key is not retried
+  // until the user changes date, number, or type (manual Lookup still works).
+  useEffect(() => {
+    if (currentStep !== 1) return;
+    if (form.flightType === 'Transit') return;
+    const flightNo = form.flightNumber.trim().toUpperCase();
+    if (!form.date || !isCiriumFlightIdent(flightNo)) return;
+    const key = `${flightNo}|${form.date}|${form.flightType}`;
+    if (lastAutoLookupKeyRef.current === key) return;
+
+    const timer = window.setTimeout(() => {
+      if (lastAutoLookupKeyRef.current === key) return;
+      lastAutoLookupKeyRef.current = key;
+      void handleFlightLookupRef.current();
+    }, FLIGHT_LOOKUP_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [form.flightNumber, form.date, form.flightType, currentStep]);
 
   const updateCount = (
     field: 'premiereSuites' | 'premiereVipPassengers' | 'premiereNonFlyingGuests' | 'vipPassengers' | 'nonFlyingGuests',
@@ -3537,8 +3722,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         // `legs[1].destination` for future use.
         leg2Destination,
         transitGapError,
-        useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
-        useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
+        useMembershipLdFree: useMembershipLdFree && (memberIsVipGuest || spouseIsVipGuest),
+        useMembershipPsFree: useMembershipPsFree && (memberIsVipGuest || spouseIsVipGuest),
+        useMembershipLdUnits,
       });
     } else {
       // Fallback: generate mock booking number (Figma demo site only, no container)
@@ -3772,8 +3958,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   leg2FlightClass,
                   leg2Destination,
                   transitGapError,
-                  useMembershipLdFree: useMembershipLdFree && memberIsVipGuest,
-                  useMembershipPsFree: useMembershipPsFree && memberIsVipGuest,
+                  useMembershipLdFree: useMembershipLdFree && (memberIsVipGuest || spouseIsVipGuest),
+                  useMembershipPsFree: useMembershipPsFree && (memberIsVipGuest || spouseIsVipGuest),
+                  useMembershipLdUnits,
                 });
               } else {
                 const flightPrefixMap: Record<string, string> = { Arrival: 'A', Departure: 'D', Transit: 'T' };
@@ -5263,7 +5450,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             <ReviewGrid>
               <ReviewField
                 label="Use free Lounge Deluxe entry"
-                value={useMembershipLdFree ? 'Yes' : 'No — keep credit unused'}
+                value={
+                  useMembershipLdUnits > 0
+                    ? `${useMembershipLdUnits} / ${maxLdUnits}`
+                    : 'No — keep credit unused'
+                }
               />
                 <ReviewField
                 label="Use free Premiere Suite upgrade"
@@ -6056,52 +6247,48 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
             </div>
                   </div>
 
-            <div className="space-y-3">
-              <label
-                className={`flex items-start gap-3 text-sm ${canUseFreeLd ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  data-testid="use-membership-ld-free"
-                  checked={useMembershipLdFree}
+            <div className="space-y-4">
+              <div className={canUseFreeLd ? '' : 'opacity-60'}>
+                <p className="text-sm font-medium mb-2" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</p>
+                <CreditQuantityBar
+                  value={useMembershipLdUnits}
+                  max={maxLdUnits}
                   disabled={!canUseFreeLd}
-                  onChange={(e) => {
-                    const on = e.target.checked;
-                    setUseMembershipLdFree(on);
-                    if (!on) setUseMembershipPsFree(false);
+                  accent="rgb(220,181,21)"
+                  testId="use-membership-ld-free"
+                  decreaseLabel={m('Decrease Lounge Deluxe credits')}
+                  increaseLabel={m('Increase Lounge Deluxe credits')}
+                  onChange={(next) => {
+                    setLdUnitsRequested(next);
+                    if (next <= 0) setUseMembershipPsFree(false);
                   }}
                 />
-                <span>
-                  <span className="font-medium" style={textPrimary}>{m('Use free Lounge Deluxe entry on this booking')}</span>
-                  <span className="block text-xs mt-0.5" style={textMuted}>
-                    {m('For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.')}
-                    {!hasLdQuota ? ` ${m('You have no free Lounge Deluxe entries left.')}` : !memberIsVipGuest ? ` ${m('This credit can only be used when the member is listed as a VIP passenger.')}` : ''}
-                      </span>
-                      </span>
-              </label>
+                <p className="text-xs mt-1.5" style={textMuted}>
+                  {m('For a Lounge Deluxe-only booking, this waives one Lounge Deluxe base fee when you still have free entries (or Unlimited). For a Premiere Suite booking, the membership 40% off Suite base also requires this credit (it uses one free Lounge Deluxe entry). Turn off to keep the free entry — Premiere Suite then charges the full base price.')}
+                  {maxLdUnits > 1 ? ` ${m('Member and registered spouse can each use a credit when they sit in Lounge Deluxe or Premiere Suite. Choosing 1 of 2 uses the Lounge Deluxe seat first.')}` : ''}
+                  {!hasLdQuota ? ` ${m('You have no free Lounge Deluxe entries left.')}` : !memberIsVipGuest && !spouseIsVipGuest ? ` ${m('This credit can only be used when the member or registered spouse is listed as a VIP passenger.')}` : ''}
+                </p>
+              </div>
 
-              <label
-                className={`flex items-start gap-3 text-sm ${canUseFreePs ? 'cursor-pointer' : 'opacity-60 cursor-not-allowed'}`}
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  data-testid="use-membership-ps-free"
-                  checked={useMembershipPsFree}
+              <div className={canUseFreePs ? '' : 'opacity-60'}>
+                <p className="text-sm font-medium mb-2" style={textPrimary}>{m('Use free Premiere Suite upgrade on this booking')}</p>
+                <CreditQuantityBar
+                  value={useMembershipPsFree && canUseFreePs ? 1 : 0}
+                  max={canUseFreePs ? 1 : 0}
                   disabled={!canUseFreePs}
-                  onChange={(e) => setUseMembershipPsFree(e.target.checked)}
+                  accent="rgb(22,163,74)"
+                  testId="use-membership-ps-free"
+                  decreaseLabel={m('Decrease Premiere Suite upgrade credits')}
+                  increaseLabel={m('Increase Premiere Suite upgrade credits')}
+                  onChange={(next) => setUseMembershipPsFree(next > 0)}
                 />
-                <span>
-                  <span className="font-medium" style={textPrimary}>{m('Use free Premiere Suite upgrade on this booking')}</span>
-                  <span className="block text-xs mt-0.5" style={textMuted}>
-                    {m('For a Premiere Suite booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry together — you cannot use the Suite credit alone. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry). If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.')}
-                    {!bookingIncludesPremiereSuite ? ` ${m('Add a Premiere Suite to this booking to use a free Suite upgrade.')}` : ''}
-                    {bookingIncludesPremiereSuite && canUseFreeLd && !useMembershipLdFree ? ` ${m('Check the Lounge Deluxe credit above first — a free Suite upgrade cannot be used on its own.')}` : ''}
-                    {bookingIncludesPremiereSuite && useMembershipLdFree && !hasFreeCreditAvailable(freePsRemaining) ? ` ${m('You have no free Premiere Suite upgrades left.')}` : ''}
-                        </span>
-                        </span>
-              </label>
+                <p className="text-xs mt-1.5" style={textMuted}>
+                  {m('For a Premiere Suite booking, a free upgrade uses one free Suite upgrade and one free Lounge Deluxe entry together — you cannot use the Suite credit alone. If you turn this off (or have no free upgrade left), you can still get about 40% off the Premiere Suite base price — but only when the free Lounge Deluxe entry credit above is checked (that uses one LD entry). If the Lounge Deluxe credit is unchecked, or you have no LD entries left, you pay the full Premiere Suite base.')}
+                  {!bookingIncludesPremiereSuite ? ` ${m('Add a Premiere Suite to this booking to use a free Suite upgrade.')}` : ''}
+                  {bookingIncludesPremiereSuite && canUseFreeLd && !useMembershipLdFree ? ` ${m('Add a Lounge Deluxe credit above first — a free Suite upgrade cannot be used on its own.')}` : ''}
+                  {bookingIncludesPremiereSuite && useMembershipLdFree && !hasFreeCreditAvailable(freePsRemaining) ? ` ${m('You have no free Premiere Suite upgrades left.')}` : ''}
+                </p>
+              </div>
                 </div>
 
             {(form.premiereSuites > 0 && (form.vipPassengers > 0 || form.nonFlyingGuests > 0)) && (
@@ -6483,7 +6670,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 {isEligibleIndividualMembership && (
                   <SummaryRow
                     label="Free Lounge Deluxe entry"
-                    value={useMembershipLdFree ? 'Using for this booking' : 'Not using (kept for later)'}
+                    value={
+                      useMembershipLdUnits > 0
+                        ? `Using ${useMembershipLdUnits} of ${maxLdUnits}`
+                        : 'Not using (kept for later)'
+                    }
                   />
                 )}
                 {isEligibleIndividualMembership && (
@@ -6676,54 +6867,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             </div>
 
-            {/* Flight Number — 2026-06-08 (round 6.2.7): moved to the top
-                of the section, right after the Flight Type toggle. The
-                user wanted Flight Number to be the first field the user
-                sees / fills, so it sits above date/time/origin.
-                2026-08-18 (round — Cirium Sky API migration, Task 11):
-                Lookup button added next to the input. Mirrors the
-                admin CreateBooking.tsx shape (testid
-                `create-flight-lookup` → `customer-lookup-flight` for
-                the customer surface). Gated on `flightNumber` trim
-                + `form.date` (the backend's `date_format:Y-m-d`
-                validator). Calls `flightsApi.lookupFlight` and
-                populates flight_time / origin / destination on success. */}
-            <div className="mb-4">
-              <label className={labelClass}>{m('Flight Number *')}</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={form.flightNumber}
-                    onChange={(e) => handleFlightNumber(e.target.value)}
-                    required
-                    placeholder={m('e.g. CX888')}
-                    style={fieldStyle}
-                    className={fieldClass + ' pl-10 uppercase'}
-                  />
-                </div>
-                <button
-                  type="button"
-                  data-testid="customer-lookup-flight"
-                  disabled={flightLookupLoading || !form.flightNumber.trim() || !form.date}
-                  title={!form.date ? m('Select flight date first') : m('Lookup flight details')}
-                  onClick={handleFlightLookup}
-                  className="shrink-0 px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-                >
-                  {flightLookupLoading
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Search className="w-3.5 h-3.5" />}
-                  {m('Lookup')}
-                </button>
-              </div>
-            </div>
-
-            {/* Arrival Date — 2026-06-08 (round 6.2.7): label is mode-aware.
-                "Arrival Date" when flightType is Arrival or Transit (the
-                flight is inbound to HKG), "Departure Date" when flightType
-                is Departure (the flight is outbound from HKG). */}
-            <div className="mb-4">
+            {/* Arrival / Departure Date — 2026-08-27: shown BEFORE the
+                flight number + Lookup row so the user fills the date
+                Cirium needs before they type a flight code. Lookup is
+                gated on `form.date` (Y-m-d). Label is mode-aware:
+                "Arrival Date" for Arrival/Transit, "Departure Date"
+                for Departure. */}
+            <div className="mb-4" data-testid="customer-flight-date">
               <label className={labelClass}>
                 {form.flightType === 'Departure' ? m('Departure Date') : m('Arrival Date')} *
               </label>
@@ -6761,6 +6911,50 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Flight Number + Lookup — 2026-08-18 (Cirium Task 11):
+                Lookup button next to the input (testid
+                `customer-lookup-flight`). Gated on `flightNumber` trim
+                + `form.date`. Auto-lookup also fires after date + a
+                complete ident settle (see handleFlightLookup effect). */}
+            <div className="mb-4">
+              <label className={labelClass}>{m('Flight Number *')}</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={form.flightNumber}
+                    onChange={(e) => handleFlightNumber(e.target.value)}
+                    onBlur={() => {
+                      const flightNo = form.flightNumber.trim().toUpperCase();
+                      if (!form.date || !isCiriumFlightIdent(flightNo)) return;
+                      const key = `${flightNo}|${form.date}|${form.flightType}`;
+                      if (lastAutoLookupKeyRef.current === key) return;
+                      lastAutoLookupKeyRef.current = key;
+                      void handleFlightLookupRef.current();
+                    }}
+                    required
+                    placeholder={m('e.g. CX888')}
+                    style={fieldStyle}
+                    className={fieldClass + ' pl-10 uppercase'}
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-testid="customer-lookup-flight"
+                  disabled={flightLookupLoading || !form.flightNumber.trim() || !form.date}
+                  title={!form.date ? m('Select flight date first') : m('Lookup flight details')}
+                  onClick={handleFlightLookup}
+                  className="shrink-0 px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                >
+                  {flightLookupLoading
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Search className="w-3.5 h-3.5" />}
+                  {m('Lookup')}
+                </button>
+              </div>
             </div>
 
             {/* Arrival Time / Departure Time — 2026-06-08 (reactive fix)
