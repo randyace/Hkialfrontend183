@@ -5226,12 +5226,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 </div>
                               )
                             ))}
-                            {form.flightType === 'Departure' && step2Form.limousinePickupTime && (
-                              <div className="text-xs" style={textMuted}>
-                                <span style={textMuted}>{m('Pick-up Time:')} </span>
-                                {step2Form.limousinePickupTime}
-                              </div>
-                            )}
                             {step2Form.limousineStops.length > 0 && (
                               <div className="mt-1.5 pt-1.5" style={{ borderTop: borderSubtle }}>
                                 <div className="text-xs mb-1" style={textMuted}>{m('Additional Stops:')}</div>
@@ -5244,6 +5238,12 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                                 ))}
                               </div>
                             )}
+                          </div>
+                        )}
+                        {step2Form.limousinePickupTime && (
+                          <div className="text-xs mt-2" style={textMuted}>
+                            <span style={textMuted}>{m('Pick-up Time:')} </span>
+                            {step2Form.limousinePickupTime}
                           </div>
                         )}
                       </div>
@@ -5849,22 +5849,20 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </div>
                   </div>
                 ))}
-                {form.flightType === 'Departure' && (
-                  <div>
-                    <label className={labelClass}>{m('Pick-up Time *')}</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      <input
-                        type="time"
-                        value={step2Form.limousinePickupTime}
-                        onChange={(e) => setStep2Form((p) => ({ ...p, limousinePickupTime: e.target.value }))}
-                        required
-                        style={fieldStyle}
-                        className={fieldClass + ' pl-10'}
-                      />
-                    </div>
+                <div>
+                  <label className={labelClass}>{m('Pick-up Time *')}</label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <input
+                      type="time"
+                      value={step2Form.limousinePickupTime}
+                      onChange={(e) => setStep2Form((p) => ({ ...p, limousinePickupTime: e.target.value }))}
+                      required
+                      style={fieldStyle}
+                      className={fieldClass + ' pl-10'}
+                    />
                   </div>
-                )}
+                </div>
                 {step2Form.limousineStops.map((stop, index) => (
                   <div key={'stop-' + index}>
                     <div className="flex items-center justify-between mb-1.5">
