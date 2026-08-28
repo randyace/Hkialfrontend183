@@ -37,6 +37,7 @@ import { useTheme } from './ThemeContext';
 import { translateStatus } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { bookingNeedsPayment } from '../../../../../utils/bookingNeedsPayment';
+import { bookingShowsEntryQr } from '../../../../../utils/bookingShowsEntryQr';
 import { customerBookingStatusLabel } from '../../../../../utils/customerBookingStatus';
 import { escapeHtml } from '../../../../../utils/escapeHtml';
 import { DateInput } from './ui/date-input';
@@ -1202,8 +1203,10 @@ export function Bookings({
                     {m('Pay')}
                   </button>
                 )}
-                {booking.status === 'confirmed' && (
+                {bookingShowsEntryQr(booking) && (
                   <button
+                    type="button"
+                    data-testid="booking-list-qr"
                     onClick={() => handleShowQR(booking)}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] text-white hover:opacity-90 transition-all flex items-center gap-2 text-sm whitespace-nowrap"
                   >
