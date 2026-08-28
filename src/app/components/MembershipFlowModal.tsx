@@ -805,7 +805,7 @@ export function MembershipFlowModal({
               style={{ background: indTabBg, border: indTabBorder, color: indTabColor }}
             >
               <Medal className="w-4 h-4" />
-              Individual Membership
+              {m('Individual Membership')}
               <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: indBadgeCountBg }}>4-tier</span>
             </button>
             <button
@@ -814,7 +814,7 @@ export function MembershipFlowModal({
               style={{ background: corpTabBg, border: corpTabBorder, color: corpTabColor }}
             >
               <Building2 className="w-4 h-4" />
-              Corporate Membership
+              {m('Corporate Membership')}
               <span className="text-xs px-1.5 py-0.5 rounded-md" style={{ background: corpBadgeCountBg }}>3-tier</span>
             </button>
           </div>
@@ -823,7 +823,7 @@ export function MembershipFlowModal({
           <div className="mb-8 text-center">
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold" style={{ background: tabActiveBg, border: '1px solid rgba(220,181,21,0.45)', color: 'rgb(220,181,21)' }}>
               <Medal className="w-4 h-4" />
-              Individual Membership
+              {m('Individual Membership')}
             </span>
           </div>
         )}

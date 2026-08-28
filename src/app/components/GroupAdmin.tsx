@@ -30,6 +30,7 @@ import { useTheme } from './ThemeContext';
 import { MembershipFlowModal } from './MembershipFlowModal';
 import { NationalityTypeahead } from '../../../../../components/NationalityTypeahead';
 import { isValidCountryCode } from '../../../../../utils/countries';
+import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useMsg } from '../../../../../i18n/useMsg';
 import { sanitizeEnglishName } from '../../../../../utils/englishName';
 
@@ -863,7 +864,11 @@ export function GroupAdmin({
                             const iconBg = `${color}22`;
                             const badgeBg = mode === 'dark' ? `${color}18` : `${color}14`;
                             const badgeBorder = `1px solid ${color}44`;
-                            const validDate = new Date(pkg.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                            const ymd = String(pkg.validUntil).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+                            const validDt = ymd
+                              ? new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]))
+                              : new Date(pkg.validUntil);
+                            const validDate = validDt.toLocaleDateString(toBcp47Locale(getAppLocale()), { day: '2-digit', month: 'short', year: 'numeric' });
                             return (
                               <div key={pkg.id} className="flex items-start gap-2 px-2.5 py-2 rounded-xl" style={{ background: badgeBg, border: badgeBorder }}>
                                 <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ background: iconBg }}>
@@ -871,10 +876,10 @@ export function GroupAdmin({
                                 </div>
                                 <div>
                                   <p className="text-xs leading-tight" style={{ color }}>
-                                    {pkg.tierName} <span style={{ color: colors.textSecondary }}>· {pkg.memberType}</span>
+                                    {m(pkg.tierName)} <span style={{ color: colors.textSecondary }}>· {m(pkg.memberType)}</span>
                                   </p>
                                   <p className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                                    Valid until {validDate}
+                                    {m('Valid until')} {validDate}
                                   </p>
                                 </div>
                               </div>
