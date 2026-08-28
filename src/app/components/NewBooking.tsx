@@ -5240,7 +5240,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                             )}
                           </div>
                         )}
-                        {step2Form.limousinePickupTime && (
+                        {form.flightType !== 'Arrival' && step2Form.limousinePickupTime && (
                           <div className="text-xs mt-2" style={textMuted}>
                             <span style={textMuted}>{m('Pick-up Time:')} </span>
                             {step2Form.limousinePickupTime}
@@ -5849,6 +5849,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     </div>
                   </div>
                 ))}
+                {form.flightType !== 'Arrival' && (
                 <div>
                   <label className={labelClass}>{m('Pick-up Time *')}</label>
                   <div className="relative">
@@ -5863,6 +5864,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     />
                   </div>
                 </div>
+                )}
                 {step2Form.limousineStops.map((stop, index) => (
                   <div key={'stop-' + index}>
                     <div className="flex items-center justify-between mb-1.5">
