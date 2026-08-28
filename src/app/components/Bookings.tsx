@@ -1021,7 +1021,7 @@ export function Bookings({
       </div>
 
       {/* Search and Filter */}
-      <div className="rounded-2xl p-6" style={glassStyle}>
+      <div className="relative z-50 rounded-2xl p-6" style={glassStyle}>
         <div className="flex flex-col gap-4">
           {/* Search Bar Row */}
           <div className="flex flex-col md:flex-row gap-4">
