@@ -69,6 +69,8 @@ interface BookingsProps {
   setSearchTerm?: (v: string) => void;
   setFilterStatus?: (v: string) => void;
   setDateFilter?: (v: { start: string; end: string }) => void;
+  cancelRefundNoticeWithin?: { title: string; body: string; highlights?: string[] } | null;
+  cancelRefundNoticeOutside?: { title: string; body: string; highlights?: string[] } | null;
 }
 
 // Mock fallback for Figma standalone preview
@@ -361,6 +363,26 @@ function formatDateDDMMYYYY(dateStr: string): string {
   return `${parts[2]}-${parts[1]}-${parts[0]}`;
 }
 
+function renderHighlighted(
+  text: string,
+  highlights: string[] = [],
+  highlightStyle: React.CSSProperties,
+): React.ReactNode[] {
+  let remaining = text;
+  const parts: React.ReactNode[] = [];
+  highlights.forEach((h, i) => {
+    const idx = remaining.indexOf(h);
+    if (idx < 0) return;
+    if (idx > 0) parts.push(remaining.slice(0, idx));
+    parts.push(
+      <span key={i} style={highlightStyle}>{h}</span>,
+    );
+    remaining = remaining.slice(idx + h.length);
+  });
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
 export function Bookings({
   setActiveTab,
   onEditBooking,
@@ -376,6 +398,8 @@ export function Bookings({
   setSearchTerm: propSetSearchTerm,
   setFilterStatus: propSetFilterStatus,
   setDateFilter: propSetDateFilter,
+  cancelRefundNoticeWithin,
+  cancelRefundNoticeOutside,
 }: BookingsProps) {
   const m = useMsg();
   const { t } = useTranslation();
@@ -1412,10 +1436,12 @@ export function Bookings({
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(210,55,55)' }} />
                   <div>
                     <p className="text-sm" style={{ color: 'rgb(210,55,55)' }}>
-                      <span style={{ fontWeight: 600 }}>{m('No Refund Applicable')}</span>
+                      <span style={{ fontWeight: 600 }}>{cancelRefundNoticeWithin?.title || m('No Refund Applicable')}</span>
                     </p>
                     <p className="text-xs mt-1" style={{ color: isDark ? 'rgba(255,100,100,0.85)' : 'rgba(180,40,40,0.85)' }}>
-                      {m('Your booking is within')} <span style={{ fontWeight: 600 }}>{m('48 hours')}</span>. {m('Cancellations made less than 48 hours before the booking date are not eligible for a refund.')}
+                      {cancelRefundNoticeWithin
+                        ? renderHighlighted(cancelRefundNoticeWithin.body, cancelRefundNoticeWithin.highlights, { fontWeight: 600 })
+                        : <>{m('Your booking is within')} <span style={{ fontWeight: 600 }}>{m('48 hours')}</span>. {m('Cancellations made less than 48 hours before the booking date are not eligible for a refund.')}</>}
                     </p>
                   </div>
                 </div>
@@ -1423,7 +1449,9 @@ export function Bookings({
                 <div className="rounded-xl p-4 mb-6 flex items-start gap-3" style={{ background: 'rgba(220,181,21,0.10)', border: '1px solid rgba(220,181,21,0.35)' }}>
                   <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(220,181,21)' }} />
                   <p className="text-xs" style={{ color: isDark ? 'rgba(220,181,21,0.9)' : 'rgba(140,110,0,0.9)' }}>
-                    {m('Please note: cancellations made')} <span style={{ fontWeight: 600 }}>{m('less than 48 hours')}</span> {m('before the booking date are not eligible for a refund.')}
+                    {cancelRefundNoticeOutside
+                      ? renderHighlighted(cancelRefundNoticeOutside.body, cancelRefundNoticeOutside.highlights, { fontWeight: 600 })
+                      : <>{m('Please note: cancellations made')} <span style={{ fontWeight: 600 }}>{m('less than 48 hours')}</span> {m('before the booking date are not eligible for a refund.')}</>}
                   </p>
                 </div>
               )}

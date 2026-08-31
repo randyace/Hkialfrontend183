@@ -492,6 +492,11 @@ interface NewBookingProps {
    * Individual type. When omitted (Figma standalone), fall back to Individual.
    */
   showMembershipBenefits?: boolean;
+  /**
+   * CMS booking_terms bullets. When omitted/null, render today's hardcoded
+   * m() fragments so Figma preview and API-down stay 1:1 with HEAD.
+   */
+  bookingTermsItems?: Array<{ text: string; highlights?: string[] }> | null;
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -2136,7 +2141,28 @@ const HISTORY_BOOKINGS: HistoryBooking[] = [
 ];
 
 // ── Main component ───────────────────────────────────────────────────────────
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp }: NewBookingProps) {
+function renderHighlighted(
+  text: string,
+  highlights: string[] = [],
+  highlightStyle: React.CSSProperties,
+  className?: string,
+): React.ReactNode[] {
+  let remaining = text;
+  const parts: React.ReactNode[] = [];
+  highlights.forEach((h, i) => {
+    const idx = remaining.indexOf(h);
+    if (idx < 0) return;
+    if (idx > 0) parts.push(remaining.slice(0, idx));
+    parts.push(
+      <span key={i} className={className} style={highlightStyle}>{h}</span>,
+    );
+    remaining = remaining.slice(idx + h.length);
+  });
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp, bookingTermsItems }: NewBookingProps) {
   const m = useMsg();
   const priceLineLabel = (label: string) =>
     translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
@@ -5543,6 +5569,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
           </div>
           <div className="px-5 py-4">
             <div className="space-y-3 mb-4">
+              {bookingTermsItems && bookingTermsItems.length > 0 ? (
+                bookingTermsItems.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2.5">
+                    <div
+                      className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ background: isDark ? 'rgb(220, 181, 21)' : 'rgb(180, 140, 10)' }}
+                    />
+                    <p className="text-xs leading-relaxed" style={textPrimary}>
+                      {renderHighlighted(
+                        item.text,
+                        item.highlights,
+                        { color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' },
+                        'font-medium',
+                      )}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <>
               <div className="flex items-start gap-2.5">
                 <div 
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
@@ -5588,6 +5633,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <span className="font-medium" style={{ color: isDark ? 'rgb(251, 191, 36)' : 'rgb(180, 140, 10)' }}>{m('No ad-hoc guests will be accepted.')}</span>
                 </p>
               </div>
+                </>
+              )}
             </div>
 
             {/* Agreement Checkbox */}
