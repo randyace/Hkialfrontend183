@@ -397,6 +397,8 @@ interface NewBookingProps {
   // mock list so the figma code stays self-previewable.
   historyBookings?: HistoryBooking[];
   isLoadingHistory?: boolean;
+  // PERF P6 — container fetches history only when Use History opens.
+  onNeedHistory?: () => void;
   // Diagnostic counts so the empty state can hint "I received 5
   // bookings but all 5 failed the shape check". The container
   // passes the same `totalReceived`/`rejectedCount` it computed
@@ -2162,7 +2164,7 @@ function renderHighlighted(
   return parts;
 }
 
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp, bookingTermsItems }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, onNeedHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp, bookingTermsItems }: NewBookingProps) {
   const m = useMsg();
   const priceLineLabel = (label: string) =>
     translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
@@ -2440,12 +2442,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }, [canUseFreePs, ldUnitsRequested, maxLdUnits, useMembershipPsFree]);
 
   function advanceStep(nextStep: number) {
-    setStepLoading(true);
-    setTimeout(() => {
-      setCurrentStep(nextStep);
-      setStepLoading(false);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 900);
+    setCurrentStep(nextStep);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ── Addon unit rates (R6.2.100d — TA discount removed) ────────────────────
@@ -3574,7 +3572,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // self-previewable without requiring the parent app.
   const historyBookings: HistoryBooking[] = historyBookingsProp ?? HISTORY_BOOKINGS;
 
-  const handleOpenHistoryDialog = () => setShowHistoryDialog(true);
+  const handleOpenHistoryDialog = () => {
+    onNeedHistory?.();
+    setShowHistoryDialog(true);
+  };
   const handleCloseHistoryDialog = () => setShowHistoryDialog(false);
 
   // ── Step 2 Handlers ───────────────────────────────────────────────────────
