@@ -52,6 +52,7 @@ import {
   countryNameFor,
   filterCountries,
   isValidCountryCode,
+  showsCountryCodeBadge,
   type CountryOption,
 } from '../../../../../utils/countries';
 // 2026-06-27 (round 6.2.79 — customer bug fix): segment-aware VIP
@@ -1718,7 +1719,9 @@ function GuestNationalityTypeahead({
                   } ${selected ? 'font-semibold' : ''}`}
                 >
                   <span>{localizedCountryName(c.code, bcp47)}</span>
-                  <span className={mutedColor}>{c.code}</span>
+                  {showsCountryCodeBadge(c.code) && (
+                    <span className={mutedColor}>{c.code}</span>
+                  )}
                 </li>
               );
             })
@@ -5113,7 +5116,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 label="Nationality"
                 value={
                   p.nationality
-                    ? `${localizedCountryName(p.nationality, dateLocale)} (${p.nationality.toUpperCase()})`
+                    ? countryLabel({ code: p.nationality, name: countryNameFor(p.nationality) }, dateLocale)
                     : '—'
                 }
               />
@@ -5173,7 +5176,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       label="Nationality"
                       value={
                         g.nationality
-                          ? `${localizedCountryName(g.nationality, dateLocale)} (${g.nationality.toUpperCase()})`
+                          ? countryLabel({ code: g.nationality, name: countryNameFor(g.nationality) }, dateLocale)
                           : '—'
                       }
                     />
