@@ -21,6 +21,7 @@ import { useTheme } from "./ThemeContext";
 import { NationalityTypeahead } from "../../../../../components/NationalityTypeahead";
 import { isValidCountryCode } from "../../../../../utils/countries";
 import { sanitizeEnglishName } from "../../../../../utils/englishName";
+import { MEMBER_PASSWORD_SPECIAL_CHAR_PATTERN } from "../../../../../utils/memberPasswordValidation";
 import {
   LOCALE_LABELS,
   SUPPORTED_LOCALES,
@@ -314,10 +315,9 @@ export function Settings({
   const calculatePasswordStrength = (password: string) => {
     let strength = 0;
     if (password.length >= 8) strength += 25;
-    if (password.length >= 12) strength += 25;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 20;
-    if (/\d/.test(password)) strength += 15;
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 15;
+    if (/[A-Z]/.test(password)) strength += 25;
+    if (/[a-z]/.test(password)) strength += 25;
+    if (MEMBER_PASSWORD_SPECIAL_CHAR_PATTERN.test(password)) strength += 25;
     return Math.min(strength, 100);
   };
 
@@ -335,9 +335,9 @@ export function Settings({
 
   const passwordRequirements = [
     { met: newPasswordValue.length >= 8, text: t("auth.reqMin8") },
-    { met: /[a-z]/.test(newPasswordValue) && /[A-Z]/.test(newPasswordValue), text: t("auth.reqUpperLower") },
-    { met: /\d/.test(newPasswordValue), text: t("auth.reqNumber") },
-    { met: /[!@#$%^&*(),.?":{}|<>]/.test(newPasswordValue), text: t("auth.reqSpecial") },
+    { met: /[A-Z]/.test(newPasswordValue), text: t("auth.reqUppercase") },
+    { met: /[a-z]/.test(newPasswordValue), text: t("auth.reqLowercase") },
+    { met: MEMBER_PASSWORD_SPECIAL_CHAR_PATTERN.test(newPasswordValue), text: t("auth.reqSpecial") },
   ];
 
   const passwordsMatch =
