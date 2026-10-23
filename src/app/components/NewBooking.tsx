@@ -111,6 +111,7 @@ import { DateInput } from './ui/date-input';
 // Bearer). The helper handles the Laravel envelope unwrap + Bearer
 // token read at request time (INV-X4 / INV-X5).
 import { flightsApi } from '../../../../../services/api';
+import { isFlightLookupEnabled } from '../../../../../config/runtimeConfig';
 import { REGION_CODES } from '../../../../../utils/regionCodes';
 import { isEnglishName, sanitizeEnglishName } from '../../../../../utils/englishName';
 import {
@@ -3284,7 +3285,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   // both filled, so the user does not have to click Lookup. Debounced
   // so typing CX888 does not fire on CX / CX8. Same key is not retried
   // until the user changes date, number, or type (manual Lookup still works).
+  // Gated by FLIGHT_LOOKUP / VITE_FLIGHT_LOOKUP (same flag as the button).
   useEffect(() => {
+    if (!isFlightLookupEnabled()) return;
     if (currentStep !== 1) return;
     if (form.flightType === 'Transit') return;
     const flightNo = form.flightNumber.trim().toUpperCase();
@@ -6977,9 +6980,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
             {/* Flight Number + Lookup — 2026-08-18 (Cirium Task 11):
                 Lookup button next to the input (testid
-                `customer-lookup-flight`). Gated on `flightNumber` trim
-                + `form.date`. Auto-lookup also fires after date + a
-                complete ident settle (see handleFlightLookup effect). */}
+                `customer-lookup-flight`). Visible only when
+                FLIGHT_LOOKUP / VITE_FLIGHT_LOOKUP is true. Gated on
+                `flightNumber` trim + `form.date`. Auto-lookup also
+                fires after date + a complete ident settle. */}
             <div className="mb-4">
               <label className={labelClass}>{m('Flight Number *')}</label>
               <div className="flex gap-2">
@@ -6990,6 +6994,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     value={form.flightNumber}
                     onChange={(e) => handleFlightNumber(e.target.value)}
                     onBlur={() => {
+                      if (!isFlightLookupEnabled()) return;
                       const flightNo = form.flightNumber.trim().toUpperCase();
                       if (!form.date || !isCiriumFlightIdent(flightNo)) return;
                       const key = `${flightNo}|${form.date}|${form.flightType}`;
@@ -7003,19 +7008,21 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     className={fieldClass + ' pl-10 uppercase'}
                   />
                 </div>
-                <button
-                  type="button"
-                  data-testid="customer-lookup-flight"
-                  disabled={flightLookupLoading || !form.flightNumber.trim() || !form.date}
-                  title={!form.date ? m('Select flight date first') : m('Lookup flight details')}
-                  onClick={handleFlightLookup}
-                  className="shrink-0 px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
-                >
-                  {flightLookupLoading
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Search className="w-3.5 h-3.5" />}
-                  {m('Lookup')}
-                </button>
+                {isFlightLookupEnabled() && (
+                  <button
+                    type="button"
+                    data-testid="customer-lookup-flight"
+                    disabled={flightLookupLoading || !form.flightNumber.trim() || !form.date}
+                    title={!form.date ? m('Select flight date first') : m('Lookup flight details')}
+                    onClick={handleFlightLookup}
+                    className="shrink-0 px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
+                  >
+                    {flightLookupLoading
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Search className="w-3.5 h-3.5" />}
+                    {m('Lookup')}
+                  </button>
+                )}
               </div>
             </div>
 
