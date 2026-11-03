@@ -83,8 +83,12 @@ import {
 // wrapper build mirrors this file at the same relative path
 // so the figma Make copy-paste flow keeps working.
 import {
+  FALLBACK_MIN_BOOKING_LEAD_HOURS,
   deriveBookingStartIso,
+  earliestBookableYmd,
+  isBookingDateEntirelyBelowMinLead,
   isBookingDatePossiblyWithin48Hours,
+  isBookingBelowMinLeadTime,
   isBookingStartWithin48Hours,
 } from '../../../../../utils/bookingShortNotice';
 import { AirportTypeahead } from '../../../../../components/AirportTypeahead';
@@ -501,6 +505,12 @@ interface NewBookingProps {
    * m() fragments so Figma preview and API-down stay 1:1 with HEAD.
    */
   bookingTermsItems?: Array<{ text: string; highlights?: string[] }> | null;
+  /**
+   * Hard min lead hours from GET /api/config/frontend (Azure
+   * MIN_BOOKING_LEAD_HOURS). When omitted (Figma standalone / loading),
+   * FALLBACK_MIN_BOOKING_LEAD_HOURS (24) is used.
+   */
+  minBookingLeadHours?: number;
 }
 
 /** Shape required by the history dialog. Mirrors the `Booking` view
@@ -2168,7 +2178,7 @@ function renderHighlighted(
   return parts;
 }
 
-export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, onNeedHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp, bookingTermsItems }: NewBookingProps) {
+export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMemberProp, onSubmit, isSubmitting, error, successRef, historyBookings: historyBookingsProp, isLoadingHistory, onNeedHistory, historyDiagnostics, pricePreview, onFormChange, onValidatePromoCode, loungeExtensionPerHourDisplay, catalogAddonSlot, catalogAddonOptions, showMembershipBenefits: showMembershipBenefitsProp, bookingTermsItems, minBookingLeadHours: minBookingLeadHoursProp }: NewBookingProps) {
   const m = useMsg();
   const priceLineLabel = (label: string) =>
     translatePriceLineLabel(label, toBcp47Locale(getAppLocale()), m, catalogAddonOptions);
@@ -2658,6 +2668,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     if (Number.isNaN(dt.getTime())) return true;
     return dt.getTime() > Date.now();
   })();
+  // Hard min lead time — live value from /api/config/frontend via container
+  // prop; fallback 24 while loading / API-down / Figma standalone.
+  const bookingLeadInput = {
+    flightType: form.flightType,
+    date: form.date,
+    leg1FlightTime,
+    leg2ArrivalDate,
+  };
+  const minBookingLeadHours =
+    typeof minBookingLeadHoursProp === 'number' &&
+    Number.isFinite(minBookingLeadHoursProp) &&
+    minBookingLeadHoursProp >= 0
+      ? Math.floor(minBookingLeadHoursProp)
+      : FALLBACK_MIN_BOOKING_LEAD_HOURS;
+  const isBelowMinLeadTime = isBookingDateEntirelyBelowMinLead(
+    bookingLeadInput,
+    Date.now(),
+    minBookingLeadHours,
+  );
   const step1FlightValid =
     form.date !== '' &&
     form.flightNumber.trim() !== '' &&
@@ -2668,7 +2697,8 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1DestinationValid &&
     step1TimeValid &&
     leg1DateTimeInFuture &&
-    leg2DateTimeInFuture;
+    leg2DateTimeInFuture &&
+    !isBelowMinLeadTime;
   // 2026-06-28 (round 6.2.98): collect ALL step 1 validation failures
   // so the user sees every missing field at once. Order is stable
   // (leg 2 first for Transit, then leg 1, then common fields, then
@@ -2729,6 +2759,14 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }
   if (!leg2DateTimeInFuture) {
     step1FlightHints.push(m('Please select a future 2nd leg arrival date and time (the selected datetime is in the past)'));
+  }
+  if (isBelowMinLeadTime && leg1DateTimeInFuture && leg2DateTimeInFuture) {
+    step1FlightHints.push(
+      m('Bookings must be made at least {n} hours in advance. Please select a later time.').replace(
+        '{n}',
+        String(minBookingLeadHours),
+      ),
+    );
   }
   if (!step1OriginValid) {
     step1FlightHints.push(m('Please enter the origin'));
@@ -3705,14 +3743,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     leg1FlightTime,
     leg2ArrivalDate,
   };
-  const isShortNoticeBooking = isBookingStartWithin48Hours(
+  // Soft <48h warning only when the hard min-lead gate has already
+  // been cleared (24h–48h band). Below min lead, step 1 blocks Next.
+  const isBelowMinLeadForConfirm = isBookingBelowMinLeadTime(
     deriveBookingStartIso(bookingStartInput),
+    Date.now(),
+    minBookingLeadHours,
   );
-  const showShortNoticeInline = isBookingDatePossiblyWithin48Hours(
-    bookingStartInput,
-  );
+  const isShortNoticeBooking =
+    !isBelowMinLeadForConfirm &&
+    isBookingStartWithin48Hours(deriveBookingStartIso(bookingStartInput));
+  const showShortNoticeInline =
+    !isBelowMinLeadTime &&
+    isBookingDatePossiblyWithin48Hours(bookingStartInput);
 
   const handleFinalConfirm = () => {
+    // Hard min-lead defense in depth (step 1 should already block).
+    if (isBelowMinLeadForConfirm) {
+      return;
+    }
     // 2026-06-27 (round 6.2.97 — Sky): intercept <48h bookings
     // with a warning dialog before delegating to the container's
     // `onSubmit`. The customer can still confirm (booking
@@ -6943,18 +6992,39 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               <div className="relative">
                 <DateInput
                   value={form.date}
-                  min={hktTodayYmd()}
+                  min={earliestBookableYmd(Date.now(), minBookingLeadHours)}
                   onChange={(value) => setForm((p) => ({ ...p, date: value }))}
                   required
                   style={fieldStyle}
                   className={fieldClass}
                 />
               </div>
+              {/* Hard min-lead error (default 24h) — blocks Next via step1FlightValid. */}
+              {isBelowMinLeadTime && form.flightType !== 'Transit' && (
+                <div
+                  className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
+                  style={{ background: hintBgS1, border: hintBorderS1 }}
+                  data-testid="min-lead-inline-error"
+                  role="alert"
+                >
+                  <AlertTriangle
+                    className="w-4 h-4 flex-shrink-0 mt-0.5"
+                    style={{ color: hintColorS1 }}
+                  />
+                  <p className="text-xs leading-relaxed" style={{ color: hintColorS1 }}>
+                    {m('Bookings must be made at least {n} hours in advance. Please select a later time.').replace(
+                      '{n}',
+                      String(minBookingLeadHours),
+                    )}
+                  </p>
+                </div>
+              )}
               {/* 2026-08-26 — inline short-notice (<48h) warning under
                   the visit date for Arrival/Departure. Transit uses the
                   leg-2 date (see below). Same copy as the Confirm dialog.
                   2026-08-27: date-possibly gate (showShortNoticeInline)
-                  so this does not wait on lookup/time. */}
+                  so this does not wait on lookup/time. Soft only when
+                  hard min-lead has already cleared. */}
               {showShortNoticeInline && form.flightType !== 'Transit' && (
                 <div
                   className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
@@ -7225,7 +7295,11 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   <div className="relative">
                     <DateInput
                       value={leg2ArrivalDate?.split('T')[0] || ''}
-                      min={form.date ? form.date : hktTodayYmd()}
+                      min={(() => {
+                        const leadMin = earliestBookableYmd(Date.now(), minBookingLeadHours);
+                        const flightMin = form.date ? form.date : hktTodayYmd();
+                        return flightMin > leadMin ? flightMin : leadMin;
+                      })()}
                       onChange={(datePart) => {
                         const timePart = leg2ArrivalDate?.split('T')[1]?.slice(0, 5) || '';
                         const next = timePart ? `${datePart}T${timePart}` : datePart;
@@ -7262,6 +7336,25 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                       data-testid="leg2-arrivalDate"
                     />
                   </div>
+                  {isBelowMinLeadTime && form.flightType === 'Transit' && (
+                    <div
+                      className="mt-2 flex items-start gap-2 px-3 py-2 rounded-lg"
+                      style={{ background: hintBgS1, border: hintBorderS1 }}
+                      data-testid="min-lead-inline-error"
+                      role="alert"
+                    >
+                      <AlertTriangle
+                        className="w-4 h-4 flex-shrink-0 mt-0.5"
+                        style={{ color: hintColorS1 }}
+                      />
+                      <p className="text-xs leading-relaxed" style={{ color: hintColorS1 }}>
+                        {m('Bookings must be made at least {n} hours in advance. Please select a later time.').replace(
+                          '{n}',
+                          String(minBookingLeadHours),
+                        )}
+                      </p>
+                    </div>
+                  )}
                   {/* 2026-08-26 — Transit short-notice gate uses leg 2
                       (outbound) start; warn under that date input.
                       2026-08-27: date-possibly gate so a date-only pick
