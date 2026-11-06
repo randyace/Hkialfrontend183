@@ -73,6 +73,8 @@ export interface SettingsProps {
   highlightBirthday?: boolean;
   /** After the first saved spouse record, fields are read-only for the member. */
   spouseLocked?: boolean;
+  /** Canonical email from last successful load — used to detect rebind. */
+  originalEmail?: string;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -144,6 +146,7 @@ export function Settings({
   fieldErrors: propFieldErrors,
   highlightBirthday = false,
   spouseLocked = false,
+  originalEmail = "",
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -162,6 +165,11 @@ export function Settings({
   const profile = settings.profile ?? MOCK_SETTINGS.profile;
   const appearance =
     settings.appearance ?? MOCK_SETTINGS.appearance;
+  const emailChanging =
+    String(profile.email ?? "").trim().toLowerCase() !== ""
+    && String(originalEmail ?? "").trim().toLowerCase() !== ""
+    && String(profile.email ?? "").trim().toLowerCase()
+      !== String(originalEmail ?? "").trim().toLowerCase();
 
   // Password fields state (can be controlled via props or managed internally)
   const [internalPasswordFields, setInternalPasswordFields] =
@@ -504,21 +512,13 @@ export function Settings({
           <SettingsFieldError msg={fieldErrors["lastName"]} />
         </div>
 
-        {/* Email — read-only (2026-06-24, Sky). Email is managed by
-            the account / membership system; customer cannot change
-            it from the profile settings page. */}
+        {/* Email — editable (HKIAL-05). Changing email requires current password. */}
         <div>
           <label
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.email")}{" "}
-            <span
-              className="text-xs"
-              style={{ color: colors.textMuted }}
-            >
-              ({t("settings.emailReadOnly")})
-            </span>
+            {t("auth.email")}
           </label>
           <div className="relative">
             <Mail
@@ -528,14 +528,66 @@ export function Settings({
             <input
               type="email"
               value={profile.email}
-              readOnly
-              disabled
-              aria-readonly="true"
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none cursor-not-allowed opacity-70"
+              onChange={(e) =>
+                updateSetting("profile", "email", e.target.value.trim())
+              }
+              autoComplete="email"
+              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
               style={inputStyle}
+              data-testid="settings-email-input"
             />
           </div>
+          <SettingsFieldError msg={fieldErrors["email"]} />
         </div>
+
+        {emailChanging && (
+          <div data-testid="settings-email-current-password">
+            <label
+              className="block text-sm mb-2"
+              style={{ color: colors.textSecondary }}
+            >
+              {t("settings.currentPassword")}{" "}
+              <RequiredStar />
+            </label>
+            <p
+              className="text-xs mb-2"
+              style={{ color: colors.textMuted }}
+            >
+              {t("settings.emailChangePasswordHint")}
+            </p>
+            <div className="relative">
+              <input
+                type={
+                  internalShowCurrentPassword ? "text" : "password"
+                }
+                value={passwordFields.currentPassword}
+                onChange={(e) =>
+                  handlePasswordChange(
+                    "currentPassword",
+                    e.target.value,
+                  )
+                }
+                placeholder={m("Enter current password")}
+                autoComplete="current-password"
+                className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={handleToggleCurrentPassword}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-60 transition-opacity"
+                style={{ color: colors.textMuted }}
+              >
+                {internalShowCurrentPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            <SettingsFieldError msg={fieldErrors["current_password"]} />
+          </div>
+        )}
 
         {/* Phone */}
         <div>
