@@ -75,6 +75,8 @@ export interface SettingsProps {
   spouseLocked?: boolean;
   /** Canonical email from last successful load — used to detect rebind. */
   originalEmail?: string;
+  /** HKIAL-05 — staged email awaiting verification (live email unchanged). */
+  pendingEmail?: string;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -147,6 +149,7 @@ export function Settings({
   highlightBirthday = false,
   spouseLocked = false,
   originalEmail = "",
+  pendingEmail = "",
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -538,6 +541,15 @@ export function Settings({
             />
           </div>
           <SettingsFieldError msg={fieldErrors["email"]} />
+          {pendingEmail.trim() !== "" && (
+            <p
+              className="mt-2 text-xs"
+              style={{ color: colors.textMuted }}
+              data-testid="settings-pending-email"
+            >
+              {t("settings.emailChangePending", { email: pendingEmail })}
+            </p>
+          )}
         </div>
 
         {emailChanging && (
