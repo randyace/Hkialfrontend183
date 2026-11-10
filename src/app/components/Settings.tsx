@@ -73,10 +73,6 @@ export interface SettingsProps {
   highlightBirthday?: boolean;
   /** After the first saved spouse record, fields are read-only for the member. */
   spouseLocked?: boolean;
-  /** Canonical email from last successful load — used to detect rebind. */
-  originalEmail?: string;
-  /** HKIAL-05 — staged email awaiting verification (live email unchanged). */
-  pendingEmail?: string;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -95,10 +91,6 @@ export interface SettingsProps {
   /** RFQ 3.3 language switch — parent wires i18n.changeLanguage */
   onLanguageChange?: (locale: string) => void;
   onSave?: () => void;
-  /** R-05 D.3 — sign out every other device while keeping this browser. */
-  onLogoutOtherDevices?: () => void;
-  isLoggingOutOtherDevices?: boolean;
-  logoutOtherDevicesMessage?: string;
 }
 
 // ── Mock data for Figma preview (used when no real props are provided) ───────
@@ -152,8 +144,6 @@ export function Settings({
   fieldErrors: propFieldErrors,
   highlightBirthday = false,
   spouseLocked = false,
-  originalEmail = "",
-  pendingEmail = "",
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -161,9 +151,6 @@ export function Settings({
   onThemeChange,
   onLanguageChange,
   onSave,
-  onLogoutOtherDevices,
-  isLoggingOutOtherDevices = false,
-  logoutOtherDevicesMessage = "",
 }: SettingsProps) {
   const m = useMsg();
   const { t, i18n } = useTranslation();
@@ -175,6 +162,7 @@ export function Settings({
   const profile = settings.profile ?? MOCK_SETTINGS.profile;
   const appearance =
     settings.appearance ?? MOCK_SETTINGS.appearance;
+
   // Password fields state (can be controlled via props or managed internally)
   const [internalPasswordFields, setInternalPasswordFields] =
     useState({
@@ -516,13 +504,21 @@ export function Settings({
           <SettingsFieldError msg={fieldErrors["lastName"]} />
         </div>
 
-        {/* Email — locked for members (R-05 / product: admin-only email changes). */}
+        {/* Email — read-only (2026-06-24, Sky). Email is managed by
+            the account / membership system; customer cannot change
+            it from the profile settings page. */}
         <div>
           <label
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.email")}
+            {t("auth.email")}{" "}
+            <span
+              className="text-xs"
+              style={{ color: colors.textMuted }}
+            >
+              ({t("settings.emailReadOnly")})
+            </span>
           </label>
           <div className="relative">
             <Mail
@@ -532,26 +528,13 @@ export function Settings({
             <input
               type="email"
               value={profile.email}
-              disabled
               readOnly
-              autoComplete="email"
-              className="w-full pl-10 pr-4 py-2 rounded-xl opacity-70 cursor-not-allowed"
-              style={{
-                ...inputStyle,
-                background: isDark ? "rgba(255,255,255,0.04)" : "rgba(231,230,221,0.55)",
-              }}
-              data-testid="settings-email-input"
-              aria-describedby="settings-email-locked-hint"
+              disabled
+              aria-readonly="true"
+              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none cursor-not-allowed opacity-70"
+              style={inputStyle}
             />
           </div>
-          <p
-            id="settings-email-locked-hint"
-            className="mt-2 text-xs"
-            style={{ color: colors.textMuted }}
-            data-testid="settings-email-locked-hint"
-          >
-            {t('settings.emailReadOnly')}
-          </p>
         </div>
 
         {/* Phone */}
@@ -1138,46 +1121,6 @@ export function Settings({
           );
         })}
       </div>
-
-      {onLogoutOtherDevices && (
-        <div
-          className="rounded-xl p-4 mt-2 space-y-3"
-          style={{
-            background: isDark ? "rgba(255,255,255,0.04)" : "rgba(231,230,221,0.35)",
-            border: `1px solid ${colors.glassBorder}`,
-          }}
-          data-testid="logout-other-devices-panel"
-        >
-          <div>
-            <h4 className="text-sm font-medium" style={{ color: colors.text }}>
-              {m("Logout Other Devices")}
-            </h4>
-            <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-              {m("Sign out every other browser or device. You will stay signed in here.")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onLogoutOtherDevices}
-            disabled={isLoggingOutOtherDevices}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-60"
-            style={{
-              background: "rgb(220,181,21)",
-              color: "#1a1a1a",
-            }}
-            data-testid="logout-other-devices-button"
-          >
-            {isLoggingOutOtherDevices
-              ? m("Signing out…")
-              : m("Logout Other Devices")}
-          </button>
-          {logoutOtherDevicesMessage ? (
-            <p className="text-xs" style={{ color: colors.textSecondary }} data-testid="logout-other-devices-message">
-              {logoutOtherDevicesMessage}
-            </p>
-          ) : null}
-        </div>
-      )}
     </div>
   );
 
