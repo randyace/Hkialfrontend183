@@ -95,6 +95,10 @@ export interface SettingsProps {
   /** RFQ 3.3 language switch — parent wires i18n.changeLanguage */
   onLanguageChange?: (locale: string) => void;
   onSave?: () => void;
+  /** R-05 D.3 — sign out every other device while keeping this browser. */
+  onLogoutOtherDevices?: () => void;
+  isLoggingOutOtherDevices?: boolean;
+  logoutOtherDevicesMessage?: string;
 }
 
 // ── Mock data for Figma preview (used when no real props are provided) ───────
@@ -157,6 +161,9 @@ export function Settings({
   onThemeChange,
   onLanguageChange,
   onSave,
+  onLogoutOtherDevices,
+  isLoggingOutOtherDevices = false,
+  logoutOtherDevicesMessage = "",
 }: SettingsProps) {
   const m = useMsg();
   const { t, i18n } = useTranslation();
@@ -168,12 +175,6 @@ export function Settings({
   const profile = settings.profile ?? MOCK_SETTINGS.profile;
   const appearance =
     settings.appearance ?? MOCK_SETTINGS.appearance;
-  const emailChanging =
-    String(profile.email ?? "").trim().toLowerCase() !== ""
-    && String(originalEmail ?? "").trim().toLowerCase() !== ""
-    && String(profile.email ?? "").trim().toLowerCase()
-      !== String(originalEmail ?? "").trim().toLowerCase();
-
   // Password fields state (can be controlled via props or managed internally)
   const [internalPasswordFields, setInternalPasswordFields] =
     useState({
@@ -515,7 +516,7 @@ export function Settings({
           <SettingsFieldError msg={fieldErrors["lastName"]} />
         </div>
 
-        {/* Email — editable (HKIAL-05). Changing email requires current password. */}
+        {/* Email — locked for members (R-05 / product: admin-only email changes). */}
         <div>
           <label
             className="block text-sm mb-2"
@@ -531,75 +532,27 @@ export function Settings({
             <input
               type="email"
               value={profile.email}
-              onChange={(e) =>
-                updateSetting("profile", "email", e.target.value.trim())
-              }
+              disabled
+              readOnly
               autoComplete="email"
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
-              style={inputStyle}
+              className="w-full pl-10 pr-4 py-2 rounded-xl opacity-70 cursor-not-allowed"
+              style={{
+                ...inputStyle,
+                background: isDark ? "rgba(255,255,255,0.04)" : "rgba(231,230,221,0.55)",
+              }}
               data-testid="settings-email-input"
+              aria-describedby="settings-email-locked-hint"
             />
           </div>
-          <SettingsFieldError msg={fieldErrors["email"]} />
-          {pendingEmail.trim() !== "" && (
-            <p
-              className="mt-2 text-xs"
-              style={{ color: colors.textMuted }}
-              data-testid="settings-pending-email"
-            >
-              {t("settings.emailChangePending", { email: pendingEmail })}
-            </p>
-          )}
+          <p
+            id="settings-email-locked-hint"
+            className="mt-2 text-xs"
+            style={{ color: colors.textMuted }}
+            data-testid="settings-email-locked-hint"
+          >
+            (電郵由帳戶系統管理，無法在此變更。)
+          </p>
         </div>
-
-        {emailChanging && (
-          <div data-testid="settings-email-current-password">
-            <label
-              className="block text-sm mb-2"
-              style={{ color: colors.textSecondary }}
-            >
-              {t("settings.currentPassword")}{" "}
-              <RequiredStar />
-            </label>
-            <p
-              className="text-xs mb-2"
-              style={{ color: colors.textMuted }}
-            >
-              {t("settings.emailChangePasswordHint")}
-            </p>
-            <div className="relative">
-              <input
-                type={
-                  internalShowCurrentPassword ? "text" : "password"
-                }
-                value={passwordFields.currentPassword}
-                onChange={(e) =>
-                  handlePasswordChange(
-                    "currentPassword",
-                    e.target.value,
-                  )
-                }
-                placeholder={m("Enter current password")}
-                autoComplete="current-password"
-                className="w-full px-4 py-2 pr-12 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
-                style={inputStyle}
-              />
-              <button
-                type="button"
-                onClick={handleToggleCurrentPassword}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:opacity-60 transition-opacity"
-                style={{ color: colors.textMuted }}
-              >
-                {internalShowCurrentPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-            </div>
-            <SettingsFieldError msg={fieldErrors["current_password"]} />
-          </div>
-        )}
 
         {/* Phone */}
         <div>
@@ -1185,6 +1138,46 @@ export function Settings({
           );
         })}
       </div>
+
+      {onLogoutOtherDevices && (
+        <div
+          className="rounded-xl p-4 mt-2 space-y-3"
+          style={{
+            background: isDark ? "rgba(255,255,255,0.04)" : "rgba(231,230,221,0.35)",
+            border: `1px solid ${colors.glassBorder}`,
+          }}
+          data-testid="logout-other-devices-panel"
+        >
+          <div>
+            <h4 className="text-sm font-medium" style={{ color: colors.text }}>
+              {m("Logout Other Devices")}
+            </h4>
+            <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+              {m("Sign out every other browser or device. You will stay signed in here.")}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onLogoutOtherDevices}
+            disabled={isLoggingOutOtherDevices}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-60"
+            style={{
+              background: "rgb(220,181,21)",
+              color: "#1a1a1a",
+            }}
+            data-testid="logout-other-devices-button"
+          >
+            {isLoggingOutOtherDevices
+              ? m("Signing out…")
+              : m("Logout Other Devices")}
+          </button>
+          {logoutOtherDevicesMessage ? (
+            <p className="text-xs" style={{ color: colors.textSecondary }} data-testid="logout-other-devices-message">
+              {logoutOtherDevicesMessage}
+            </p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 
