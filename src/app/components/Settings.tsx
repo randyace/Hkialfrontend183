@@ -550,7 +550,7 @@ export function Settings({
             style={{ color: colors.textMuted }}
             data-testid="settings-email-locked-hint"
           >
-            (電郵由帳戶系統管理，無法在此變更。)
+            {t('settings.emailReadOnly')}
           </p>
         </div>
 
