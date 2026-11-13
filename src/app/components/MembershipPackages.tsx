@@ -523,7 +523,7 @@ export function MembershipPackages({
                   <FileText className="w-4 h-4" style={{ color: 'rgb(220,181,21)' }} />
                 </div>
                 <div>
-                  <p className="text-sm" style={{ color: pageText }}>{m('Terms &amp; Conditions')}</p>
+                  <p className="text-sm" style={{ color: pageText }}>{m('Terms & Conditions')}</p>
                   <p className="text-xs" style={{ color: subText }}>{m('Please read carefully before proceeding')}</p>
                 </div>
               </div>
@@ -552,7 +552,7 @@ export function MembershipPackages({
               </div>
               <span className="text-xs leading-relaxed" style={{ color: pageText }}>
                 {m('I have read, understood, and agree to the')}{' '}
-                <strong style={{ color: 'rgb(220,181,21)' }}>{m('Terms &amp; Conditions')}</strong>{' '}
+                <strong style={{ color: 'rgb(220,181,21)' }}>{m('Terms & Conditions')}</strong>{' '}
                 {m('of HKIA Lounge Membership, including the refund policy and lounge access rules.')}
               </span>
             </button>
@@ -635,7 +635,7 @@ export function MembershipPackages({
 
                 {!agreedToTerms && (
                   <p className="text-xs text-center mt-3" style={{ color: subText }}>
-                    {m('Please agree to the Terms &amp; Conditions to proceed.')}
+                    {m('Please agree to the Terms & Conditions to proceed.')}
                   </p>
                 )}
               </div>
@@ -866,7 +866,7 @@ export function MembershipPackages({
       <div className="rounded-2xl overflow-hidden mb-10" style={{ background: otherBenefitsBg, border: otherBenefitsBorder }}>
         <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(220,181,21,0.2)' }}>
           <p className="text-sm text-center" style={{ color: 'rgb(220,181,21)' }}>
-            {m('Other Membership Benefits — Applicable to Both Types &amp; All Tiers')}
+            {m('Other Membership Benefits — Applicable to Both Types & All Tiers')}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: 'rgba(220,181,21,0.15)' }}>

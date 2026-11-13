@@ -1737,7 +1737,8 @@ export function Bookings({
 
             {/* Action buttons */}
             <div className="flex flex-col gap-3 mb-3">
-              {/* Add to Apple Wallet */}
+              {/* Add to Apple Wallet — temporarily hidden (pkpass / Google Wallet not shipped). */}
+              {false && (
               <button
                 onClick={handleAddToWallet}
                 className="w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2.5 transition-all hover:opacity-85 active:scale-[0.98]"
@@ -1748,6 +1749,7 @@ export function Bookings({
                 </svg>
                 <span className="text-sm font-semibold tracking-wide">{m('Add to Apple Wallet')}</span>
               </button>
+              )}
 
               {/* Download Entry Details PDF */}
               <button

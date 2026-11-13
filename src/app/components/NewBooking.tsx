@@ -106,6 +106,14 @@ import {
 import { useMsg } from '../../../../../i18n/useMsg';
 import { getAppLocale, toBcp47Locale } from '../../../../../i18n';
 import { useTranslation } from 'react-i18next';
+import {
+  AllergyDietaryTagInput,
+  codesFromTags,
+  foodAllergiesStringFromTags,
+  tagsFromFoodAllergiesString,
+  type AllergyDietaryTag,
+} from '../../../../../components/AllergyDietaryTagInput';
+import { resolveAllergenCatalogEntry } from '../../../../../lib/allergenCatalogMatch';
 import { translatePriceLineLabel } from '../../../../../lib/addons/translatePriceLineLabel';
 import { getPriceSectionPrices } from '../../../../../lib/pricing/getPriceSectionPrices';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
@@ -340,6 +348,10 @@ interface MemberData {
   lastName?: string;
   spouseFirstName?: string;
   spouseLastName?: string;
+  profileFoodAllergies?: Array<Record<string, unknown>>;
+  profileDietaryRequirements?: Array<Record<string, unknown>>;
+  profileSpouseFoodAllergies?: Array<Record<string, unknown>>;
+  profileSpouseDietaryRequirements?: Array<Record<string, unknown>>;
   /** Spec §9 — travel_agencies.agency_code for Agency Billing Reference prefill. */
   agencyCode?: string | null;
 }
@@ -577,6 +589,10 @@ interface VipPassenger {
   vipAgeGroup: string;
   vipBirthday: string;
   foodAllergies: string;
+  foodAllergyCodes?: string[];
+  dietaryCodes?: string[];
+  is_main_member?: boolean;
+  is_spouse?: boolean;
   /** ISO 3166-1 alpha-2 (mandatory). */
   nationality: string;
 }
@@ -589,8 +605,59 @@ interface NonFlyingGuest {
   /** Child age (2–11) when guestAgeGroup is Children (aged 2-11). */
   guestAge: string;
   foodAllergies: string;
+  foodAllergyCodes?: string[];
+  dietaryCodes?: string[];
   /** ISO 3166-1 alpha-2 (mandatory). */
   nationality: string;
+}
+
+function profileRowsToAllergyString(rows: Array<Record<string, unknown>> | undefined): string {
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const labels: string[] = [];
+  for (const row of rows) {
+    const code = typeof row.code === 'string' ? row.code : '';
+    const allergen = String(row.allergen ?? row.requirement ?? row.name_en ?? row.name ?? '').trim();
+    const entry = code ? resolveAllergenCatalogEntry(code) : resolveAllergenCatalogEntry(allergen);
+    labels.push(entry?.name_en || allergen);
+  }
+  return [...new Set(labels.filter(Boolean))].join(', ');
+}
+
+function applyAllergyTagsToVip(passenger: VipPassenger, tags: AllergyDietaryTag[]): VipPassenger {
+  const { foodAllergyCodes, dietaryCodes } = codesFromTags(tags);
+  return {
+    ...passenger,
+    foodAllergies: foodAllergiesStringFromTags(tags),
+    foodAllergyCodes,
+    dietaryCodes,
+  };
+}
+
+function applyAllergyTagsToNfg(guest: NonFlyingGuest, tags: AllergyDietaryTag[]): NonFlyingGuest {
+  const { foodAllergyCodes, dietaryCodes } = codesFromTags(tags);
+  return {
+    ...guest,
+    foodAllergies: foodAllergiesStringFromTags(tags),
+    foodAllergyCodes,
+    dietaryCodes,
+  };
+}
+
+function namesMatchGuest(
+  holder: { firstName?: string; lastName?: string; name?: string } | null | undefined,
+  firstName: string,
+  lastName: string,
+): boolean {
+  if (!holder) return false;
+  const hf = (holder.firstName ?? '').trim().toLowerCase();
+  const hl = (holder.lastName ?? '').trim().toLowerCase();
+  const f = firstName.trim().toLowerCase();
+  const l = lastName.trim().toLowerCase();
+  if (hf && hl && f && l) return hf === f && hl === l;
+  const full = `${hf} ${hl}`.trim();
+  const row = `${f} ${l}`.trim();
+  const holderName = (holder.name ?? '').trim().toLowerCase();
+  return Boolean(row) && (row === full || (holderName !== '' && row === holderName));
 }
 
 function formatBookingGuestName(title?: string, first?: string, last?: string): string {
@@ -1162,7 +1229,7 @@ function StepperCard({
   icon: React.ReactNode;
   iconBg: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   value: number;
   onDecrement: () => void;
   onIncrement: () => void;
@@ -1180,7 +1247,7 @@ function StepperCard({
   const m = useMsg();
   const { isDark, textPrimary, textMuted, stepperCardBg, stepperBtnStyle, stepperIconColor } = useThemedStyles();
   const titleLabel = m(title);
-  const subtitleLabel = m(subtitle);
+  const subtitleLabel = subtitle ? m(subtitle) : undefined;
   const helperLabel = helperText ? m(helperText) : undefined;
   return (
     <div
@@ -1198,7 +1265,9 @@ function StepperCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm" style={textPrimary}>{titleLabel}</div>
-          <div className="text-xs" style={textMuted}>{subtitleLabel}</div>
+          {subtitleLabel ? (
+            <div className="text-xs" style={textMuted}>{subtitleLabel}</div>
+          ) : null}
         </div>
       </div>
       {/* Stepper row */}
@@ -2454,6 +2523,71 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       setUseMembershipPsFree(false);
     }
   }, [canUseFreePs, ldUnitsRequested, maxLdUnits, useMembershipPsFree]);
+
+  // Prefill main-member / spouse allergy+dietary tags from /auth/member/me profile.
+  const vipNameSignature = vipData
+    .map((row) => `${row.vipFirstName}|${row.vipLastName}|${row.foodAllergies}`)
+    .join(';');
+  useEffect(() => {
+    setVipData((prev) => {
+      let changed = false;
+      const next = prev.map((row) => {
+        const isMain = namesMatchGuest(membershipHolder, row.vipFirstName, row.vipLastName);
+        const isSpouse = !isMain && namesMatchGuest(spouseHolder, row.vipFirstName, row.vipLastName);
+        let foodAllergies = row.foodAllergies;
+        if (!foodAllergies.trim()) {
+          if (isMain) {
+            const combined = [
+              profileRowsToAllergyString(memberData.profileFoodAllergies),
+              profileRowsToAllergyString(memberData.profileDietaryRequirements),
+            ].filter(Boolean).join(', ');
+            if (combined) foodAllergies = combined;
+          } else if (isSpouse) {
+            const combined = [
+              profileRowsToAllergyString(memberData.profileSpouseFoodAllergies),
+              profileRowsToAllergyString(memberData.profileSpouseDietaryRequirements),
+            ].filter(Boolean).join(', ');
+            if (combined) foodAllergies = combined;
+          }
+        }
+        const nextMain = isMain ? true : undefined;
+        const nextSpouse = isSpouse ? true : undefined;
+        if (
+          foodAllergies === row.foodAllergies
+          && row.is_main_member === nextMain
+          && row.is_spouse === nextSpouse
+        ) {
+          return row;
+        }
+        changed = true;
+        const tags = tagsFromFoodAllergiesString(foodAllergies);
+        const codes = codesFromTags(tags);
+        return {
+          ...row,
+          foodAllergies,
+          foodAllergyCodes: codes.foodAllergyCodes,
+          dietaryCodes: codes.dietaryCodes,
+          is_main_member: nextMain,
+          is_spouse: nextSpouse,
+        };
+      });
+      return changed ? next : prev;
+    });
+    // vipNameSignature tracks name + allergy text changes without depending on the full array identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    memberData.profileDietaryRequirements,
+    memberData.profileFoodAllergies,
+    memberData.profileSpouseDietaryRequirements,
+    memberData.profileSpouseFoodAllergies,
+    membershipHolder.firstName,
+    membershipHolder.lastName,
+    membershipHolder.name,
+    spouseHolder.firstName,
+    spouseHolder.lastName,
+    spouseHolder.name,
+    vipNameSignature,
+  ]);
 
   function advanceStep(nextStep: number) {
     setCurrentStep(nextStep);
@@ -6011,7 +6145,6 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               icon={<Accessibility className="w-5 h-5 text-white" />}
               iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
               title={m('Wheelchair Assistance')}
-              subtitle={m('Free')}
               value={step2Form.wheelchairService}
               onDecrement={() => updateStep2Count('wheelchairService', -1)}
               onIncrement={() => updateStep2Count('wheelchairService', 1)}
@@ -6079,34 +6212,39 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
               </div>
             )}
 
-            {/* Security Service */}
-            <SubSectionLabel label="Security Service" />
-            <ToggleCard
-              icon={<Shield className="w-5 h-5 text-white" />}
-              iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
-              title={m('Security Escort Service')}
-              subtitle={m('Personal security personnel')}
-              checked={step2Form.securityService}
-              onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
-              addonKey="security"
-            />
+            {/* Security Service — temporarily hidden (staff handles in Admin). */}
+            {false && (
+              <>
+                <SubSectionLabel label="Security Service" />
+                <ToggleCard
+                  icon={<Shield className="w-5 h-5 text-white" />}
+                  iconBg="bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)]"
+                  title={m('Security Escort Service')}
+                  subtitle={m('Personal security personnel')}
+                  checked={step2Form.securityService}
+                  onChange={(v) => setStep2Form((p) => ({ ...p, securityService: v }))}
+                  addonKey="security"
+                />
 
-            {step2Form.securityService && (
-              <div
-                className="mt-3 p-3 rounded-lg text-sm"
-                data-testid="security-escort-price-note"
-                style={{
-                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(231,230,221,0.5)',
-                  border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)',
-                  color: colors.textSecondary,
-                }}
-              >
-                {m('To be confirmed')}
-              </div>
+                {step2Form.securityService && (
+                  <div
+                    className="mt-3 p-3 rounded-lg text-sm"
+                    data-testid="security-escort-price-note"
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(231,230,221,0.5)',
+                      border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(200,199,190,0.4)',
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    {m('To be confirmed')}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
-          {catalogAddonSlot}
+          {/* Other add-on services (Lane B catalog) — temporarily hidden. */}
+          {false && catalogAddonSlot}
 
           {/* ── Navigation Buttons ──────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4 relative z-0">
@@ -6179,7 +6317,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 backgroundClip: 'text',
               }}
             >
-              {m('Step 4: Other Information &amp; Checkout')}
+              {m('Step 4: Other Information & Checkout')}
             </h1>
             <p className="text-xs mt-1" style={textMuted}>
               {m('Add luggage info, membership vouchers, and contact details')}
@@ -7615,7 +7753,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
         {/* Step 2 header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-            <h1 className="text-xl" style={gradientTextS2}>{m('Step 2: Suite &amp; Guest Selection')}</h1>
+            <h1 className="text-xl" style={gradientTextS2}>{m('Step 2: Suite & Guest Selection')}</h1>
           <p className="text-xs mt-1" style={textMuted}>
               {m('Select lounge areas, add VIP passengers and non-flying guests')}
             </p>
@@ -8035,16 +8173,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 </div>
               </div>
 
-              {/* Food Allergies */}
+              {/* Food Allergies / Dietary (catalog tag picker) */}
               <div className="mt-4">
                 <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">{m('(optional)')}</span></label>
-                <input
-                  type="text"
-                  value={passenger.foodAllergies}
-                  onChange={(e) => handleVipChange(index, 'foodAllergies', e.target.value)}
+                <AllergyDietaryTagInput
+                  value={tagsFromFoodAllergiesString(passenger.foodAllergies)}
+                  onChange={(tags) => {
+                    setVipData((prev) =>
+                      prev.map((row, i) => (i === index ? applyAllergyTagsToVip(row, tags) : row)),
+                    );
+                  }}
                   placeholder={m('e.g. Peanuts, Shellfish, Gluten (leave blank if none)')}
                   style={fieldStyle}
-                  className={fieldClass}
+                  inputClassName={fieldClass}
                 />
               </div>
             </div>
@@ -8209,16 +8350,19 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 </div>
               </div>
 
-              {/* Food Allergies */}
+              {/* Food Allergies / Dietary (catalog tag picker) */}
               <div className="mt-4">
                 <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">{m('(optional)')}</span></label>
-                <input
-                  type="text"
-                  value={guest.foodAllergies}
-                  onChange={(e) => handleNonFlyingGuestChange(index, 'foodAllergies', e.target.value)}
+                <AllergyDietaryTagInput
+                  value={tagsFromFoodAllergiesString(guest.foodAllergies)}
+                  onChange={(tags) => {
+                    setNonFlyingGuestData((prev) =>
+                      prev.map((row, i) => (i === index ? applyAllergyTagsToNfg(row, tags) : row)),
+                    );
+                  }}
                   placeholder={m('e.g. Peanuts, Shellfish, Gluten (leave blank if none)')}
                   style={fieldStyle}
-                  className={fieldClass}
+                  inputClassName={fieldClass}
                 />
               </div>
             </div>

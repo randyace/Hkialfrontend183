@@ -792,7 +792,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
         <div className="rounded-2xl p-6" style={{ background: cardBg, border: cardBorder }}>
           <div className="flex items-center gap-2 mb-5">
             <Zap className="w-5 h-5" style={{ color: tierCfg.color }} />
-            <h2 className="text-base" style={{ color: pageText }}>Usage &amp; Pool</h2>
+            <h2 className="text-base" style={{ color: pageText }}>Usage & Pool</h2>
           </div>
 
           {/* Visits */}
@@ -857,7 +857,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
               <span className="text-sm" style={{ color: pageText }}>{totalVouchersNow} total</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg mb-3" style={{ background: isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.22)' }}>
-              <span className="text-xs" style={{ color: '#60a5fa' }}>Account holder &amp; registered spouse use only — not transferable to guests or nominees.</span>
+              <span className="text-xs" style={{ color: '#60a5fa' }}>Account holder & registered spouse use only — not transferable to guests or nominees.</span>
             </div>
 
             {/* Regular vouchers row */}
@@ -915,7 +915,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
                     );
                   })}
                 </div>
-                <p className="text-xs" style={{ color: subText }}>For account holder &amp; registered spouse only. Upgrade a booked lounge visit to a Premiere Suite experience.</p>
+                <p className="text-xs" style={{ color: subText }}>For account holder & registered spouse only. Upgrade a booked lounge visit to a Premiere Suite experience.</p>
                 {addedUpgradeSuite > 0 && (
                   <p className="text-xs mt-0.5" style={{ color: 'rgb(52,199,89)' }}>
                     +{addedUpgradeSuite} from adjourned {queuedMembership?.name} package
@@ -1219,7 +1219,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
                             {/* Immediate benefits */}
                             <div className="flex items-center gap-1.5 text-xs" style={{ color: 'rgb(52,199,89)' }}>
                               <Plus className="w-3 h-3" />
-                              +{pkg.visitsIncluded > 0 ? `${pkg.visitsIncluded} visits` : `HKD ${pkg.creditIncluded.toLocaleString()} credit`} &amp; {pkg.vouchersIncluded} vouchers added to pool immediately
+                              +{pkg.visitsIncluded > 0 ? `${pkg.visitsIncluded} visits` : `HKD ${pkg.creditIncluded.toLocaleString()} credit`} & {pkg.vouchersIncluded} vouchers added to pool immediately
                             </div>
                             {/* Locked services for upgrade */}
                             {pkgLockedList.length > 0 && (
@@ -1325,7 +1325,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-5">
                   <button onClick={handleBackToSelect} className="text-xs hover:opacity-70 transition-opacity" style={{ color: subText }}>← Back</button>
-                  <h2 className="text-lg" style={{ color: pageText }}>Confirm &amp; Pay</h2>
+                  <h2 className="text-lg" style={{ color: pageText }}>Confirm & Pay</h2>
                 </div>
 
                 <div className="rounded-2xl p-5 mb-4" style={{ background: rowBg, border: rowBorder }}>
