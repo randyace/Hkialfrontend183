@@ -73,6 +73,11 @@ export interface SettingsProps {
   highlightBirthday?: boolean;
   /** After the first saved spouse record, fields are read-only for the member. */
   spouseLocked?: boolean;
+  /** Legacy import first-login gates */
+  profileIncomplete?: boolean;
+  mustChangePassword?: boolean;
+  highlightRequiredProfile?: boolean;
+  highlightPassword?: boolean;
   onTogglePassword?: () => void;
   onSectionChange?: (section: string) => void;
   onSettingChange?: (
@@ -144,6 +149,10 @@ export function Settings({
   fieldErrors: propFieldErrors,
   highlightBirthday = false,
   spouseLocked = false,
+  profileIncomplete = false,
+  mustChangePassword = false,
+  highlightRequiredProfile = false,
+  highlightPassword = false,
   onTogglePassword,
   onSectionChange,
   onSettingChange,
@@ -430,7 +439,9 @@ export function Settings({
                   e.target.value,
                 )
               }
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer"
+              className={`w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 appearance-none cursor-pointer${
+                highlightRequiredProfile ? " ring-2 ring-[rgb(220,181,21)]" : ""
+              }`}
               style={inputStyle}
             >
               <option value="Mr">{m('Mr')}</option>
@@ -561,7 +572,9 @@ export function Settings({
                   e.target.value,
                 )
               }
-              className="w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              className={`w-full pl-10 pr-4 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40${
+                highlightRequiredProfile ? " ring-2 ring-[rgb(220,181,21)]" : ""
+              }`}
               style={inputStyle}
             />
           </div>
@@ -582,7 +595,9 @@ export function Settings({
             value={profile.nationality ?? ""}
             required
             onChange={(code) => updateSetting("profile", "nationality", code)}
-            className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+            className={`w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40${
+              highlightRequiredProfile ? " ring-2 ring-[rgb(220,181,21)]" : ""
+            }`}
             listStyle={{
               ...inputStyle,
               background: isDark ? "rgba(30,30,30,0.98)" : "rgba(255,255,255,0.98)",
@@ -923,12 +938,24 @@ export function Settings({
       </div>
 
       {/* Current Password */}
-      <div>
+      <div
+        className={
+          highlightPassword
+            ? "rounded-xl p-3 -mx-1 ring-2 ring-[rgb(220,181,21)]/70"
+            : undefined
+        }
+      >
         <label
           className="block text-sm mb-2"
           style={{ color: colors.textSecondary }}
         >
           {t("settings.currentPassword")}
+          {mustChangePassword ? (
+            <>
+              {" "}
+              <RequiredStar />
+            </>
+          ) : null}
         </label>
         <div className="relative">
           <input
@@ -1258,6 +1285,21 @@ export function Settings({
           {t("settings.subtitle")}
         </p>
       </div>
+
+      {(profileIncomplete || mustChangePassword) && (
+        <div
+          role="status"
+          className="rounded-xl border border-[rgb(220,181,21)]/50 bg-[rgb(220,181,21)]/15 px-4 py-3 space-y-2 text-sm"
+          style={{ color: colors.text }}
+        >
+          {profileIncomplete && (
+            <p>{t("settings.onboardingProfileBanner")}</p>
+          )}
+          {mustChangePassword && (
+            <p>{t("settings.onboardingPasswordBanner")}</p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Settings Navigation */}
