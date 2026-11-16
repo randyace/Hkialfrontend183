@@ -56,6 +56,8 @@ function GroupAdminPage() {
 export const router = createBrowserRouter([
   // Public routes
   { path: '/', element: <AuthPage /> },
+  // Legacy email CTAs used /login — member portal login is `/`.
+  { path: '/login', element: <Navigate to="/" replace /> },
   { path: '/2fa-verification', element: <TwoFAPage /> },
   { path: '/registered', element: <RegisteredPage /> },
 
