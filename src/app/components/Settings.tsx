@@ -528,7 +528,7 @@ export function Settings({
               className="text-xs"
               style={{ color: colors.textMuted }}
             >
-              ({t("settings.emailReadOnly")})
+              {t("settings.emailReadOnly")}
             </span>
           </label>
           <div className="relative">
@@ -621,10 +621,7 @@ export function Settings({
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("settings.passportPrefix")}{" "}
-            <span style={{ color: colors.textMuted }}>
-              ({t("common.optional")})
-            </span>
+            {t("settings.passportPrefix")}
           </label>
           <div className="relative">
             <CreditCard
@@ -690,10 +687,12 @@ export function Settings({
             style={{ color: colors.text }}
           >
             <Heart className="w-4 h-4" style={{ color: "rgb(220,181,21)" }} />
-            {t("settings.spouseSection")}{" "}
-            <span className="text-xs font-normal" style={{ color: colors.textMuted }}>
-              ({t(spouseLocked ? "settings.spouseReadOnly" : "settings.spouseOptional")})
-            </span>
+            {t("settings.spouseSection")}
+            {spouseLocked ? (
+              <span className="text-xs font-normal" style={{ color: colors.textMuted }}>
+                {" "}({t("settings.spouseReadOnly")})
+              </span>
+            ) : null}
           </h3>
           <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
             {t(spouseLocked ? "settings.spouseLockedHint" : "settings.spouseHint")}

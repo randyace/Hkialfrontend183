@@ -5307,7 +5307,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                 }
               />
               {p.vipBirthday && (
-                <ReviewField label="Birthday" value={formatBirthday(p.vipBirthday)} />
+                <ReviewField label="Date of Birth" value={formatBirthday(p.vipBirthday)} />
               )}
               {p.foodAllergies && (
                 <ReviewField label="Food Allergies" value={p.foodAllergies} />
@@ -7359,6 +7359,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   className={fieldClass + ' appearance-none pr-10 cursor-pointer'}
                 >
                   <option value="Economy Class" className={optionBg}>{m('Economy Class')}</option>
+                  <option value="Premium Economy Class" className={optionBg}>{m('Premium Economy Class')}</option>
                   <option value="Business Class" className={optionBg}>{m('Business Class')}</option>
                   <option value="First Class" className={optionBg}>{m('First Class')}</option>
                 </select>
@@ -7603,6 +7604,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     >
                       <option value="" className={optionBg}>{m('Select class')}</option>
                       <option value="Economy Class" className={optionBg}>{m('Economy Class')}</option>
+                      <option value="Premium Economy Class" className={optionBg}>{m('Premium Economy Class')}</option>
                       <option value="Business Class" className={optionBg}>{m('Business Class')}</option>
                       <option value="First Class" className={optionBg}>{m('First Class')}</option>
                     </select>
@@ -8118,7 +8120,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     onChange={(e) =>
                       handleVipChange(index, 'vipTravelDocNo', e.target.value.toUpperCase())
                     }
-                    placeholder={m('e.g. P12345678 (Optional)')}
+                    placeholder={m('e.g. P12345678')}
                     style={fieldStyle}
                     className={fieldClass + ' uppercase'}
                   />
@@ -8158,9 +8160,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   />
                 </div>
 
-                {/* Birthday */}
+                {/* Date of Birth */}
                 <div>
-                  <label className={labelClass}>{m('Birthday (Date / Month / Year)')}</label>
+                  <label className={labelClass}>{m('Date of Birth (Date / Month / Year)')}</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <DateInput
@@ -8175,7 +8177,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
               {/* Food Allergies / Dietary (catalog tag picker) */}
               <div className="mt-4">
-                <label className={labelClass}>{m('Food Allergies')} <span className="text-xs opacity-60">{m('(optional)')}</span></label>
+                <label className={labelClass}>{m('Food Allergies')}</label>
                 <AllergyDietaryTagInput
                   value={tagsFromFoodAllergiesString(passenger.foodAllergies)}
                   onChange={(tags) => {

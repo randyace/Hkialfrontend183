@@ -7,6 +7,7 @@ import {
   Plus, X, Layers, ArrowRight, Lock, Hourglass,
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useMsg } from '../../../../../i18n/useMsg';
 
 // INV-X18: product calendar day is Asia/Hong_Kong (never toISOString for Y-m-d).
 const hktTodayYmd = (d: Date = new Date()): string =>
@@ -305,6 +306,7 @@ function addOneYear(dateStr: string) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: MyMembershipProps) {
+  const m = useMsg();
   const { colors, mode } = useTheme();
   const isDark = mode === 'dark';
 
@@ -568,7 +570,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
 
                 {/* Vouchers — immediately usable */}
                 <div className="rounded-xl p-3" style={{ background: greenAccentBg, border: greenAccentBorder }}>
-                  <p className="text-xs mb-1.5" style={{ color: 'rgb(52,199,89)' }}>Vouchers Pool (now)</p>
+                  <p className="text-xs mb-1.5" style={{ color: 'rgb(52,199,89)' }}>{m('Vouchers Pool (now)')}</p>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm" style={{ color: pageText }}>{baseVouchers}</span>
                     <Plus className="w-3 h-3" style={{ color: 'rgb(220,181,21)' }} />
@@ -853,7 +855,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
           {/* Vouchers */}
           <div className="mb-5">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm" style={{ color: subText }}>Vouchers Available</span>
+              <span className="text-sm" style={{ color: subText }}>{m('Vouchers Available')}</span>
               <span className="text-sm" style={{ color: pageText }}>{totalVouchersNow} total</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg mb-3" style={{ background: isDark ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.22)' }}>
@@ -1269,7 +1271,7 @@ export function MyMembership({ memberData, setActiveTab, onAdjournPurchase }: My
                         </div>
                       )}
                       <div>
-                        <p className="text-xs mb-1" style={{ color: subText }}>Vouchers</p>
+                        <p className="text-xs mb-1" style={{ color: subText }}>{m('Redemption Codes')}</p>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-sm" style={{ color: pageText }}>{baseVouchers}</span>
                           <Plus className="w-3 h-3" style={{ color: 'rgb(220,181,21)' }} />

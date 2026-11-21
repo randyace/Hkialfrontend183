@@ -15,9 +15,12 @@ import {
 } from 'lucide-react';
 import logoImage from 'figma:asset/5314118f44483d10b69aeb99485c2f5942c726a2.png';
 import { useTheme } from './ThemeContext';
+import { getMemberAvatarInitials } from '../lib/memberAvatarInitials';
 
 interface MemberData {
   name: string;
+  firstName?: string;
+  lastName?: string;
   memberType: string;
   companyName?: string;
   bookingsRemaining?: number;
@@ -81,9 +84,9 @@ export function Sidebar({ onLogout, memberData, isOpen, onClose }: SidebarProps)
     menuItems.splice(3, 0, { id: 'admin', label: 'Group Admin', icon: UserCog });
   }
 
-  // Add Voucher Batches menu item for Corporate only
+  // Add Redemption Code menu item for Corporate only
   if (memberData.memberType === 'Corporate') {
-    menuItems.splice(3, 0, { id: 'voucher-batches', label: 'Voucher Batches', icon: Ticket });
+    menuItems.splice(3, 0, { id: 'voucher-batches', label: 'Redemption Code', icon: Ticket });
   }
 
   const glassStyle = {
@@ -139,7 +142,11 @@ export function Sidebar({ onLogout, memberData, isOpen, onClose }: SidebarProps)
           <div className="rounded-xl p-4" style={{ backgroundColor: colors.sidebarInfoBg, border: `1px solid ${colors.glassBorder}` }}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,140,10)] flex items-center justify-center font-bold flex-shrink-0" style={{ color: '#ffffff' }}>
-                {memberData.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                {getMemberAvatarInitials({
+                  firstName: memberData.firstName,
+                  lastName: memberData.lastName,
+                  name: memberData.name,
+                })}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm truncate" style={{ color: '#ffffff' }}>{memberData.name}</p>

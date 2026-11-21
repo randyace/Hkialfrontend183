@@ -155,7 +155,7 @@ export function FigmaUIShowcase() {
     { id: 'new-booking', label: 'New Booking', icon: <Plus />, badge: 3 },
     { id: 'bookings', label: 'My Bookings', icon: <Calendar /> },
     { id: 'membership', label: 'My Membership', icon: <Star /> },
-    { id: 'vouchers', label: 'Voucher Batches', icon: <Ticket /> },
+    { id: 'vouchers', label: 'Redemption Code', icon: <Ticket /> },
     { id: 'settings', label: 'Settings', icon: <Settings /> },
   ];
 

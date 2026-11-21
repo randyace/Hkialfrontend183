@@ -14,12 +14,16 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { palette, GOLD, type MembershipStatus } from './tokens';
+import { getMemberAvatarInitials } from '../../lib/memberAvatarInitials';
 
 export type MemberType = 'Individual' | 'Corporate' | 'Travel Agency';
 export type TierVariant = 'Platinum' | 'Gold' | 'Silver';
 
 export interface MemberProfileCardProps {
   name: string;
+  /** Prefer structured names for avatar initials (ignores honorifics in `name`). */
+  firstName?: string;
+  lastName?: string;
   memberId: string;
   memberType: MemberType;
   email?: string;
@@ -60,6 +64,8 @@ const TYPE_ICON: Record<MemberType, React.ElementType> = {
 
 export function MemberProfileCard({
   name,
+  firstName,
+  lastName,
   memberId,
   memberType,
   email,
@@ -92,13 +98,7 @@ export function MemberProfileCard({
 
   const infoBadgeBg = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.15)';
 
-  // Avatar initials
-  const initials = name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .substring(0, 2)
-    .toUpperCase();
+  const initials = getMemberAvatarInitials({ firstName, lastName, name });
 
   const avatarStyle: React.CSSProperties = {
     background: 'linear-gradient(135deg, rgb(220,181,21), rgb(180,141,11))',
@@ -235,12 +235,12 @@ export function MemberProfileCard({
           </div>
         )}
 
-        {/* Voucher count */}
+        {/* Redemption code count */}
         {voucherCount !== undefined && (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2" style={{ color: p.textMuted }}>
               <Ticket className="w-4 h-4" />
-              <span className="text-xs">Vouchers</span>
+              <span className="text-xs">Redemption Codes</span>
             </div>
             <span className="text-xs font-semibold" style={{ color: GOLD }}>
               {voucherCount} available

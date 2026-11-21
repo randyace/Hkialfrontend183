@@ -265,13 +265,13 @@ function buildPdfHtml(batch: VoucherBatch, availableCodes: VoucherCode[]): strin
 
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
-    '<title>' + batch.batchName + ' — Available Vouchers</title>' +
+    '<title>' + batch.batchName + ' — Available Redemption Codes</title>' +
     '<style>' + css + '</style></head><body>' +
 
     '<div class="header">' +
       '<div class="header-left">' +
         '<div class="org">HKIA Lounge</div>' +
-        '<div class="sub">Hong Kong International Airport &nbsp;·&nbsp; Corporate Voucher Report</div>' +
+        '<div class="sub">Hong Kong International Airport &nbsp;·&nbsp; Corporate Redemption Code Report</div>' +
       '</div>' +
       '<div class="header-right">Generated ' + genDate + '</div>' +
     '</div>' +
@@ -279,7 +279,7 @@ function buildPdfHtml(batch: VoucherBatch, availableCodes: VoucherCode[]): strin
 
     '<div class="meta">' +
       '<div class="batch-title">' + batch.batchName + '</div>' +
-      '<div class="meta-row">Voucher Type: ' + batch.voucherName + '</div>' +
+      '<div class="meta-row">Redemption Code Type: ' + batch.voucherName + '</div>' +
       '<div class="meta-row">Batch ID: ' + batch.id + '</div>' +
       '<div class="meta-row">Validity: ' + formatDate(batch.validFrom) + ' — ' + formatDate(batch.validUntil) + '</div>' +
     '</div>' +
@@ -290,7 +290,7 @@ function buildPdfHtml(batch: VoucherBatch, availableCodes: VoucherCode[]): strin
       '<div class="sum-box avail"><div class="sum-label">Available (this export)</div><div class="sum-val">' + availableCodes.length + '</div></div>' +
     '</div>' +
 
-    '<div class="section-title">Available Voucher Codes &nbsp;(' + availableCodes.length + ')</div>' +
+    '<div class="section-title">Available Redemption Codes &nbsp;(' + availableCodes.length + ')</div>' +
     '<div class="grid">' + cards + '</div>' +
 
     '<div class="footer">HKIA Lounge Membership Portal &nbsp;·&nbsp; Confidential — authorised distribution only</div>' +
@@ -326,23 +326,23 @@ function buildXlsXml(batch: VoucherBatch, availableCodes: VoucherCode[]): string
 
   const sheet1 =
     '<Worksheet ss:Name="Available Codes"><Table>' +
-    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">HKIA Lounge — Available Voucher Codes</Data></Cell></Row>' +
+    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">HKIA Lounge — Available Redemption Codes</Data></Cell></Row>' +
     '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Batch: ' + esc(batch.batchName) + '</Data></Cell></Row>' +
-    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Voucher: ' + esc(batch.voucherName) + ' | ID: ' + batch.id + '</Data></Cell></Row>' +
+    '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Redemption Code: ' + esc(batch.voucherName) + ' | ID: ' + batch.id + '</Data></Cell></Row>' +
     '<Row><Cell ss:MergeAcross="2"><Data ss:Type="String">Validity: ' + formatDate(batch.validFrom) + ' — ' + formatDate(batch.validUntil) + ' | Total: ' + batch.totalCount + ' | Used: ' + batch.usedCount + ' | Available: ' + availableCodes.length + '</Data></Cell></Row>' +
     '<Row></Row>' +
-    '<Row>' + cell('#', 'String') + cell('Voucher Code', 'String') + cell('Status', 'String') + '</Row>' +
+    '<Row>' + cell('#', 'String') + cell('Redemption Code', 'String') + cell('Status', 'String') + '</Row>' +
     availRows +
     '</Table></Worksheet>';
 
   const sheet2 =
     '<Worksheet ss:Name="Full Summary"><Table>' +
-    '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">HKIA Lounge — Full Voucher Code Summary</Data></Cell></Row>' +
+    '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">HKIA Lounge — Full Redemption Code Summary</Data></Cell></Row>' +
     '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Batch: ' + esc(batch.batchName) + '</Data></Cell></Row>' +
-    '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Voucher: ' + esc(batch.voucherName) + ' | ID: ' + batch.id + '</Data></Cell></Row>' +
+    '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Redemption Code: ' + esc(batch.voucherName) + ' | ID: ' + batch.id + '</Data></Cell></Row>' +
     '<Row><Cell ss:MergeAcross="4"><Data ss:Type="String">Validity: ' + formatDate(batch.validFrom) + ' — ' + formatDate(batch.validUntil) + '</Data></Cell></Row>' +
     '<Row></Row>' +
-    '<Row>' + cell('#', 'String') + cell('Voucher Code', 'String') + cell('Status', 'String') + cell('Used By', 'String') + cell('Used Date', 'String') + '</Row>' +
+    '<Row>' + cell('#', 'String') + cell('Redemption Code', 'String') + cell('Status', 'String') + cell('Used By', 'String') + cell('Used Date', 'String') + '</Row>' +
     allRows +
     '</Table></Worksheet>';
 
@@ -586,12 +586,12 @@ function CodesModal({ batch, onClose, codesLoading = false }: CodesModalProps) {
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
           {codesLoading && batch.codes.length === 0 && (
             <div className="text-center py-10" style={{ color: colors.textMuted }}>
-              {m('Loading voucher codes…')}
+              {m('Loading redemption codes…')}
             </div>
           )}
           {!codesLoading && filtered.length === 0 && (
             <div className="text-center py-10" style={{ color: colors.textMuted }}>
-              {m('No voucher codes match your search.')}
+              {m('No redemption codes match your search.')}
             </div>
           )}
           {pageSlice.map((vc) => {
@@ -788,7 +788,7 @@ export function VoucherBatches({
   const infoBoxBg       = isDark ? 'rgba(0,0,0,0.2)'                   : 'rgba(255,255,255,0.6)';
 
   const allStatuses: Array<{ key: typeof filterStatus; label: string }> = [
-    { key: 'all',     label: m('All Batches') },
+    { key: 'all',     label: m('All') },
     { key: 'active',  label: m('Active') },
     { key: 'expired', label: m('Expired / Exhausted') },
   ];
@@ -848,10 +848,10 @@ export function VoucherBatches({
       {/* Page header */}
       <div>
         <h1 className="text-3xl bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] bg-clip-text text-transparent mb-1">
-          {m('Voucher Batches')}
+          {m('Redemption Code')}
         </h1>
         <p className="text-sm" style={{ color: colors.textMuted }}>
-          {m('Manage and distribute your corporate lounge voucher batches')}
+          {m('Manage and distribute your corporate lounge redemption codes')}
         </p>
       </div>
 
@@ -859,7 +859,7 @@ export function VoucherBatches({
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: m('Active Batches'), value: String(totalActive),            icon: Package,     iconBg: 'rgba(52,211,153,0.15)',  iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
-          { label: m('Total Vouchers'), value: totalVouchers.toLocaleString(), icon: Hash,        iconBg: 'rgba(220,181,21,0.12)',  iconColor: 'rgb(220,181,21)' },
+          { label: m('Total Redemption Codes'), value: totalVouchers.toLocaleString(), icon: Hash,        iconBg: 'rgba(220,181,21,0.12)',  iconColor: 'rgb(220,181,21)' },
           { label: m('Used'),           value: totalUsed.toLocaleString(),     icon: CheckCheck,  iconBg: 'rgba(99,102,241,0.12)', iconColor: isDark ? 'rgb(165,180,252)' : 'rgb(79,70,229)' },
           { label: m('Available'),      value: totalAvailable.toLocaleString(),icon: CheckCircle, iconBg: 'rgba(52,211,153,0.12)', iconColor: isDark ? 'rgb(52,211,153)' : 'rgb(5,150,105)' },
         ].map((stat) => {
@@ -886,7 +886,7 @@ export function VoucherBatches({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: colors.textMuted }} />
           <input
             type="text"
-            placeholder={m('Search by batch name, voucher, or ID…')}
+            placeholder={m('Search by batch name, redemption code, or ID…')}
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
@@ -923,7 +923,7 @@ export function VoucherBatches({
 
       {isLoading && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
-          <p className="text-sm" style={{ color: colors.textMuted }}>{m('Loading voucher batches…')}</p>
+          <p className="text-sm" style={{ color: colors.textMuted }}>{m('Loading redemption codes…')}</p>
         </div>
       )}
 
@@ -931,7 +931,7 @@ export function VoucherBatches({
       {!isLoading && displayed.length === 0 && (
         <div className="rounded-2xl p-12 text-center" style={glassStyle}>
           <Ticket className="w-12 h-12 mx-auto mb-4 opacity-30" style={{ color: colors.textMuted }} />
-          <p className="text-sm" style={{ color: colors.textMuted }}>{m('No voucher batches match your criteria.')}</p>
+          <p className="text-sm" style={{ color: colors.textMuted }}>{m('No redemption codes match your criteria.')}</p>
         </div>
       )}
 
