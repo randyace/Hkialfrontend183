@@ -13,7 +13,6 @@ import {
   Loader2,
   Check,
   X,
-  Calendar,
   Heart,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -29,7 +28,7 @@ import {
   type AppLocale,
 } from "../../../../../i18n";
 import { useMsg } from '../../../../../i18n/useMsg';
-import { DateInput } from './ui/date-input';
+import { DayMonthInput } from './ui/day-month-input';
 
 // ── Props interface ─────────────────────────────────────────────────────────
 export interface SettingsProps {
@@ -581,23 +580,19 @@ export function Settings({
           <SettingsFieldError msg={fieldErrors["phone"]} />
         </div>
 
-        {/* Nationality — ISO 3166-1 alpha-2 typeahead (mandatory) */}
+        {/* Nationality — ISO 3166-1 alpha-2 typeahead (optional) */}
         <div>
           <label
             className="block text-sm mb-2"
             style={{ color: colors.textSecondary }}
           >
-            {t("auth.nationality")}{" "}
-            <RequiredStar />
+            {t("auth.nationality")}
           </label>
           <NationalityTypeahead
             id="settings-nationality"
             value={profile.nationality ?? ""}
-            required
             onChange={(code) => updateSetting("profile", "nationality", code)}
-            className={`w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40${
-              highlightRequiredProfile ? " ring-2 ring-[rgb(220,181,21)]" : ""
-            }`}
+            className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             listStyle={{
               ...inputStyle,
               background: isDark ? "rgba(30,30,30,0.98)" : "rgba(255,255,255,0.98)",
@@ -640,7 +635,7 @@ export function Settings({
           </div>
         </div>
 
-        {/* Date of birth — required before membership purchase */}
+        {/* Date of birth (day/month) — required before membership purchase */}
         <div id="settings-birthday">
           <label
             className="block text-sm mb-2"
@@ -649,29 +644,18 @@ export function Settings({
             {t("settings.birthday")}{" "}
             <RequiredStar />
           </label>
-          <div className="relative">
-            <Calendar
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-              style={{ color: colors.textMuted }}
-            />
-            <DateInput
-              value={profile.birthday ?? ""}
-              max={new Intl.DateTimeFormat("en-CA", {
-                timeZone: "Asia/Hong_Kong",
-              }).format(new Date())}
-              min="1900-01-01"
-              onChange={(value) =>
-                updateSetting("profile", "birthday", value)
-              }
-              className="w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
-              style={{
-                ...inputStyle,
-                boxShadow: highlightBirthday
-                  ? "0 0 0 2px rgba(220,181,21,0.55)"
-                  : undefined,
-              }}
-            />
-          </div>
+          <DayMonthInput
+            id="settings-birthday-picker"
+            value={profile.birthday ?? ""}
+            onChange={(value) => updateSetting("profile", "birthday", value)}
+            selectClassName="w-full appearance-none px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+            selectStyle={inputStyle}
+            style={{
+              boxShadow: highlightBirthday
+                ? "0 0 0 2px rgba(220,181,21,0.55)"
+                : undefined,
+            }}
+          />
           <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
             {t("settings.birthdayRequiredHint")}
           </p>
@@ -905,32 +889,22 @@ export function Settings({
               {t("settings.spouseBirthday")}{" "}
               <RequiredStar />
             </label>
-            <div className="relative">
-              <Calendar
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4"
-                style={{ color: colors.textMuted }}
-              />
-              <DateInput
-                value={profile.spouseBirthday ?? ""}
-                readOnly={spouseLocked}
-                disabled={spouseLocked}
-                aria-readonly={spouseLocked ? "true" : undefined}
-                max={new Intl.DateTimeFormat("en-CA", {
-                  timeZone: "Asia/Hong_Kong",
-                }).format(new Date())}
-                min="1900-01-01"
-                onChange={(value) => {
-                  if (spouseLocked) return;
-                  updateSetting("profile", "spouseBirthday", value);
-                }}
-                className={`w-full pl-10 pr-10 py-2 rounded-xl focus:outline-none ${
-                  spouseLocked
-                    ? "cursor-not-allowed opacity-70"
-                    : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
-                }`}
-                style={inputStyle}
-              />
-            </div>
+            <DayMonthInput
+              id="settings-spouse-birthday-picker"
+              value={profile.spouseBirthday ?? ""}
+              readOnly={spouseLocked}
+              disabled={spouseLocked}
+              onChange={(value) => {
+                if (spouseLocked) return;
+                updateSetting("profile", "spouseBirthday", value);
+              }}
+              selectClassName={`w-full appearance-none px-3 py-2 rounded-xl focus:outline-none ${
+                spouseLocked
+                  ? "cursor-not-allowed opacity-70"
+                  : "focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
+              }`}
+              selectStyle={inputStyle}
+            />
             <SettingsFieldError msg={fieldErrors["spouseBirthday"]} />
           </div>
         </div>

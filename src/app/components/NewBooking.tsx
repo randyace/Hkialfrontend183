@@ -118,6 +118,8 @@ import { translatePriceLineLabel } from '../../../../../lib/addons/translatePric
 import { getPriceSectionPrices } from '../../../../../lib/pricing/getPriceSectionPrices';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
 import { DateInput } from './ui/date-input';
+import { DayMonthInput } from './ui/day-month-input';
+import { formatBirthDayMonth, normalizeBirthDateToSentinel } from '@/utils/birthDate';
 // 2026-08-18 (round — Cirium Sky API migration, Task 11). Step 1
 // Lookup button calls `flightsApi.lookupFlight` (auth.api, member
 // Bearer). The helper handles the Laravel envelope unwrap + Bearer
@@ -838,7 +840,7 @@ export function mapHistoryPassengerToVip(
     vipTravelDocNo: historyNonBlank(p.travelDocNo, p.travelDoc),
     vipMembershipNo: historyNonBlank(p.membershipNo, p.membership),
     vipAgeGroup: historyNonBlank(p.ageGroup) || 'Adults (aged 12 and above)',
-    vipBirthday: historyNonBlank(p.birthday, p.vipBirthday),
+    vipBirthday: normalizeBirthDateToSentinel(historyNonBlank(p.birthday, p.vipBirthday)),
     foodAllergies: historyNonBlank(p.foodAllergies),
     nationality: historyNonBlank(p.nationality).toUpperCase(),
   };
@@ -2923,7 +2925,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       isEnglishName(v.vipFirstName)
       && isEnglishName(v.vipLastName)
       && v.vipAgeGroup !== ''
-      && isValidCountryCode(v.nationality)
+      && (v.nationality === '' || isValidCountryCode(v.nationality))
   );
   const allGuestFilled = nonFlyingGuestData.every(
     (g) =>
@@ -2931,7 +2933,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       && isEnglishName(g.guestLastName)
       && g.guestAgeGroup !== ''
       && isNonFlyingChildAgeFilled(g.guestAgeGroup, g.guestAge)
-      && isValidCountryCode(g.nationality)
+      && (g.nationality === '' || isValidCountryCode(g.nationality))
   );
   // 2026-06-24 (Sky) — each PS / LD segment must include at least
   // one Adult (aged 12+) VIP passenger. Children / infants can't
@@ -4039,11 +4041,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const formatBirthday = (s: string) => {
     if (!s) return '—';
-    return new Date(s).toLocaleDateString(dateLocale, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
+    return formatBirthDayMonth(s) || '—';
   };
 
   const vipContact =
@@ -8147,31 +8145,28 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 </div>
 
-                {/* Nationality */}
+                {/* Nationality (optional) */}
                 <div>
-                  <label className={labelClass}>{m('Nationality *')}</label>
+                  <label className={labelClass}>{m('Nationality')}</label>
                   <GuestNationalityTypeahead
                     value={passenger.nationality}
                     onChange={(code) => handleVipChange(index, 'nationality', code)}
                     fieldStyle={fieldStyle}
                     fieldClass={fieldClass}
                     isDark={isDark}
-                    required
                   />
                 </div>
 
-                {/* Date of Birth */}
+                {/* Date of Birth (Day / Month) */}
                 <div>
-                  <label className={labelClass}>{m('Date of Birth (Date / Month / Year)')}</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    <DateInput
-                      value={passenger.vipBirthday}
-                      onChange={(value) => handleVipChange(index, 'vipBirthday', value)}
-                      style={fieldStyle}
-                      className={fieldClass + ' pl-10'}
-                    />
-                  </div>
+                  <label className={labelClass}>{m('Date of Birth (Day / Month)')}</label>
+                  <DayMonthInput
+                    id={`vip-birthday-${index}`}
+                    value={passenger.vipBirthday}
+                    onChange={(value) => handleVipChange(index, 'vipBirthday', value)}
+                    selectClassName={fieldClass + ' appearance-none'}
+                    selectStyle={fieldStyle}
+                  />
                 </div>
               </div>
 
@@ -8338,16 +8333,15 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   </div>
                 )}
 
-                {/* Nationality */}
+                {/* Nationality (optional) */}
                 <div>
-                  <label className={labelClass}>{m('Nationality *')}</label>
+                  <label className={labelClass}>{m('Nationality')}</label>
                   <GuestNationalityTypeahead
                     value={guest.nationality}
                     onChange={(code) => handleNonFlyingGuestChange(index, 'nationality', code)}
                     fieldStyle={fieldStyle}
                     fieldClass={fieldClass}
                     isDark={isDark}
-                    required
                   />
                 </div>
               </div>
