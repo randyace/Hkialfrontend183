@@ -183,6 +183,20 @@ export function Settings({
 
   // Field errors from the server (keyed by field name, e.g. 'current_password', 'email')
   const fieldErrors = propFieldErrors ?? {};
+  const [incompleteBirthday, setIncompleteBirthday] = useState(false);
+  const [incompleteSpouseBirthday, setIncompleteSpouseBirthday] = useState(false);
+  const [forceBirthdayErrors, setForceBirthdayErrors] = useState(false);
+  const [localSaveHint, setLocalSaveHint] = useState("");
+
+  const handleSaveClick = () => {
+    if (incompleteBirthday || (!spouseLocked && incompleteSpouseBirthday)) {
+      setForceBirthdayErrors(true);
+      setLocalSaveHint(m("Please complete the date of birth (both day and month)."));
+      return;
+    }
+    setLocalSaveHint("");
+    onSave?.();
+  };
 
   const handlePasswordChange = (
     field:
@@ -648,6 +662,8 @@ export function Settings({
             id="settings-birthday-picker"
             value={profile.birthday ?? ""}
             onChange={(value) => updateSetting("profile", "birthday", value)}
+            onIncompleteChange={(incomplete) => setIncompleteBirthday(incomplete)}
+            forceShowError={forceBirthdayErrors}
             selectClassName="w-full appearance-none px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             selectStyle={inputStyle}
             style={{
@@ -898,6 +914,11 @@ export function Settings({
                 if (spouseLocked) return;
                 updateSetting("profile", "spouseBirthday", value);
               }}
+              onIncompleteChange={(incomplete) => {
+                if (spouseLocked) return;
+                setIncompleteSpouseBirthday(incomplete);
+              }}
+              forceShowError={forceBirthdayErrors}
               selectClassName={`w-full appearance-none px-3 py-2 rounded-xl focus:outline-none ${
                 spouseLocked
                   ? "cursor-not-allowed opacity-70"
@@ -1335,24 +1356,26 @@ export function Settings({
                 }
               </h2>
               <div className="flex items-center gap-3">
-                {saveMessage && (
+                {(localSaveHint || saveMessage) && (
                   <span
                     className="text-sm"
                     style={{
                       color:
-                        saveMessage === t("settings.saved") ||
-                        saveMessage.includes("success") ||
-                        saveMessage.includes("updated") ||
-                        saveMessage.includes("成功")
+                        !localSaveHint && (
+                          saveMessage === t("settings.saved") ||
+                          saveMessage.includes("success") ||
+                          saveMessage.includes("updated") ||
+                          saveMessage.includes("成功")
+                        )
                           ? "#22c55e"
                           : "#ef4444",
                     }}
                   >
-                    {m(saveMessage)}
+                    {m(localSaveHint || saveMessage)}
                   </span>
                 )}
                 <button
-                  onClick={onSave}
+                  onClick={handleSaveClick}
                   disabled={isSaving}
                   className="px-4 py-2 bg-gradient-to-r from-[rgb(220,181,21)] to-[rgb(180,141,11)] text-white rounded-xl hover:shadow-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
                 >

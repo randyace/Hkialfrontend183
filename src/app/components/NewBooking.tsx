@@ -1650,15 +1650,17 @@ function GuestNationalityTypeahead({
   fieldStyle,
   fieldClass,
   isDark,
-  required = true,
+  required: _required = false,
 }: {
   value: string;
   onChange: (code: string) => void;
   fieldStyle: React.CSSProperties;
   fieldClass: string;
   isDark: boolean;
+  /** Kept for call-site compat; nationality is always optional. */
   required?: boolean;
 }) {
+  void _required;
   const m = useMsg();
   const { i18n } = useTranslation();
   const bcp47 = toBcp47Locale(i18n.language || getAppLocale());
@@ -1755,7 +1757,8 @@ function GuestNationalityTypeahead({
         aria-haspopup="listbox"
         aria-autocomplete="list"
         autoComplete="off"
-        required={required && !isValidCountryCode(value)}
+        required={false}
+        aria-required={undefined}
         style={fieldStyle}
         className={fieldClass + ' pl-10 pr-8'}
         placeholder={m('Search nationality (e.g. Hong Kong)')}
@@ -2339,6 +2342,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     prefillVipEntry ? [prefillVipEntry] : []
   );
   const [nonFlyingGuestData, setNonFlyingGuestData] = useState<NonFlyingGuest[]>([]);
+  /** Half-filled Day/Month DOB drafts keyed by VIP row index. */
+  const [incompleteVipBirthdays, setIncompleteVipBirthdays] = useState<Record<number, boolean>>({});
+  const [forceVipBirthdayErrors, setForceVipBirthdayErrors] = useState(false);
   // 2026-06-27 (round 6.2.79 — customer bug fix). The pre-fix code
   // tracked `pendingVipCount` / `pendingGuestCount` as bare numbers
   // (the new total after decrement) and decremented the form
@@ -2920,12 +2926,16 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       : m('Please complete all required fields to proceed');
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
+  const anyVipBirthdayIncomplete = activeVipRows.some(
+    (_, index) => incompleteVipBirthdays[index] === true,
+  );
   const allVipFilled = activeVipRows.every(
-    (v) =>
+    (v, index) =>
       isEnglishName(v.vipFirstName)
       && isEnglishName(v.vipLastName)
       && v.vipAgeGroup !== ''
       && (v.nationality === '' || isValidCountryCode(v.nationality))
+      && incompleteVipBirthdays[index] !== true
   );
   const allGuestFilled = nonFlyingGuestData.every(
     (g) =>
@@ -2970,6 +2980,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     totalGuests > 0
     && allVipFilled
     && allGuestFilled
+    && !anyVipBirthdayIncomplete
     && adultPerSegmentOk
     && premiereVipFloorOk;
 
@@ -2978,7 +2989,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Please add at least 1 guest (VIP Passenger or Non-Flying Guest) to proceed');
   }
   if (!allVipFilled) {
-    step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group, Nationality)');
+    step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)');
+  }
+  if (anyVipBirthdayIncomplete) {
+    step1Hints.push('Please complete the date of birth (both day and month).');
   }
   if (!adultPerPsOk) {
     step1Hints.push('Each Premiere Suite must have at least one Adult (aged 12+) VIP Passenger');
@@ -2991,7 +3005,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   }
   if (!allGuestFilled) {
     step1Hints.push(
-      'Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group, Nationality, and Age for children aged 2–11)',
+      'Please complete all required fields for each Non-Flying Guest (First Name, Last Name, Age Group, and Age for children aged 2–11)',
     );
   }
   // Legacy single-string for any caller still reading the old field.
@@ -2999,7 +3013,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
   const step1HintMsg =
     step1Hints.length > 0
       ? step1Hints[0]
-      : 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group, Nationality)';
+      : 'Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)';
 
   // Sync VIP passenger array length with totalVip
   //
@@ -8164,6 +8178,13 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                     id={`vip-birthday-${index}`}
                     value={passenger.vipBirthday}
                     onChange={(value) => handleVipChange(index, 'vipBirthday', value)}
+                    onIncompleteChange={(incomplete) => {
+                      setIncompleteVipBirthdays((prev) => {
+                        if (prev[index] === incomplete) return prev;
+                        return { ...prev, [index]: incomplete };
+                      });
+                    }}
+                    forceShowError={forceVipBirthdayErrors}
                     selectClassName={fieldClass + ' appearance-none'}
                     selectStyle={fieldStyle}
                   />
