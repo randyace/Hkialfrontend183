@@ -119,7 +119,11 @@ import { getPriceSectionPrices } from '../../../../../lib/pricing/getPriceSectio
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
 import { DateInput } from './ui/date-input';
 import { DayMonthInput } from './ui/day-month-input';
-import { formatBirthDayMonth, normalizeBirthDateToSentinel } from '@/utils/birthDate';
+import {
+  formatBirthDayMonth,
+  isIncompleteBirthDateValue,
+  normalizeBirthDateToSentinel,
+} from '@/utils/birthDate';
 // 2026-08-18 (round — Cirium Sky API migration, Task 11). Step 1
 // Lookup button calls `flightsApi.lookupFlight` (auth.api, member
 // Bearer). The helper handles the Laravel envelope unwrap + Bearer
@@ -2927,7 +2931,9 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   // ── Step 2 validation (passenger info) ───────────────────────────────────
   const anyVipBirthdayIncomplete = activeVipRows.some(
-    (_, index) => incompleteVipBirthdays[index] === true,
+    (v, index) =>
+      incompleteVipBirthdays[index] === true
+      || isIncompleteBirthDateValue(v.vipBirthday),
   );
   const allVipFilled = activeVipRows.every(
     (v, index) =>
@@ -2936,6 +2942,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
       && v.vipAgeGroup !== ''
       && (v.nationality === '' || isValidCountryCode(v.nationality))
       && incompleteVipBirthdays[index] !== true
+      && !isIncompleteBirthDateValue(v.vipBirthday)
   );
   const allGuestFilled = nonFlyingGuestData.every(
     (g) =>

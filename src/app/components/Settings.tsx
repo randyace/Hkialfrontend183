@@ -189,9 +189,17 @@ export function Settings({
   const [localSaveHint, setLocalSaveHint] = useState("");
 
   const handleSaveClick = () => {
-    if (incompleteBirthday || (!spouseLocked && incompleteSpouseBirthday)) {
+    const birthdayRaw = profile.birthday ?? "";
+    const spouseBirthdayRaw = profile.spouseBirthday ?? "";
+    const birthdayIncomplete =
+      incompleteBirthday
+      || birthdayRaw.startsWith("INCOMPLETE:");
+    const spouseBirthdayIncomplete =
+      !spouseLocked
+      && (incompleteSpouseBirthday || spouseBirthdayRaw.startsWith("INCOMPLETE:"));
+    if (birthdayIncomplete || spouseBirthdayIncomplete) {
       setForceBirthdayErrors(true);
-      setLocalSaveHint(m("Please complete the date of birth (both day and month)."));
+      setLocalSaveHint(t("settings.birthdayIncomplete"));
       return;
     }
     setLocalSaveHint("");

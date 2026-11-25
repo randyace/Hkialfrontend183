@@ -1,22 +1,27 @@
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   birthDateFromParts,
   birthDateMissingPart,
   birthDateParts,
   daysInMonth,
+  encodeIncompleteBirthDate,
   type BirthDateMissingPart,
 } from "@/utils/birthDate";
-import { useMsg } from "@/i18n/useMsg";
 
 export interface DayMonthInputProps
   extends Omit<
     React.HTMLAttributes<HTMLDivElement>,
     "onChange" | "defaultValue"
   > {
-  /** Accepts YYYY-MM-DD / 1904-MM-DD / MM-DD / null — only day & month are shown. */
+  /** Accepts YYYY-MM-DD / 1904-MM-DD / MM-DD / INCOMPLETE:* / null — only day & month are shown. */
   value?: string | null;
-  /** Emits `1904-MM-DD` when both parts selected, or `''` when cleared. */
+  /**
+   * Emits `1904-MM-DD` when both parts selected,
+   * `INCOMPLETE:DD:` / `INCOMPLETE::MM` when half-filled,
+   * or `''` when cleared.
+   */
   onChange?: (value: string) => void;
   /**
    * Fires whenever half-filled state changes.
@@ -55,30 +60,17 @@ export function DayMonthInput({
   "aria-label": ariaLabel,
   ...rest
 }: DayMonthInputProps) {
-  const m = useMsg();
+  // Same i18n path as Settings labels (`t("settings.birthday")` → 出生日期（日／月）).
+  const { t } = useTranslation();
   const parts = birthDateParts(value);
   const [month, setMonth] = React.useState<number | null>(parts.month);
   const [day, setDay] = React.useState<number | null>(parts.day);
-  const [touched, setTouched] = React.useState(false);
-  const incompleteDraftRef = React.useRef(false);
 
   const missing = birthDateMissingPart(day, month);
   const incomplete = missing != null;
 
   React.useEffect(() => {
     const next = birthDateParts(value);
-    if (next.day != null && next.month != null) {
-      incompleteDraftRef.current = false;
-      setMonth(next.month);
-      setDay(next.day);
-      return;
-    }
-    // Parent cleared value — keep local draft while half-filled so the user
-    // can finish the other select without losing the first choice.
-    if (!value && incompleteDraftRef.current) {
-      return;
-    }
-    incompleteDraftRef.current = false;
     setMonth(next.month);
     setDay(next.day);
   }, [value]);
@@ -93,10 +85,11 @@ export function DayMonthInput({
   const emit = (nextDay: number | null, nextMonth: number | null) => {
     if (readOnly || disabled) return;
     const nextMissing = birthDateMissingPart(nextDay, nextMonth);
-    incompleteDraftRef.current = nextMissing != null;
     if (nextMissing != null) {
-      // Half-filled: clear parent stored value so API never gets a partial date,
-      // while local state retains the selected part.
+      onChange?.(encodeIncompleteBirthDate(nextDay, nextMonth));
+      return;
+    }
+    if (nextDay == null && nextMonth == null) {
       onChange?.("");
       return;
     }
@@ -104,7 +97,6 @@ export function DayMonthInput({
   };
 
   const handleMonthChange = (raw: string) => {
-    setTouched(true);
     if (raw === "") {
       setMonth(null);
       emit(day, null);
@@ -121,7 +113,6 @@ export function DayMonthInput({
   };
 
   const handleDayChange = (raw: string) => {
-    setTouched(true);
     if (raw === "") {
       setDay(null);
       emit(null, month);
@@ -133,7 +124,10 @@ export function DayMonthInput({
   };
 
   const locked = disabled || readOnly;
-  const showError = incomplete && (touched || forceShowError);
+  // Half-filled is always invalid — show inline error immediately.
+  // forceShowError kept for call-site compat (submit gates still set it).
+  void forceShowError;
+  const showError = incomplete;
   const selectCls =
     selectClassName ??
     "appearance-none rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40 disabled:cursor-not-allowed disabled:opacity-70";
@@ -142,13 +136,13 @@ export function DayMonthInput({
   const dayCls = `${selectCls} flex-1 min-w-0${showError && missing === "day" ? ` ${errorCls}` : ""}`;
   const monthCls = `${selectCls} flex-1 min-w-0${showError && missing === "month" ? ` ${errorCls}` : ""}`;
 
-  const dayPlaceholder = m("Day");
-  const monthPlaceholder = m("Month");
+  const dayPlaceholder = t("settings.day");
+  const monthPlaceholder = t("settings.month");
   const errorMessage =
     missing === "month"
-      ? m("Please also select the month.")
+      ? t("settings.dayMonthNeedMonth")
       : missing === "day"
-        ? m("Please also select the day.")
+        ? t("settings.dayMonthNeedDay")
         : null;
 
   return (
@@ -157,7 +151,7 @@ export function DayMonthInput({
       className={className}
       style={style}
       role="group"
-      aria-label={ariaLabel ?? m("Date of Birth (Day / Month)")}
+      aria-label={ariaLabel ?? t("settings.birthday")}
       aria-disabled={locked || undefined}
       aria-invalid={showError || undefined}
       {...rest}
@@ -176,7 +170,6 @@ export function DayMonthInput({
           className={dayCls}
           style={selectStyle}
           onChange={(e) => handleDayChange(e.target.value)}
-          onBlur={() => setTouched(true)}
         >
           <option value="">{dayPlaceholder}</option>
           {dayOptions.map((d) => (
@@ -198,7 +191,6 @@ export function DayMonthInput({
           className={monthCls}
           style={selectStyle}
           onChange={(e) => handleMonthChange(e.target.value)}
-          onBlur={() => setTouched(true)}
         >
           <option value="">{monthPlaceholder}</option>
           {MONTH_OPTIONS.map((mo) => (
@@ -209,7 +201,11 @@ export function DayMonthInput({
         </select>
       </div>
       {showError && errorMessage ? (
-        <p className="mt-1 text-xs text-red-500" role="alert" data-testid={id ? `${id}-error` : "day-month-error"}>
+        <p
+          className="mt-1 text-xs text-red-500"
+          role="alert"
+          data-testid={id ? `${id}-error` : "day-month-error"}
+        >
           {errorMessage}
         </p>
       ) : null}
