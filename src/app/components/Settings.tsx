@@ -72,6 +72,10 @@ export interface SettingsProps {
   highlightBirthday?: boolean;
   /** After the first saved spouse record, fields are read-only for the member. */
   spouseLocked?: boolean;
+  /** Membership holder with saved DOB — Member DayMonth is read-only. */
+  birthdayLocked?: boolean;
+  /** Profile already had a saved DOB when loaded — clearing is blocked. */
+  hadSavedBirthday?: boolean;
   /** Legacy import first-login gates */
   profileIncomplete?: boolean;
   mustChangePassword?: boolean;
@@ -148,6 +152,8 @@ export function Settings({
   fieldErrors: propFieldErrors,
   highlightBirthday = false,
   spouseLocked = false,
+  birthdayLocked = false,
+  hadSavedBirthday = false,
   profileIncomplete = false,
   mustChangePassword = false,
   highlightRequiredProfile = false,
@@ -187,6 +193,7 @@ export function Settings({
   const [incompleteSpouseBirthday, setIncompleteSpouseBirthday] = useState(false);
   const [forceBirthdayErrors, setForceBirthdayErrors] = useState(false);
   const [localSaveHint, setLocalSaveHint] = useState("");
+  const [localBirthdayError, setLocalBirthdayError] = useState("");
 
   const handleSaveClick = () => {
     const birthdayRaw = profile.birthday ?? "";
@@ -199,9 +206,17 @@ export function Settings({
       && (incompleteSpouseBirthday || spouseBirthdayRaw.startsWith("INCOMPLETE:"));
     if (birthdayIncomplete || spouseBirthdayIncomplete) {
       setForceBirthdayErrors(true);
+      setLocalBirthdayError("");
       setLocalSaveHint(t("settings.birthdayIncomplete"));
       return;
     }
+    // Block clearing a previously saved DOB (membership-locked fields are disabled).
+    if (!birthdayLocked && hadSavedBirthday && !birthdayRaw.trim()) {
+      setLocalBirthdayError(t("settings.birthdayCannotClear"));
+      setLocalSaveHint(t("settings.birthdayCannotClear"));
+      return;
+    }
+    setLocalBirthdayError("");
     setLocalSaveHint("");
     onSave?.();
   };
@@ -669,9 +684,14 @@ export function Settings({
           <DayMonthInput
             id="settings-birthday-picker"
             value={profile.birthday ?? ""}
-            onChange={(value) => updateSetting("profile", "birthday", value)}
+            onChange={(value) => {
+              setLocalBirthdayError("");
+              updateSetting("profile", "birthday", value);
+            }}
             onIncompleteChange={(incomplete) => setIncompleteBirthday(incomplete)}
             forceShowError={forceBirthdayErrors}
+            disabled={birthdayLocked}
+            readOnly={birthdayLocked}
             selectClassName="w-full appearance-none px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-[rgb(220,181,21)]/40"
             selectStyle={inputStyle}
             style={{
@@ -681,9 +701,11 @@ export function Settings({
             }}
           />
           <p className="mt-1 text-xs" style={{ color: colors.textMuted }}>
-            {t("settings.birthdayRequiredHint")}
+            {birthdayLocked
+              ? t("settings.birthdayMembershipLocked")
+              : t("settings.birthdayRequiredHint")}
           </p>
-          <SettingsFieldError msg={fieldErrors["birthday"]} />
+          <SettingsFieldError msg={fieldErrors["birthday"] || localBirthdayError} />
         </div>
       </div>
 

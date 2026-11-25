@@ -2999,7 +2999,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)');
   }
   if (anyVipBirthdayIncomplete) {
-    step1Hints.push('Please complete the date of birth (both day and month).');
+    step1Hints.push(m('Please complete the date of birth (both day and month).'));
   }
   if (!adultPerPsOk) {
     step1Hints.push('Each Premiere Suite must have at least one Adult (aged 12+) VIP Passenger');
