@@ -28,7 +28,7 @@ import {
   type AppLocale,
 } from "../../../../../i18n";
 import { useMsg } from '../../../../../i18n/useMsg';
-import { DayMonthInput } from './ui/day-month-input';
+import { YearMonthInput } from './ui/year-month-input';
 
 // ── Props interface ─────────────────────────────────────────────────────────
 export interface SettingsProps {
@@ -681,7 +681,7 @@ export function Settings({
             {t("settings.birthday")}{" "}
             <RequiredStar />
           </label>
-          <DayMonthInput
+          <YearMonthInput
             id="settings-birthday-picker"
             value={profile.birthday ?? ""}
             onChange={(value) => {
@@ -935,7 +935,7 @@ export function Settings({
               {t("settings.spouseBirthday")}{" "}
               <RequiredStar />
             </label>
-            <DayMonthInput
+            <YearMonthInput
               id="settings-spouse-birthday-picker"
               value={profile.spouseBirthday ?? ""}
               readOnly={spouseLocked}

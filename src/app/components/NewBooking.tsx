@@ -118,9 +118,9 @@ import { translatePriceLineLabel } from '../../../../../lib/addons/translatePric
 import { getPriceSectionPrices } from '../../../../../lib/pricing/getPriceSectionPrices';
 import type { CatalogAddonOption } from '../../../../../lib/addons/bookingAddonCatalog';
 import { DateInput } from './ui/date-input';
-import { DayMonthInput } from './ui/day-month-input';
+import { YearMonthInput } from './ui/year-month-input';
 import {
-  formatBirthDayMonth,
+  formatBirthYearMonth,
   isIncompleteBirthDateValue,
   normalizeBirthDateToSentinel,
 } from '@/utils/birthDate';
@@ -2999,7 +2999,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
     step1Hints.push('Please complete all required fields for each VIP Passenger (First Name, Last Name, Age Group)');
   }
   if (anyVipBirthdayIncomplete) {
-    step1Hints.push(m('Please complete the date of birth (both day and month).'));
+    step1Hints.push(m('Please complete the date of birth (both year and month).'));
   }
   if (!adultPerPsOk) {
     step1Hints.push('Each Premiere Suite must have at least one Adult (aged 12+) VIP Passenger');
@@ -4062,7 +4062,7 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
 
   const formatBirthday = (s: string) => {
     if (!s) return '—';
-    return formatBirthDayMonth(s) || '—';
+    return formatBirthYearMonth(s) || '—';
   };
 
   const vipContact =
@@ -8178,10 +8178,10 @@ export function NewBooking({ setActiveTab, memberData, prefillMember: prefillMem
                   />
                 </div>
 
-                {/* Date of Birth (Day / Month) */}
+                {/* Date of Birth (Year / Month) */}
                 <div>
-                  <label className={labelClass}>{m('Date of Birth (Day / Month)')}</label>
-                  <DayMonthInput
+                  <label className={labelClass}>{m('Date of Birth (Year / Month)')}</label>
+                  <YearMonthInput
                     id={`vip-birthday-${index}`}
                     value={passenger.vipBirthday}
                     onChange={(value) => handleVipChange(index, 'vipBirthday', value)}
